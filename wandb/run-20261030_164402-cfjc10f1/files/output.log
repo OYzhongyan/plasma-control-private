@@ -1,0 +1,46 @@
+WandB run initialized: f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
+TensorBoard logs will be synced to wandb from: runs/cfjc10f1
+env observation_space: (812,), action_space: (7,) (history_steps=4, include_xpt=True, action_mode=delta)
+VecNormalize: norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0
+training F2: reference_mode=trajectory, max_steps=500, assignments=[env0:15892_400@2223, env1:15892_500@2224, env2:15892_400@2225, env3:15892_500@2226, env4:15892_400@2227, env5:15892_500@2228, env6:15892_400@2229, env7:15892_500@2230, env8:15892_400@2231, env9:15892_500@2232, env10:15892_400@2233, env11:15892_500@2234, env12:15892_400@2235, env13:15892_500@2236, env14:15892_400@2237, env15:15892_500@2238, env16:15892_400@2239, env17:15892_500@2240, env18:15892_400@2241, env19:15892_500@2242, env20:15892_400@2243, env21:15892_500@2244, env22:15892_400@2245, env23:15892_500@2246, env24:15892_400@2247, env25:15892_500@2248, env26:15892_400@2249, env27:15892_500@2250, env28:15892_400@2251, env29:15892_500@2252, env30:15892_400@2253, env31:15892_500@2254]
+Using warmup + cosine annealing: initial_lr=0.0001, warmup_updates=10, timesteps_per_update=8192
+Using cpu device
+Logging to runs/cfjc10f1/PPO_0
+[2K---------------------------------------━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m8,160/256 [0m [ [33m0:00:07[0m < [36m0:00:00[0m , [31m16 it/s[0m ][0m ]s[0m ]
+| reward_components/       |          |
+|    coil_current_exceeded | 0.00713  |
+|    coil_margin           | 0.704    |
+|    competition_score     | 0.0132   |
+|    failure_penalty       | -0.0326  |
+|    hfm_timeout_count     | 0        |
+|    hfm_timeout_rate      | 0        |
+|    ip_abs_error          | 6.5e+04  |
+|    ip_error_mask         | 0.516    |
+|    ip_relative_error     | 0.146    |
+|    ip_score              | 0.586    |
+|    lcfs_error_cm         | 23.7     |
+|    lcfs_score            | 0.0219   |
+|    main_x_dist_score     | 0.0154   |
+|    main_x_psi_score      | 3.62e-08 |
+|    main_x_valid_ratio    | 0.723    |
+|    reward                | 0.00385  |
+|    second_x_dist_score   | 0.0531   |
+|    second_x_psi_score    | 0.0322   |
+|    second_x_valid_ratio  | 0.629    |
+|    soft_ip_error_mask    | 0.665    |
+|    strike_dist_score     | 0.163    |
+|    strike_valid_ratio    | 0.491    |
+|    topology_score        | 0.0135   |
+| rollout/                 |          |
+|    ep_len_mean           | 63.7     |
+|    ep_rew_mean           | -0.789   |
+| time/                    |          |
+|    fps                   | 10       |
+|    iterations            | 1        |
+|    time_elapsed          | 805      |
+|    total_timesteps       | 8192     |
+---------------------------------------
+[2K[35m 100%[0m [38;2;114;156;31m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m8,192/256 [0m [ [33m0:00:07[0m < [36m0:00:00[0m , [31m17 it/s[0m ]
+[?25hVecNormalize saved: /inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
+saved: /inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip
+metadata: /inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/f2_features.metadata.json
