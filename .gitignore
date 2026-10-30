@@ -1,0 +1,37 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test / lint cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+results/
+figures/
+wandb/
+runs/
+submission/model/
+share/
+analysis/
+saisdata/
+
+hfm-runtime-release-sealed-latest/
+enn-retrospective-v3/
+.obisidian/

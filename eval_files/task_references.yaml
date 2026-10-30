@@ -1,0 +1,35 @@
+max_steps: 500
+
+tasks:
+  F1:
+    # Official target semantics: Ip curve + final limiter LCFS repeated.
+    task_id: "F1"
+    shot_id: "13844_500"
+    target_source: "official_target"
+    target_json: "evaluation/results/target.json"
+    target_task: "F1"
+    target_lX: 0
+    max_steps: 300
+    reference_mode: "trajectory"
+
+  F2a:
+    # Official F2 target shared by F2a/F2b: Ip curve + final XPT target repeated.
+    task_id: "F2a"
+    shot_id: "13844_500"
+    target_source: "official_target"
+    target_json: "evaluation/results/target.json"
+    target_task: "F2a"
+    target_lX: 1
+    max_steps: 500
+    reference_mode: "trajectory"
+
+  F2b:
+    # Official F2 target shared by F2a/F2b: Ip curve + final XPT target repeated.
+    task_id: "F2b"
+    shot_id: "15892_400"
+    target_source: "official_target"
+    target_json: "evaluation/results/target.json"
+    target_task: "F2a"
+    target_lX: 1
+    max_steps: 500
+    reference_mode: "trajectory"

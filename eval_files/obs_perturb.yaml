@@ -1,0 +1,41 @@
+# Local robustness check for online-style observation noise.
+#
+# Run under the timeLLM conda environment.
+#
+# Only the observation payload sent to submission is perturbed. Do not model
+# observation delay here; the competition delay is power-supply signal delay,
+# already implemented by environment/power_supply.py.
+
+enabled: false
+seed: 20260618
+
+record_sent_scalars: false
+record_sent_max_flat: 128
+
+noise:
+  enabled: true
+  std:
+    # Plasma state scalars
+    Ip: 2000.0
+    R: 0.01
+    Z: 0.01
+
+    # Boundary and coil signals
+    I_PF: 50.0
+    lcfs_points: 0.01
+
+    Rmax: 0.002
+    Rmin: 0.002
+    aminor: 0.001
+    deltal: 0.002
+    deltau: 0.002
+    kappa: 0.003
+    rc: 0.002
+    zc: 0.002
+
+    # XPT continuous observations. Keep nX/lX/failure unperturbed.
+    rX: 0.01
+    zX: 0.01
+    FX: 0.001
+    FA: 0.001
+    FB: 0.001

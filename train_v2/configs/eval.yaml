@@ -1,0 +1,52 @@
+# evaluate.py 默认配置。
+# 训练参数从 <model_path>/configs.pkl 加载，此处仅配置 eval 段；
+# 命令行仍可用点号覆盖任意 eval.* 参数。
+#
+# 用法示例：
+#   python train_v2/evaluate.py eval.model_path=results/xxx
+#   python train_v2/evaluate.py eval.model_path=results/xxx eval.cp_num=149952
+
+defaults:
+  - base        # 加载 base.yaml（含 task: f1 默认）
+  - _self_
+
+target:
+  reference_mode: trajectory        # trajectory | hold_initial
+  reference_variants_enabled: false
+  default_reference_path: saisdata/results/target.json
+
+reset_perturbation:
+  enabled: false
+  apply_mode: all
+  fix_reset_params: false
+  signeo_scale_range: [0.9, 1.1]
+  bp_scale_range: [0.9, 1.1]
+  q0_scale_range: [0.9, 1.1]
+
+eval:
+  model_path: null              # 训练 save_dir（包含 configs.pkl / ppo_*.zip / checkpoints/）
+  cp_num: null                  # null -> ppo_<task>_latest.zip；数字 -> checkpoints/ppo_<task>_<cp_num>_steps.zip
+  shots: null                   # null -> all shots from shot_groups
+  episodes_per_shot: 1
+  seed: 0
+  deterministic: true
+  policy_mode: model            # model | zero
+  score: true                   # write infer_result.json + score_summary.json
+  # obs 延迟+噪声（模拟赛题推理侧 obs_perturb，参考 saisdata/inference/obs_perturb.yaml）
+  obs_perturb:
+    enabled: false              # 设为 true 启用
+    delay_steps: 1              # k>0: 第 t 步模型看到 o_{t-k}，不足 k 步用 o_0
+    noise_std:                  # 高斯噪声 std，仅对列出的 key 生效
+      Ip: 2300
+      R: 0.008
+      Z: 0.0
+      I_PF: 0.0
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: results/eval/${now:%Y%m%d_%H%M%S}
+  sweep:
+    dir: results/eval/multirun/${now:%Y%m%d_%H%M%S}
+    subdir: ${hydra.job.num}

@@ -1,0 +1,160 @@
+{
+    "schema_version":  1,
+    "task":  "F1",
+    "stage":  "f1_direct_target_precision_perturb",
+    "reference_mode":  "trajectory",
+    "reference":  "evaluation/results/target.json",
+    "ports":  "5558-5559",
+    "num_envs":  2,
+    "max_steps":  300,
+    "reward_log_interval":  2048,
+    "shot_groups":  {
+                        "divertor_start":  [
+                                               "13844_500",
+                                               "13844_600"
+                                           ]
+                    },
+    "reset_perturbation":  {
+                               "enabled":  false,
+                               "apply_mode":  "all",
+                               "signeo_scale_range":  [
+                                                          1.0,
+                                                          1.0
+                                                      ],
+                               "bp_scale_range":  [
+                                                      1.0,
+                                                      1.0
+                                                  ],
+                               "q0_scale_range":  [
+                                                      1.0,
+                                                      1.0
+                                                  ],
+                               "bp_delta_range":  [
+                                                      0.0,
+                                                      0.0
+                                                  ],
+                               "q0_delta_range":  [
+                                                      0.0,
+                                                      0.0
+                                                  ]
+                           },
+    "observation_noise":  {
+                              "enabled":  true,
+                              "noise":  {
+                                            "enabled":  true,
+                                            "std":  {
+                                                        "Ip":  1000,
+                                                        "R":  0.005,
+                                                        "Z":  0.005,
+                                                        "I_PF":  20,
+                                                        "lcfs_points":  0.003,
+                                                        "Rmax":  0.002,
+                                                        "Rmin":  0.002,
+                                                        "aminor":  0.001,
+                                                        "deltal":  0.002,
+                                                        "deltau":  0.002,
+                                                        "kappa":  0.003,
+                                                        "rc":  0.002,
+                                                        "zc":  0.002,
+                                                        "FA":  0.001,
+                                                        "FB":  0.001
+                                                    }
+                                        }
+                          },
+    "features":  {
+                     "mode":  "physical_v1",
+                     "history_steps":  4
+                 },
+    "actions":  {
+                    "mode":  "normalized_7d"
+                },
+    "reward_weights":  {
+                           "failure_penalty":  -100.0,
+                           "alive_offset":  0.2,
+                           "score_scale":  2.0,
+                           "ip_score":  0.3,
+                           "ip_score_shape":  "exp_relative",
+                           "ip_relative_sigma":  0.03,
+                           "ip_relative_power":  2.0,
+                           "lcfs_absolute_score":  0.6,
+                           "lcfs_score_mode":  "progress_precision",
+                           "lcfs_precision_cm":  3.0,
+                           "lcfs_precision_shape":  "exp",
+                           "lcfs_precision_sigma_cm":  1.5,
+                           "lcfs_precision_power":  2.0,
+                           "lcfs_progress_min_scale_cm":  1.0,
+                           "lcfs_progress_weight":  0.4,
+                           "lcfs_precision_weight":  0.6,
+                           "topology_score":  0.1,
+                           "limiter_transition_score":  0.0,
+                           "r_score":  0.0,
+                           "z_score":  0.0,
+                           "lcfs_regression_penalty":  0.3,
+                           "lcfs_regression_margin_cm":  1.0,
+                           "lcfs_regression_scale_cm":  5.0,
+                           "lcfs_regression_penalty_shape":  "huber",
+                           "lcfs_regression_huber_delta":  1.0,
+                           "lcfs_regression_penalty_cap":  1.0,
+                           "ip_error_boundary_penalty":  1.0,
+                           "ip_error_soft_limit_a":  40000.0,
+                           "ip_error_hard_limit_a":  50000.0,
+                           "ip_error_boundary_penalty_shape":  "huber",
+                           "ip_error_boundary_huber_delta":  1.0,
+                           "ip_error_boundary_penalty_cap":  4.0,
+                           "coil_penalty":  1.0,
+                           "action_l2_penalty":  0.0002,
+                           "action_smooth_penalty":  0.001
+                       },
+    "ppo":  {
+                "total_timesteps":  102400,
+                "policy":  "MlpPolicy",
+                "learning_rate":  1E-05,
+                "n_steps":  256,
+                "batch_size":  256,
+                "n_epochs":  1,
+                "gamma":  0.995,
+                "gae_lambda":  0.95,
+                "clip_range":  0.05,
+                "clip_range_vf":  null,
+                "normalize_advantage":  true,
+                "ent_coef":  0.0,
+                "vf_coef":  0.5,
+                "max_grad_norm":  0.25,
+                "target_kl":  0.003,
+                "use_sde":  false,
+                "sde_sample_freq":  -1,
+                "net_arch":  [
+                                 256,
+                                 256
+                             ],
+                "activation_fn":  "tanh",
+                "log_std_init":  -1.0,
+                "verbose":  1,
+                "device":  "auto",
+                "progress_bar":  true,
+                "seed":  0
+            },
+    "vecnormalize":  {
+                         "enabled":  true,
+                         "norm_obs":  true,
+                         "norm_reward":  true,
+                         "clip_obs":  10.0,
+                         "clip_reward":  10.0,
+                         "gamma":  null,
+                         "epsilon":  1E-08,
+                         "load_path":  "results/f1_direct_target_progress_regression_continue/vecnormalize.pkl",
+                         "save":  true
+                     },
+    "checkpoint":  {
+                       "enabled":  true,
+                       "save_interval_timesteps":  61440,
+                       "save_vecnormalize":  true
+                   },
+    "output_dir":  "results/f1_direct_target_precision_perturb",
+    "resume":  {
+                   "enabled":  true,
+                   "model_path":  "results/f1_direct_target_progress_regression_continue/ppo_f1_latest.zip",
+                   "vecnormalize_path":  "results/f1_direct_target_progress_regression_continue/vecnormalize.pkl",
+                   "reset_num_timesteps":  false
+               }
+}

@@ -1,0 +1,12 @@
+# Default env config. L_addr, LX_addr set via shot_id or fge_init_config.
+max_steps: 100
+
+reference:
+  mode: "hold"
+  reference_keys: ["Ip", "R", "Z", "lcfs_points"]
+
+predictor:
+  host: "127.0.0.1"
+  port: 5558
+  timeout: 300.0
+  shot_id: "13906_500"

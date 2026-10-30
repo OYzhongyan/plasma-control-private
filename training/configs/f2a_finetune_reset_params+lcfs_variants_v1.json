@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "task": "F2",
+  "stage": "f2a_finetune_reset_params_variation",
+  "reward_type": "semifinal_dense",
+  "reference_mode": "trajectory",
+  "reference": "configs/xpt_reference_targets.json",
+  "ports": "2223",
+  "num_envs": 64,
+  "max_steps": 500,
+  "reward_log_interval": 16384,
+  "shot_groups": {
+    "f2a_divertor_start": [
+      "13844_500",
+      "13844_600"
+    ]
+  },
+  "reset_perturbation": {
+    "enabled": true,
+    "apply_mode": true,
+    "signeo_scale_range": [
+      0.5,
+      1.5
+    ],
+    "bp_scale_range": [
+      0.9,
+      1.1
+    ],
+    "q0_scale_range": [
+      0.9,
+      1.1
+    ]
+  },
+  "features": {
+    "mode": "physical_f2_xpt_no_ref_rz_v1",
+    "history_steps": 4
+  },
+  "actions": {
+    "mode": "normalized_7d"
+  },
+  "reward_weights": {
+    "failure_penalty": -100.0,
+    "alive_offset": 0.2,
+    "score_scale": 2.0,
+    "ip_score": 0.28,
+    "ip_score_shape": "exp_relative",
+    "ip_relative_sigma": 0.025,
+    "ip_relative_power": 2.0,
+    "lcfs_absolute_score": 0.28,
+    "lcfs_score_mode": "progress_precision",
+    "lcfs_precision_cm": 8.0,
+    "lcfs_progress_min_scale_cm": 5.0,
+    "lcfs_progress_weight": 0.45,
+    "lcfs_precision_weight": 0.55,
+    "lcfs_regression_penalty": 0.15,
+    "lcfs_regression_margin_cm": 2.0,
+    "lcfs_regression_scale_cm": 8.0,
+    "lcfs_regression_penalty_shape": "huber",
+    "lcfs_regression_huber_delta": 1.0,
+    "lcfs_regression_penalty_cap": 1.0,
+    "x_score": 0.38,
+    "x_position_score_mode": "progress_precision",
+    "x_position_precision_cm": 20.0,
+    "x_position_missing_cm": 120.0,
+    "x_position_progress_min_scale_cm": 20.0,
+    "x_position_progress_weight": 0.55,
+    "x_position_precision_weight": 0.45,
+    "x_position_regression_penalty": 0.12,
+    "x_position_regression_margin_cm": 5.0,
+    "x_position_regression_scale_cm": 20.0,
+    "x_position_regression_penalty_shape": "huber",
+    "x_position_regression_huber_delta": 1.0,
+    "x_position_regression_penalty_cap": 1.0,
+    "nx_score": 0.15,
+    "topology_score": 0.05,
+    "r_score": 0.0,
+    "z_score": 0.0,
+    "strike_score": 0.03,
+    "psix_score": 0.05,
+    "limiter_transition_score": 0.0,
+    "ip_error_boundary_penalty": 1.5,
+    "ip_error_soft_limit_a": 20000.0,
+    "ip_error_hard_limit_a": 50000.0,
+    "ip_error_boundary_penalty_shape": "huber",
+    "ip_error_boundary_huber_delta": 1.0,
+    "ip_error_boundary_penalty_cap": 4.0,
+    "coil_penalty": 1.0,
+    "action_l2_penalty": 0.0002,
+    "action_smooth_penalty": 0.001
+  },
+  "ppo": {
+    "total_timesteps": 16384000,
+    "policy": "MlpPolicy",
+    "learning_rate": 5e-5,
+    "n_steps": 256,
+    "batch_size": 2048,
+    "n_epochs": 6,
+    "gamma": 0.995,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "clip_range_vf": null,
+    "normalize_advantage": true,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "target_kl": 0.03,
+    "use_sde": false,
+    "sde_sample_freq": -1,
+    "net_arch": [
+      512,
+      512,
+      256
+    ],
+    "activation_fn": "tanh",
+    "log_std_init": -1.0,
+    "verbose": 1,
+    "device": "auto",
+    "progress_bar": true,
+    "seed": 0
+  },
+  "vecnormalize": {
+    "enabled": true,
+    "norm_obs": true,
+    "norm_reward": true,
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": null,
+    "epsilon": 1e-8,
+    "load_path": "results/f2a_direct_checkpoint/vecnormalize.pkl",
+    "save": true
+  },
+  "checkpoint": {
+    "enabled": true,
+    "save_interval_timesteps": 81920,
+    "save_vecnormalize": true
+  },
+  "output_dir": "f2a_finetune_reset_params_variation",
+  "resume": {
+    "enabled": true,
+    "model_path": "results/f2a_direct_checkpoint/ppo_f2_latest.zip",
+    "vecnormalize_path": "results/f2a_direct_checkpoint/vecnormalize.pkl",
+    "reset_num_timesteps": true
+  },
+  "reference_variants": "training/targets/f2_xpt_13906_target_variants.json",
+  "reference_variants_enabled": true,
+  "reference_variant_assignment": "round_robin_by_env",
+  "reference_variant_assignment_note": "If reference_variants_enabled=true, assign variants by env_index % num_variants. Keep num_envs an integer multiple of variant count when possible."
+
+}

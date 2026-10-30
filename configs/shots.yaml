@@ -1,0 +1,71 @@
+# shot_id -> fixed files + default reset params.
+# This YAML is the single source of truth for environment shot presets.
+
+# divertor
+"13844_500":
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13844_500_v2.mat"
+  reset_defaults:
+    signeo: 7.5e6
+    bp: 0.21
+    q0: 1.5
+
+"13844_600":
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13844_600_v2.mat"
+  reset_defaults:
+    signeo: 9e6
+    bp: 0.23
+    q0: 1.35
+
+# limiter
+"15892_400":
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_400_v2.mat"
+  reset_defaults:
+    signeo: 5.2e6
+    bp: 0.15
+    q0: 1.8
+
+"15892_500":
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_500_v2.mat"
+  reset_defaults:
+    signeo: 6e6
+    bp: 0.19
+    q0: 1.44
+
+# XPT
+"13906_500":
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13906_xpt_v2.2.mat"
+  reset_defaults:
+    signeo: 4.8e6
+    bp: 0.3
+    q0: 1.9
+
+# 线上评估
+"13705_500":   # 偏滤器
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13705_500_v2.mat"
+  reset_defaults:
+    signeo: 8e6
+    bp: 0.2
+    q0: 1.3
+
+"14795_400":   # 限制器
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_14795_400_v2.mat"
+  reset_defaults:
+    signeo: 5.8e6
+    bp: 0.21
+    q0: 1.81
+
+# XPT
+"13906_500":
+  L_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat"
+  LX_addr: "TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13906_xpt_v2.2.mat"
+  reset_defaults:
+    signeo: 4.8e6
+    bp: 0.3
+    q0: 1.9

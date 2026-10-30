@@ -1,0 +1,4 @@
+flask>=3.0
+numpy>=1.20
+onnxruntime>=1.18
+# If your preprocessing depends on extra packages, add them here.

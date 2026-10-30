@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "task": "F2",
+  "stage": "f2a_direct_target_xpt",
+  "reward_type": "f2_target_v1",
+  "reference_mode": "trajectory",
+  "reference": "evaluation/results/target.json",
+  "ports": "5558",
+  "num_envs": 48,
+  "max_steps": 500,
+  "reward_log_interval": 2048,
+  "shot_groups": {
+    "f2a_divertor_start": [
+      "13844_500",
+      "13844_600"
+    ]
+  },
+  "reset_perturbation": {
+    "enabled": false,
+    "signeo_scale_range": [
+      1.0,
+      1.0
+    ],
+    "bp_delta_range": [
+      0.0,
+      0.0
+    ],
+    "q0_delta_range": [
+      0.0,
+      0.0
+    ]
+  },
+  "features": {
+    "mode": "physical_f2_xpt_v1",
+    "history_steps": 4
+  },
+  "actions": {
+    "mode": "normalized_7d"
+  },
+  "reward_weights": {
+    "failure_penalty": -100.0,
+    "alive_offset": 0.2,
+    "score_scale": 2.0,
+    "ip_score": 0.20,
+    "lcfs_component": 0.25,
+    "x_count_score": 0.15,
+    "x_position_component": 0.25,
+    "x_flux_component": 0.15,
+    "topology_score": 0.05,
+    "lcfs_good_cm": 3.0,
+    "lcfs_min_scale_cm": 1.0,
+    "lcfs_quality_slope": 4.0,
+    "x_position_good_cm": 3.0,
+    "x_position_missing_cm": 30.0,
+    "x_position_min_scale_cm": 1.0,
+    "x_position_quality_slope": 4.0,
+    "x_flux_good": 0.003,
+    "x_flux_missing_error": 0.02,
+    "x_flux_min_scale": 0.003,
+    "x_flux_quality_slope": 4.0,
+    "ip_error_boundary_penalty": 1.0,
+    "ip_error_soft_limit_a": 40000.0,
+    "ip_error_hard_limit_a": 50000.0,
+    "ip_error_boundary_huber_delta": 1.0,
+    "ip_error_boundary_penalty_cap": 4.0,
+    "coil_penalty": 1.0,
+    "action_l2_penalty": 0.0002,
+    "action_smooth_penalty": 0.001
+  },
+  "ppo": {
+    "total_timesteps": 9830400,
+    "policy": "MlpPolicy",
+    "learning_rate": 0.0001,
+    "n_steps": 256,
+    "batch_size": 2048,
+    "n_epochs": 6,
+    "gamma": 0.995,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "clip_range_vf": null,
+    "normalize_advantage": true,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "target_kl": 0.03,
+    "use_sde": false,
+    "sde_sample_freq": -1,
+    "net_arch": [
+      256,
+      256
+    ],
+    "activation_fn": "tanh",
+    "log_std_init": -1.0,
+    "verbose": 1,
+    "device": "auto",
+    "progress_bar": true,
+    "seed": 0
+  },
+  "vecnormalize": {
+    "enabled": true,
+    "norm_obs": true,
+    "norm_reward": true,
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": null,
+    "epsilon": 1e-8,
+    "load_path": null,
+    "save": true
+  },
+  "checkpoint": {
+    "enabled": true,
+    "save_interval_timesteps": 122880,
+    "save_vecnormalize": true
+  },
+  "output_dir": "results/f2a_direct_target_xpt",
+  "resume": {
+    "enabled": false,
+    "model_path": null,
+    "vecnormalize_path": null,
+    "reset_num_timesteps": true
+  }
+}

@@ -1,0 +1,41 @@
+# Auto-generated
+version: '3.8'
+
+services:
+  hfm_server_1:
+    container_name: hfm_server_1
+    image: hfm-matlab-server:competition
+    ports:
+      - "5558:5558"
+    networks:
+      - frontend_net
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 4G
+    cpuset: "0-7"
+    restart: unless-stopped
+    environment:
+      MATLAB_SOCKET_TIMEOUT: 600
+
+  hfm_server_2:
+    container_name: hfm_server_2
+    image: hfm-matlab-server:competition
+    ports:
+      - "5559:5558"
+    networks:
+      - frontend_net
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 4G
+    cpuset: "8-15"
+    restart: unless-stopped
+    environment:
+      MATLAB_SOCKET_TIMEOUT: 600
+
+networks:
+  frontend_net:
+    driver: bridge

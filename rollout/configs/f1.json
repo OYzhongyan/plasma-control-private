@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task": "F1",
+  "stage": "f1",
+  "reference_mode": "trajectory",
+  "ports": "2223",
+  "num_envs": 2,
+  "max_steps": 300,
+  "shot_groups": {
+    "divertor": [
+      "13844_500",
+      "13844_600"
+    ]
+  },
+  "reset_perturbation": {
+    "enabled": true,
+    "signeo_scale_range": [
+      0.98,
+      1.02
+    ],
+    "bp_delta_range": [
+      -0.005,
+      0.005
+    ],
+    "q0_delta_range": [
+      -0.03,
+      0.03
+    ]
+  }
+}
