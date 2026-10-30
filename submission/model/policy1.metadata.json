@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "task": "F1",
+  "keys": [
+    "ip",
+    "reference_ip",
+    "ip_error_50ka",
+    "r",
+    "reference_r",
+    "r_error_3cm",
+    "z",
+    "reference_z",
+    "z_error_3cm",
+    "lx",
+    "reference_lx",
+    "lx_error",
+    "lcfs_points_absolute",
+    "reference_lcfs_points_absolute",
+    "lcfs_error_3cm",
+    "i_pf_norm",
+    "coil_margin",
+    "rmax",
+    "rmin",
+    "aminor",
+    "deltal",
+    "deltau",
+    "kappa",
+    "rc",
+    "zc",
+    "fa",
+    "fb",
+    "failure",
+    "history_action_7d",
+    "history_delta_ip",
+    "history_delta_rz",
+    "history_delta_i_pf"
+  ],
+  "shapes": {
+    "ip": [
+      1
+    ],
+    "reference_ip": [
+      1
+    ],
+    "ip_error_50ka": [
+      1
+    ],
+    "r": [
+      1
+    ],
+    "reference_r": [
+      1
+    ],
+    "r_error_3cm": [
+      1
+    ],
+    "z": [
+      1
+    ],
+    "reference_z": [
+      1
+    ],
+    "z_error_3cm": [
+      1
+    ],
+    "lx": [
+      1
+    ],
+    "reference_lx": [
+      1
+    ],
+    "lx_error": [
+      1
+    ],
+    "lcfs_points_absolute": [
+      32,
+      2
+    ],
+    "reference_lcfs_points_absolute": [
+      32,
+      2
+    ],
+    "lcfs_error_3cm": [
+      32,
+      2
+    ],
+    "i_pf_norm": [
+      12
+    ],
+    "coil_margin": [
+      1
+    ],
+    "rmax": [
+      1
+    ],
+    "rmin": [
+      1
+    ],
+    "aminor": [
+      1
+    ],
+    "deltal": [
+      1
+    ],
+    "deltau": [
+      1
+    ],
+    "kappa": [
+      1
+    ],
+    "rc": [
+      1
+    ],
+    "zc": [
+      1
+    ],
+    "fa": [
+      1
+    ],
+    "fb": [
+      1
+    ],
+    "failure": [
+      1
+    ],
+    "history_action_7d": [
+      4,
+      7
+    ],
+    "history_delta_ip": [
+      4,
+      1
+    ],
+    "history_delta_rz": [
+      4,
+      2
+    ],
+    "history_delta_i_pf": [
+      4,
+      12
+    ]
+  },
+  "obs_dim": 316,
+  "action_mode": "7D",
+  "action_dim": 7,
+  "action_units": "normalized",
+  "feature_mode": "physical_v1",
+  "history_steps": 4
+}
