@@ -10,10 +10,8 @@ the environment power-supply model.
 """
 
 from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
-
 import numpy as np
 import yaml
 
@@ -29,12 +27,11 @@ def load_obs_perturb_config(path: str | None) -> dict[str, Any]:
     return cfg if isinstance(cfg, dict) else {"enabled": False}
 
 
-def make_task_rng(base_seed: int, task_id: str, task_ids: list[str]) -> np.random.Generator:
-    try:
-        salt = task_ids.index(task_id)
-    except ValueError:
-        salt = 0
-    return np.random.default_rng(np.random.SeedSequence([int(base_seed) & 0xFFFFFFFF, salt]))
+def make_observation_rng(base_seed: int) -> np.random.Generator:
+    """Keep the original F2b random stream without an experiment selector."""
+    return np.random.default_rng(
+        np.random.SeedSequence([int(base_seed) & 4294967295, 0])
+    )
 
 
 def delay_steps_from_config(cfg: dict[str, Any]) -> int:
@@ -44,9 +41,7 @@ def delay_steps_from_config(cfg: dict[str, Any]) -> int:
 
 
 def select_delayed_base(
-    hist: list[dict[str, np.ndarray]],
-    step_index: int,
-    delay_steps: int,
+    hist: list[dict[str, np.ndarray]], step_index: int, delay_steps: int
 ) -> dict[str, np.ndarray]:
     """Return the current observation copy; delay arguments are ignored."""
     _ = delay_steps
@@ -57,15 +52,12 @@ def select_delayed_base(
 
 
 def build_policy_observation(
-    base: dict[str, Any],
-    rng: np.random.Generator,
-    cfg: dict[str, Any],
+    base: dict[str, Any], rng: np.random.Generator, cfg: dict[str, Any]
 ) -> dict[str, Any]:
     """Copy ``base`` and add configured zero-mean Gaussian noise per key."""
     out: dict[str, Any] = {}
     for k, v in base.items():
         out[k] = np.asarray(v, dtype=np.float64).copy()
-
     noise_block = cfg.get("noise") or {}
     if bool(noise_block.get("enabled", False)):
         std_map = noise_block.get("std") or {}
@@ -77,7 +69,6 @@ def build_policy_observation(
                 continue
             arr = np.asarray(out[key], dtype=np.float64)
             out[key] = arr + rng.normal(0.0, std_value, size=arr.shape)
-
     return out
 
 
@@ -86,7 +77,9 @@ def snapshot_obs_arrays(obs: dict[str, Any]) -> dict[str, np.ndarray]:
     return {k: np.asarray(v, dtype=np.float64).copy() for k, v in obs.items()}
 
 
-def serialize_obs_for_record(obs: dict[str, Any], max_flat: int = 128) -> dict[str, Any]:
+def serialize_obs_for_record(
+    obs: dict[str, Any], max_flat: int = 128
+) -> dict[str, Any]:
     """Compress one observation into a JSON-serializable debug record."""
     row: dict[str, Any] = {}
     for k, v in obs.items():

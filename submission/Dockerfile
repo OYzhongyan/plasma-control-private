@@ -25,6 +25,8 @@ RUN python3 --version \
 
 # 拷贝 submission 代码（含 start_infer.sh、run.sh，选手勿改）
 COPY submission /app/submission
+COPY eval_files /app/eval_files
+COPY evaluation/eval/score /app/evaluation/eval/score
 
 RUN chmod +x /app/submission/start_infer.sh
 
@@ -32,7 +34,7 @@ RUN chmod +x /app/submission/start_infer.sh
 COPY submission/run.sh /app/run.sh
 RUN chmod +x /app/run.sh
 
-EXPOSE 8000 8001 5558
+EXPOSE 8001 5558
 
 # 容器默认不跑评测，赛事方通过执行 /app/run.sh 启动
 ENTRYPOINT ["sleep", "infinity"]

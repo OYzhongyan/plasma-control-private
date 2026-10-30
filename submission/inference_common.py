@@ -1,41 +1,34 @@
 """Shared inference helpers for semifinal submission policies."""
 
 from __future__ import annotations
-
 import json
 import sys
 from pathlib import Path
 from typing import Any
-
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
 try:
     from environment.xpt_utils import extract_xpt_observation_pack
-except Exception:  # pragma: no cover - submission fallback for degraded imports.
+except Exception:
     extract_xpt_observation_pack = None
-
 ACTION_DIM = 12
 ACTION_DIM_7 = 7
 ACTION_7D_TO_12D_INDEX = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6]
-
 ACTION_LOW_12D = np.array(
     [-1499, -230, -172, -172, -348, -348, -270, -270, -348, -348, -270, -270],
     dtype=np.float32,
 )
 ACTION_HIGH_12D = np.array(
-    [1499, 230, 172, 172, 348, 348, 270, 270, 348, 348, 270, 270],
-    dtype=np.float32,
+    [1499, 230, 172, 172, 348, 348, 270, 270, 348, 348, 270, 270], dtype=np.float32
 )
 ACTION_LOW_7D = np.array([-1499, -230, -172, -172, -348, -348, -270], dtype=np.float32)
 ACTION_HIGH_7D = np.array([1499, 230, 172, 172, 348, 348, 270], dtype=np.float32)
 ACTION_7D_FROM_12D_INDEX = [0, 1, 3, 5, 7, 9, 11]
-COIL_LIMITS_A = np.array([45_000.0] + [14_000.0] * 10 + [4_000.0], dtype=np.float32)
-
-F1_FEATURE_KEYS = [
+COIL_LIMITS_A = np.array([45000.0] + [14000.0] * 10 + [4000.0], dtype=np.float32)
+BASE_FEATURE_KEYS = [
     "Ip",
     "R",
     "Z",
@@ -60,7 +53,7 @@ F1_FEATURE_KEYS = [
     "failure",
 ]
 F2_FEATURE_KEYS = [
-    *F1_FEATURE_KEYS,
+    *BASE_FEATURE_KEYS,
     "rX",
     "zX",
     "FX",
@@ -123,13 +116,12 @@ FEATURE_SHAPES = {
 }
 
 
-def default_metadata(task: str) -> dict[str, Any]:
-    keys = F1_FEATURE_KEYS if task == "F1" else F2_FEATURE_KEYS
+def default_metadata() -> dict[str, Any]:
+    keys = F2_FEATURE_KEYS
     shapes = {key: FEATURE_SHAPES[key] for key in keys}
-    obs_dim = int(sum(np.prod(shapes[key]) for key in keys))
+    obs_dim = int(sum((np.prod(shapes[key]) for key in keys)))
     return {
         "version": 1,
-        "task": task,
         "keys": keys,
         "shapes": shapes,
         "obs_dim": obs_dim,
@@ -152,10 +144,12 @@ def action_7d_to_12d(action_7d: np.ndarray) -> np.ndarray:
 def normalized_action_7d_to_12d(action_7d: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     action_norm = np.asarray(action_7d, dtype=np.float32).reshape(-1)
     if action_norm.size != ACTION_DIM_7:
-        raise ValueError(f"normalized action_7d must have size 7, got {action_norm.size}")
+        raise ValueError(
+            f"normalized action_7d must have size 7, got {action_norm.size}"
+        )
     action_norm = np.clip(action_norm, -1.0, 1.0)
     action_physical = action_norm * ACTION_HIGH_7D
-    return action_7d_to_12d(action_physical), action_norm
+    return (action_7d_to_12d(action_physical), action_norm)
 
 
 def _coerce(value: Any, shape: list[int], dtype=np.float32) -> np.ndarray:
@@ -188,7 +182,9 @@ def _xpt_pack(observation: dict[str, Any]) -> dict[str, Any]:
     ref_sz = _array(observation, "reference_strike_z", [8])
     if extract_xpt_observation_pack is not None:
         try:
-            return extract_xpt_observation_pack(observation, ref_rx, ref_zx, ref_sr, ref_sz)
+            return extract_xpt_observation_pack(
+                observation, ref_rx, ref_zx, ref_sr, ref_sz
+            )
         except Exception:
             pass
     return {
@@ -200,7 +196,7 @@ def _xpt_pack(observation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _physical_feature_map(observation: dict[str, Any], task: str) -> dict[str, np.ndarray]:
+def _physical_feature_map(observation: dict[str, Any]) -> dict[str, np.ndarray]:
     ip = _scalar(observation, "Ip")
     ref_ip = _scalar(observation, "reference_Ip", ip)
     r = _scalar(observation, "R")
@@ -212,11 +208,10 @@ def _physical_feature_map(observation: dict[str, Any], task: str) -> dict[str, n
     lcfs = _array(observation, "lcfs_points", [32, 2])
     ref_lcfs = _array(observation, "reference_lcfs_points", [32, 2])
     i_pf = _array(observation, "I_PF", [12])
-
     out: dict[str, np.ndarray] = {
-        "ip": np.array([ip / 500_000.0], dtype=np.float32),
-        "reference_ip": np.array([ref_ip / 500_000.0], dtype=np.float32),
-        "ip_error_50ka": np.array([(ip - ref_ip) / 50_000.0], dtype=np.float32),
+        "ip": np.array([ip / 500000.0], dtype=np.float32),
+        "reference_ip": np.array([ref_ip / 500000.0], dtype=np.float32),
+        "ip_error_50ka": np.array([(ip - ref_ip) / 50000.0], dtype=np.float32),
         "r": np.array([r], dtype=np.float32),
         "reference_r": np.array([ref_r], dtype=np.float32),
         "r_error_3cm": np.array([(r - ref_r) / 0.03], dtype=np.float32),
@@ -230,7 +225,9 @@ def _physical_feature_map(observation: dict[str, Any], task: str) -> dict[str, n
         "reference_lcfs_points_absolute": ref_lcfs,
         "lcfs_error_3cm": (lcfs - ref_lcfs) / 0.03,
         "i_pf_norm": i_pf / COIL_LIMITS_A,
-        "coil_margin": np.array([np.max(np.abs(i_pf) / COIL_LIMITS_A)], dtype=np.float32),
+        "coil_margin": np.array(
+            [np.max(np.abs(i_pf) / COIL_LIMITS_A)], dtype=np.float32
+        ),
         "rmax": np.array([_scalar(observation, "Rmax")], dtype=np.float32),
         "rmin": np.array([_scalar(observation, "Rmin")], dtype=np.float32),
         "aminor": np.array([_scalar(observation, "aminor")], dtype=np.float32),
@@ -243,59 +240,60 @@ def _physical_feature_map(observation: dict[str, Any], task: str) -> dict[str, n
         "fb": np.array([_scalar(observation, "FB")], dtype=np.float32),
         "failure": np.array([_scalar(observation, "failure")], dtype=np.float32),
     }
-
-    if task == "F2":
-        rx = _array(observation, "rX", [6])
-        zx = _array(observation, "zX", [6])
-        ref_rx = _array(observation, "reference_rX", [4])
-        ref_zx = _array(observation, "reference_zX", [4])
-        ref_valid = _array(observation, "reference_x_valid", [4])
-        reference_nx = _scalar(observation, "reference_nX", float(np.sum(ref_valid > 0.5)))
-        if reference_nx <= 0.0:
-            reference_nx = 4.0
-        pack = _xpt_pack(observation)
-        x_r = np.asarray(pack["x_r"], dtype=np.float32).reshape(4)
-        x_z = np.asarray(pack["x_z"], dtype=np.float32).reshape(4)
-        x_valid = np.asarray(pack["x_valid"], dtype=np.float32).reshape(4)
-        x_flux = np.asarray(pack["x_flux_diff"], dtype=np.float32).reshape(4)
-        nx = float(pack["nX"])
-        out.update(
-            {
-                "rx": rx,
-                "zx": zx,
-                "fx": _array(observation, "FX", [6]),
-                "nx": np.array([_scalar(observation, "nX")], dtype=np.float32),
-                "reference_rx": ref_rx,
-                "reference_zx": ref_zx,
-                "x_error_3cm": np.stack(
-                    [(rx[:4] - ref_rx) / 0.03, (zx[:4] - ref_zx) / 0.03],
-                    axis=-1,
-                ),
-                "reference_x_valid": _array(observation, "reference_x_valid", [4]),
-                "reference_strike_r": _array(observation, "reference_strike_r", [8]),
-                "reference_strike_z": _array(observation, "reference_strike_z", [8]),
-                "reference_strike_valid": _array(observation, "reference_strike_valid", [8]),
-                "reference_nx": np.array([_scalar(observation, "reference_nX")], dtype=np.float32),
-                "reference_n_strike": np.array(
-                    [_scalar(observation, "reference_n_strike")],
-                    dtype=np.float32,
-                ),
-                "xpt_nx_norm": np.array([nx / max(reference_nx, 1.0)], dtype=np.float32),
-                "xpt_nx_error": np.array([(nx - reference_nx) / max(reference_nx, 1.0)], dtype=np.float32),
-                "xpt_x_valid": x_valid,
-                "xpt_r": x_r,
-                "xpt_z": x_z,
-                "xpt_position_error_3cm": np.stack(
-                    [(x_r - ref_rx) / 0.03, (x_z - ref_zx) / 0.03],
-                    axis=-1,
-                ),
-                "xpt_flux_error_0p003": x_flux / 0.003,
-                "reference_xpt_r": ref_rx,
-                "reference_xpt_z": ref_zx,
-                "reference_xpt_valid": ref_valid,
-                "reference_nx": np.array([reference_nx], dtype=np.float32),
-            }
-        )
+    rx = _array(observation, "rX", [6])
+    zx = _array(observation, "zX", [6])
+    ref_rx = _array(observation, "reference_rX", [4])
+    ref_zx = _array(observation, "reference_zX", [4])
+    ref_valid = _array(observation, "reference_x_valid", [4])
+    reference_nx = _scalar(observation, "reference_nX", float(np.sum(ref_valid > 0.5)))
+    if reference_nx <= 0.0:
+        reference_nx = 4.0
+    pack = _xpt_pack(observation)
+    x_r = np.asarray(pack["x_r"], dtype=np.float32).reshape(4)
+    x_z = np.asarray(pack["x_z"], dtype=np.float32).reshape(4)
+    x_valid = np.asarray(pack["x_valid"], dtype=np.float32).reshape(4)
+    x_flux = np.asarray(pack["x_flux_diff"], dtype=np.float32).reshape(4)
+    nx = float(pack["nX"])
+    out.update(
+        {
+            "rx": rx,
+            "zx": zx,
+            "fx": _array(observation, "FX", [6]),
+            "nx": np.array([_scalar(observation, "nX")], dtype=np.float32),
+            "reference_rx": ref_rx,
+            "reference_zx": ref_zx,
+            "x_error_3cm": np.stack(
+                [(rx[:4] - ref_rx) / 0.03, (zx[:4] - ref_zx) / 0.03], axis=-1
+            ),
+            "reference_x_valid": _array(observation, "reference_x_valid", [4]),
+            "reference_strike_r": _array(observation, "reference_strike_r", [8]),
+            "reference_strike_z": _array(observation, "reference_strike_z", [8]),
+            "reference_strike_valid": _array(
+                observation, "reference_strike_valid", [8]
+            ),
+            "reference_nx": np.array(
+                [_scalar(observation, "reference_nX")], dtype=np.float32
+            ),
+            "reference_n_strike": np.array(
+                [_scalar(observation, "reference_n_strike")], dtype=np.float32
+            ),
+            "xpt_nx_norm": np.array([nx / max(reference_nx, 1.0)], dtype=np.float32),
+            "xpt_nx_error": np.array(
+                [(nx - reference_nx) / max(reference_nx, 1.0)], dtype=np.float32
+            ),
+            "xpt_x_valid": x_valid,
+            "xpt_r": x_r,
+            "xpt_z": x_z,
+            "xpt_position_error_3cm": np.stack(
+                [(x_r - ref_rx) / 0.03, (x_z - ref_zx) / 0.03], axis=-1
+            ),
+            "xpt_flux_error_0p003": x_flux / 0.003,
+            "reference_xpt_r": ref_rx,
+            "reference_xpt_z": ref_zx,
+            "reference_xpt_valid": ref_valid,
+            "reference_nx": np.array([reference_nx], dtype=np.float32),
+        }
+    )
     return out
 
 
@@ -308,9 +306,8 @@ def flatten_observation(
         "physical_v1",
         "physical_f2_xpt_v1",
         "physical_f2_xpt_no_ref_rz_v1",
-        "physical_f1_no_ref_rz_v1",
     }:
-        feature_map = _physical_feature_map(observation, str(metadata.get("task", "F1")))
+        feature_map = _physical_feature_map(observation)
         if history:
             feature_map.update(history)
         parts = []
@@ -319,7 +316,6 @@ def flatten_observation(
             shape = list(shapes.get(key, FEATURE_SHAPES.get(key, [1])))
             parts.append(_coerce(feature_map.get(key), shape).reshape(-1))
         return np.concatenate(parts, axis=0).astype(np.float32)
-
     parts = []
     shapes = metadata.get("shapes", {})
     for key in metadata.get("keys", []):
@@ -328,7 +324,7 @@ def flatten_observation(
     return np.concatenate(parts, axis=0).astype(np.float32)
 
 
-def load_metadata(model_path: Path | None, task: str) -> dict[str, Any]:
+def load_metadata(model_path: Path | None) -> dict[str, Any]:
     if model_path is not None:
         candidate = model_path.with_suffix(".metadata.json")
         if candidate.is_file():
@@ -336,7 +332,7 @@ def load_metadata(model_path: Path | None, task: str) -> dict[str, Any]:
                 return json.loads(candidate.read_text(encoding="utf-8"))
             except Exception:
                 pass
-    return default_metadata(task)
+    return default_metadata()
 
 
 def _vecnormalize_candidates(model_path: Path) -> list[Path]:
@@ -350,7 +346,9 @@ def _vecnormalize_candidates(model_path: Path) -> list[Path]:
     ]
 
 
-def load_vecnormalize_stats(model_path: Path | None, obs_dim: int) -> dict[str, Any] | None:
+def load_vecnormalize_stats(
+    model_path: Path | None, obs_dim: int
+) -> dict[str, Any] | None:
     if model_path is None:
         return None
     obs_dim = int(obs_dim)
@@ -367,12 +365,20 @@ def load_vecnormalize_stats(model_path: Path | None, obs_dim: int) -> dict[str, 
                 var = np.asarray(data["obs_var"], dtype=np.float32).reshape(-1)
                 if mean.size != obs_dim or var.size != obs_dim:
                     continue
-                clip_obs = float(np.asarray(data["clip_obs"]).reshape(-1)[0]) if "clip_obs" in data else 10.0
-                epsilon = float(np.asarray(data["epsilon"]).reshape(-1)[0]) if "epsilon" in data else 1e-8
+                clip_obs = (
+                    float(np.asarray(data["clip_obs"]).reshape(-1)[0])
+                    if "clip_obs" in data
+                    else 10.0
+                )
+                epsilon = (
+                    float(np.asarray(data["epsilon"]).reshape(-1)[0])
+                    if "epsilon" in data
+                    else 1e-08
+                )
                 if not np.isfinite(clip_obs) or clip_obs <= 0.0:
                     clip_obs = 10.0
                 if not np.isfinite(epsilon) or epsilon <= 0.0:
-                    epsilon = 1e-8
+                    epsilon = 1e-08
                 return {
                     "path": str(candidate),
                     "mean": mean,
@@ -385,7 +391,9 @@ def load_vecnormalize_stats(model_path: Path | None, obs_dim: int) -> dict[str, 
     return None
 
 
-def apply_obs_normalization(obs: np.ndarray, stats: dict[str, Any] | None) -> np.ndarray:
+def apply_obs_normalization(
+    obs: np.ndarray, stats: dict[str, Any] | None
+) -> np.ndarray:
     obs = np.asarray(obs, dtype=np.float32).reshape(-1)
     if stats is None:
         return obs
@@ -393,7 +401,7 @@ def apply_obs_normalization(obs: np.ndarray, stats: dict[str, Any] | None) -> np
     var = np.asarray(stats["var"], dtype=np.float32).reshape(-1)
     if mean.size != obs.size or var.size != obs.size:
         return obs
-    epsilon = float(stats.get("epsilon", 1e-8))
+    epsilon = float(stats.get("epsilon", 1e-08))
     clip_obs = float(stats.get("clip_obs", 10.0))
     normalized = (obs - mean) / np.sqrt(var + epsilon)
     return np.clip(normalized, -clip_obs, clip_obs).astype(np.float32)
@@ -402,14 +410,13 @@ def apply_obs_normalization(obs: np.ndarray, stats: dict[str, Any] | None) -> np
 class BaseOnnxPolicy:
     """ONNX-backed policy with zero-action fallback."""
 
-    def __init__(self, *, task: str, model_dir: str | Path, preferred_name: str):
-        self.task = task
+    def __init__(self, *, model_dir: str | Path, preferred_name: str):
         self.model_dir = Path(model_dir)
         self.preferred_name = preferred_name
         self.session = None
         self.input_name = None
         self.output_name = None
-        self.metadata = default_metadata(task)
+        self.metadata = default_metadata()
         self.obs_normalization: dict[str, Any] | None = None
         self._last_observation: dict[str, Any] | None = None
         self._last_action7: np.ndarray | None = None
@@ -430,19 +437,17 @@ class BaseOnnxPolicy:
 
     def _try_load_model(self) -> None:
         model_path = self._resolve_model_path()
-        self.metadata = load_metadata(model_path, self.task)
+        self.metadata = load_metadata(model_path)
         self.obs_normalization = load_vecnormalize_stats(
-            model_path,
-            int(self.metadata.get("obs_dim", 0)),
+            model_path, int(self.metadata.get("obs_dim", 0))
         )
         if model_path is None:
             return
         try:
-            import onnxruntime as ort  # noqa: PLC0415
+            import onnxruntime as ort
 
             self.session = ort.InferenceSession(
-                str(model_path),
-                providers=["CPUExecutionProvider"],
+                str(model_path), providers=["CPUExecutionProvider"]
             )
             self.input_name = self.session.get_inputs()[0].name
             self.output_name = self.session.get_outputs()[0].name
@@ -468,34 +473,31 @@ class BaseOnnxPolicy:
             "physical_v1",
             "physical_f2_xpt_v1",
             "physical_f2_xpt_no_ref_rz_v1",
-            "physical_f1_no_ref_rz_v1",
         }:
             return observation
-
         r = _scalar(observation, "R")
         z = _scalar(observation, "Z")
         if self._episode_initial_rz is None and np.isfinite(r) and np.isfinite(z):
             self._episode_initial_rz = (float(r), float(z))
         if self._episode_initial_rz is None:
             return observation
-
         out = dict(observation)
-
-        missing_reference_rz = "reference_R" not in observation or "reference_Z" not in observation
+        missing_reference_rz = (
+            "reference_R" not in observation or "reference_Z" not in observation
+        )
         ref_r = _scalar(observation, "reference_R", 0.0)
         ref_z = _scalar(observation, "reference_Z", 0.0)
         ref_invalid = (
             missing_reference_rz
-            or abs(float(ref_r)) <= 1e-6
-            or not np.isfinite(ref_r)
-            or not np.isfinite(ref_z)
+            or abs(float(ref_r)) <= 1e-06
+            or (not np.isfinite(ref_r))
+            or (not np.isfinite(ref_z))
         )
         if ref_invalid:
             init_r, init_z = self._episode_initial_rz
             out["reference_R"] = np.asarray([init_r], dtype=np.float32)
             out["reference_Z"] = np.asarray([init_z], dtype=np.float32)
-
-        task_default_lx = 0.0 if self.task == "F1" else 1.0
+        task_default_lx = 1.0
         ref_lx = _scalar(observation, "reference_lX", task_default_lx)
         if "reference_lX" not in observation or not np.isfinite(ref_lx):
             out["reference_lX"] = np.asarray([task_default_lx], dtype=np.float32)
@@ -514,15 +516,13 @@ class BaseOnnxPolicy:
             "physical_v1",
             "physical_f2_xpt_v1",
             "physical_f2_xpt_no_ref_rz_v1",
-            "physical_f1_no_ref_rz_v1",
         }:
             return
         if self._last_observation is None or self._last_action7 is None:
             return
-
         prev = self._last_observation
         delta_ip = np.array(
-            [(_scalar(observation, "Ip") - _scalar(prev, "Ip")) / 50_000.0],
+            [(_scalar(observation, "Ip") - _scalar(prev, "Ip")) / 50000.0],
             dtype=np.float32,
         )
         delta_rz = np.array(
@@ -532,24 +532,21 @@ class BaseOnnxPolicy:
             ],
             dtype=np.float32,
         )
-        delta_i_pf = (_array(observation, "I_PF", [12]) - _array(prev, "I_PF", [12])) / COIL_LIMITS_A
+        delta_i_pf = (
+            _array(observation, "I_PF", [12]) - _array(prev, "I_PF", [12])
+        ) / COIL_LIMITS_A
         action_norm = self._last_action7
-
         self._history["history_action_7d"] = self._push_history(
-            self._history["history_action_7d"],
-            action_norm,
+            self._history["history_action_7d"], action_norm
         )
         self._history["history_delta_ip"] = self._push_history(
-            self._history["history_delta_ip"],
-            delta_ip,
+            self._history["history_delta_ip"], delta_ip
         )
         self._history["history_delta_rz"] = self._push_history(
-            self._history["history_delta_rz"],
-            delta_rz,
+            self._history["history_delta_rz"], delta_rz
         )
         self._history["history_delta_i_pf"] = self._push_history(
-            self._history["history_delta_i_pf"],
-            delta_i_pf,
+            self._history["history_delta_i_pf"], delta_i_pf
         )
 
     def _action7_from_output(self, action: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -557,10 +554,18 @@ class BaseOnnxPolicy:
             if self.metadata.get("action_units") == "normalized":
                 return normalized_action_7d_to_12d(action)
             action7 = np.clip(action.astype(np.float32), ACTION_LOW_7D, ACTION_HIGH_7D)
-            return action_7d_to_12d(action7), np.clip(action7 / ACTION_HIGH_7D, -1.0, 1.0)
+            return (
+                action_7d_to_12d(action7),
+                np.clip(action7 / ACTION_HIGH_7D, -1.0, 1.0),
+            )
         if action.size == ACTION_DIM:
-            action12 = np.clip(action.astype(np.float32), ACTION_LOW_12D, ACTION_HIGH_12D)
-            return action12, np.clip(action12[ACTION_7D_FROM_12D_INDEX] / ACTION_HIGH_7D, -1.0, 1.0)
+            action12 = np.clip(
+                action.astype(np.float32), ACTION_LOW_12D, ACTION_HIGH_12D
+            )
+            return (
+                action12,
+                np.clip(action12[ACTION_7D_FROM_12D_INDEX] / ACTION_HIGH_7D, -1.0, 1.0),
+            )
         raise ValueError(f"Policy must return 12D or 7D action, got size {action.size}")
 
     def reset(self) -> None:
@@ -570,7 +575,6 @@ class BaseOnnxPolicy:
     def act(self, observation: dict[str, Any]) -> np.ndarray:
         if self.session is None or self.input_name is None:
             return np.zeros(ACTION_DIM, dtype=np.float32)
-
         observation = self._sanitize_reference_rz(observation)
         self._update_physical_history(observation)
         obs = flatten_observation(observation, self.metadata, self._history)
@@ -581,7 +585,6 @@ class BaseOnnxPolicy:
             return np.zeros(ACTION_DIM, dtype=np.float32)
         action = np.asarray(action, dtype=np.float32).reshape(-1)
         action = np.nan_to_num(action, nan=0.0, posinf=0.0, neginf=0.0)
-
         action12, action7 = self._action7_from_output(action)
         self._last_observation = observation
         self._last_action7 = action7

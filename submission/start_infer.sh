@@ -132,23 +132,18 @@ echo "[start_infer] starting Environment service..." >&2
 HFM_PID=$!
 wait_for_tcp 127.0.0.1 5558 120
 
-# --- 6. 启动选手 submission 服务（F1 与 F2 分别使用两个策略服务）---
-echo "[start_infer] starting submission service1 (policy1 for F1)..." >&2
-python3 /app/submission/service1.py >"${SUBMISSION_LOG}" 2>&1 &
+# Start the F2b policy service.
+echo "[start_infer] starting F2b submission service..." >&2
+python3 /app/submission/service2.py >"${SUBMISSION_LOG}" 2>&1 &
 SUBMISSION_PID=$!
-wait_for_http_health "${SERVICE_URL}" 30
-
-echo "[start_infer] starting submission service2 (policy2 for F2a/F2b)..." >&2
-SUBMISSION_LOG2="${SUBMISSION_LOG%.log}_2.log"
-python3 /app/submission/service2.py >"${SUBMISSION_LOG2}" 2>&1 &
-SUBMISSION_PID2=$!
 wait_for_http_health "${SERVICE_URL2}" 30
 
 # --- 7. 运行评测（评测机 run_test.py，输出路径固定为 /saisresult/infer_result.json）---
 echo "[start_infer] running inference evaluation..." >&2
-python3 "${SAISDATA_ROOT}/inference/run_test.py" \
+python3 /app/eval_files/run_test.py \
   --no-build \
-  --service-url "${SERVICE_URL}" \
+  --service-url "${SERVICE_URL2}" \
   --service-url2 "${SERVICE_URL2}" \
   --output "${INFER_RESULT_PATH}" \
+  --reference-config /app/eval_files/references.yaml \
   "$@" 2>&1 | tee -a "${RUN_TEST_LOG}"

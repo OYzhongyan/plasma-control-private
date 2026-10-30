@@ -23,41 +23,13 @@ def start_submission_container(
     host_port: int,
     host_port2: int | None = None,
 ) -> str:
-    host_port2 = int(host_port2 if host_port2 is not None else host_port + 1)
-    command = (
-        "python3 /app/submission/service1.py & "
-        "pid1=$!; "
-        "python3 /app/submission/service2.py & "
-        "pid2=$!; "
-        "wait $pid1 $pid2"
-    )
-    return (
-        subprocess.check_output(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--rm",
-                "-p",
-                f"{host_port}:8000",
-                "-p",
-                f"{host_port2}:8001",
-                "-e",
-                "SUBMISSION_HOST=0.0.0.0",
-                "-e",
-                "SUBMISSION_PORT=8000",
-                "-e",
-                "SUBMISSION_PORT2=8001",
-                "--entrypoint",
-                "/bin/bash",
-                image_name,
-                "-lc",
-                command,
-            ],
-            text=True,
-        )
-        .strip()
-    )
+    selected_port = host_port2 if host_port2 is not None else host_port
+    return subprocess.check_output(
+        ["docker", "run", "-d", "--rm", "-p", f"{selected_port}:8001",
+         "-e", "SUBMISSION_HOST=0.0.0.0", "-e", "SUBMISSION_PORT2=8001",
+         "--entrypoint", "python3", image_name, "/app/submission/service2.py"],
+        text=True,
+    ).strip()
 
 
 def stop_submission_container(container_id: str | None) -> None:

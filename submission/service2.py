@@ -1,4 +1,4 @@
-"""HTTP submission service for policy2 (F2a/F2b).
+"""HTTP submission service for policy2 (F2b).
 
 Endpoints:
 - GET /health

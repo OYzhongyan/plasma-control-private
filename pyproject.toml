@@ -15,9 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-baseline = ["stable-baselines3>=2.0", "pyyaml>=5.0", "onnx>=1.16", "torch>=2.0"]
+baseline = ["stable-baselines3>=2.0", "pyyaml>=5.0", "onnx>=1.16", "torch>=2.0", "hydra-core>=1.3", "wandb", "matplotlib>=3.5"]
 xpt = ["matplotlib>=3.5", "scipy>=1.9"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["environment*"]
+include = ["environment*", "train*"]
+
+[tool.setuptools.package-data]
+train = ["configs/*.yaml", "configs/*.json", "targets/*.json"]

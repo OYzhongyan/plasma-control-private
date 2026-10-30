@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "template_note": "F2 official-proxy reward finetune template. Replace every __FILL_ME__ value before running.",
+  "stage": "f2b___FILL_ME_STAGE_NAME__",
+  "reward_type": "f2_official_proxy_v1",
+  "reference_mode": "trajectory",
+  "reference": "configs/xpt_reference_targets.json",
+  "ports": "__FILL_ME_PORTS__",
+  "num_envs": 24,
+  "max_steps": 500,
+  "reward_log_interval": 2048,
+  "shot_groups": {
+    "f2b_limiter_start": [
+      "15892_400",
+      "15892_500"
+    ]
+  },
+  "reset_perturbation": {
+    "enabled": false,
+    "signeo_scale_range": [
+      1.0,
+      1.0
+    ],
+    "bp_delta_range": [
+      0.0,
+      0.0
+    ],
+    "q0_delta_range": [
+      0.0,
+      0.0
+    ]
+  },
+  "features": {
+    "mode": "physical_f2_xpt_no_ref_rz_v1",
+    "history_steps": 4
+  },
+  "actions": {
+    "mode": "normalized_7d"
+  },
+  "reward_weights": {
+    "total_steps": 500.0,
+    "official_total": 30.0,
+    "lambda_fail": 3.0,
+    "current_fuse_a": 50000.0,
+    "official_ip": 6.0,
+    "official_lcfs": 6.0,
+    "official_x": 4.0,
+    "official_strike": 3.0,
+    "official_psix": 4.0,
+    "official_x2": 3.0,
+    "official_psix2": 4.0,
+    "ip_epsilon": 0.05,
+    "lcfs_epsilon_cm": 3.0,
+    "x_epsilon_cm": 3.0,
+    "strike_epsilon_cm": 10.0,
+    "psix_epsilon": 0.003,
+    "x2_epsilon_cm": 5.0,
+    "psix2_epsilon": 0.005,
+    "x_main_missing_cm": 3.0,
+    "x_secondary_missing_cm": 5.0,
+    "strike_missing_cm": 10.0,
+    "psix_main_missing_error": 0.003,
+    "psix_secondary_missing_error": 0.005
+  },
+  "ppo": {
+    "total_timesteps": 2457600,
+    "policy": "MlpPolicy",
+    "learning_rate": 3e-05,
+    "n_steps": 256,
+    "batch_size": 1536,
+    "n_epochs": 3,
+    "gamma": 0.995,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "clip_range_vf": null,
+    "normalize_advantage": true,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "target_kl": 0.03,
+    "use_sde": false,
+    "sde_sample_freq": -1,
+    "net_arch": [
+      256,
+      256
+    ],
+    "activation_fn": "tanh",
+    "log_std_init": -1.0,
+    "verbose": 1,
+    "device": "auto",
+    "progress_bar": true,
+    "seed": 0
+  },
+  "vecnormalize": {
+    "enabled": true,
+    "norm_obs": true,
+    "norm_reward": true,
+    "clip_obs": 10.0,
+    "clip_reward": 10.0,
+    "gamma": null,
+    "epsilon": 1e-08,
+    "load_path": "__FILL_ME_EXISTING_VECNORMALIZE_PKL__",
+    "save": true
+  },
+  "checkpoint": {
+    "enabled": true,
+    "save_interval_timesteps": 61440,
+    "save_vecnormalize": true
+  },
+  "output_dir": "__FILL_ME_OUTPUT_DIR__",
+  "resume": {
+    "enabled": true,
+    "model_path": "__FILL_ME_EXISTING_PPO_ZIP__",
+    "vecnormalize_path": "__FILL_ME_EXISTING_VECNORMALIZE_PKL__",
+    "reset_num_timesteps": true
+  },
+  "reference_variants": "__FILL_ME_OPTIONAL_TARGET_VARIANTS_JSON__",
+  "reference_variants_enabled": false,
+  "reference_variant_assignment": "round_robin_by_env",
+  "reference_variant_assignment_note": "If reference_variants_enabled=true, assign variants by env_index % num_variants. Keep num_envs an integer multiple of variant count when possible."
+}

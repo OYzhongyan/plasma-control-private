@@ -1,4 +1,4 @@
-"""Build image, run container, start both semifinal services, probe /health /reset /act."""
+"""Build image, run container, start the F2b service, probe /health /reset /act."""
 
 from __future__ import annotations
 
@@ -13,9 +13,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 submission_dir = root / "submission"
 model_dir = submission_dir / "model"
-inference1_script = submission_dir / "inference1.py"
 inference2_script = submission_dir / "inference2.py"
-service1_script = submission_dir / "service1.py"
 service2_script = submission_dir / "service2.py"
 dockerfile = submission_dir / "Dockerfile"
 requirements = submission_dir / "requirements.txt"
@@ -81,7 +79,7 @@ def main():
     if not submission_dir.is_dir():
         print("Missing submission/")
         sys.exit(1)
-    for required in [inference1_script, inference2_script, service1_script, service2_script]:
+    for required in [inference2_script, service2_script]:
         if not required.is_file():
             print(f"Missing {required.relative_to(root)}")
             sys.exit(1)
@@ -150,18 +148,13 @@ def main():
             .strip()
         )
         subprocess.run(
-            ["docker", "exec", "-d", container_id, "python3", "/app/submission/service1.py"],
-            check=True,
-        )
-        subprocess.run(
             ["docker", "exec", "-d", container_id, "python3", "/app/submission/service2.py"],
             check=True,
         )
 
-        _probe_service(base_url, "check-submission-F1", example_obs)
         _probe_service(base_url2, "check-submission-F2", example_obs)
 
-        print("Submission docker build and two-service API check passed.")
+        print("Submission docker build and F2b service API check passed.")
     finally:
         if container_id:
             subprocess.run(["docker", "stop", container_id], check=False, stdout=subprocess.DEVNULL)

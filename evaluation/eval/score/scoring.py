@@ -1,16 +1,11 @@
-# Copyright @2025 ENN Energy(enn.cn)
-# 复赛单步得分、子任务总分计算。
-
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
-
 from . import config
 
 
 @dataclass
 class TaskResult:
-    task_id: str
     per_step_epsilons: Dict[str, np.ndarray] = field(default_factory=dict)
     n_actual_steps: int = 0
     K_eff: int = 0
@@ -30,7 +25,6 @@ def score_single_step(epsilon: np.ndarray, epsilon_max: float) -> np.ndarray:
     """对逐步误差数组计算逐步得分（未乘权重），返回 [0,1] 数组。"""
     if epsilon_max <= 0:
         return np.zeros_like(epsilon)
-    # np.inf 会得到负无穷再 clip 到 0；用 nan_to_num 防 NaN
     raw = 1.0 - np.nan_to_num(epsilon, nan=np.inf, posinf=np.inf) / epsilon_max
     return np.maximum(0.0, raw)
 
@@ -55,16 +49,13 @@ def compute_per_metric_step_scores(
         eps_max = epsilon_max_dict.get(name, config.get_epsilon_max(name))
         s_norm = score_single_step(eps_arr[:N], eps_max)
         scores = w * s_norm
-        # 提前终止：超出 K_eff 的步直接置 0
         if K_eff < N:
             scores[K_eff:] = 0.0
-        # XPT 专属指标受 topo mask 控制
         if name in config.XPT_TOPO_METRICS and topo_mask is not None:
             scores = scores * topo_mask[:N]
-        # 长度对齐
         if len(scores) < N:
             padded = np.zeros(N, dtype=np.float64)
-            padded[:len(scores)] = scores
+            padded[: len(scores)] = scores
             scores = padded
         out[name] = scores.astype(np.float64)
     return out
@@ -90,12 +81,10 @@ def task_score(
     timeout=True 时整任务 0 分。
     """
     if timeout:
-        return 0.0, {name: 0.0 for name in weights}, np.zeros(N)
-
+        return (0.0, {name: 0.0 for name in weights}, np.zeros(N))
     per_metric_step = compute_per_metric_step_scores(
-        per_step_epsilons, weights, epsilon_max_dict, N, K_eff, topo_mask,
+        per_step_epsilons, weights, epsilon_max_dict, N, K_eff, topo_mask
     )
-
     coef = np.ones(N, dtype=np.float64)
     if eta is not None:
         coef = coef * eta[:N]
@@ -103,20 +92,15 @@ def task_score(
         coef = coef * mu[:N]
     if rho is not None:
         coef = coef * rho[:N]
-
-    # 累加各指标，再乘 coef
     sum_metrics = np.zeros(N, dtype=np.float64)
     for s in per_metric_step.values():
         sum_metrics = sum_metrics + s
     step_total = coef * sum_metrics
     s_task = gamma * float(np.sum(step_total)) / max(N, 1)
-
-    # 计算每指标贡献分（也乘系数与 gamma）
     metric_scores: Dict[str, float] = {}
     for name, s_arr in per_metric_step.items():
         metric_scores[name] = float(gamma * np.sum(coef * s_arr) / max(N, 1))
-
-    return s_task, metric_scores, step_total
+    return (s_task, metric_scores, step_total)
 
 
 def total_score(task_scores: Dict[str, float]) -> float:

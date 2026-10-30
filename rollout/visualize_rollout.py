@@ -1,7 +1,6 @@
 """Plot per-step rollout reward components saved by rollout/eval.py."""
 
 from __future__ import annotations
-
 import argparse
 import csv
 import re
@@ -9,14 +8,11 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
-
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-
 BASE_COLUMNS = {
     "episode",
     "env_index",
@@ -48,7 +44,7 @@ def _safe_int(value: Any, default: int = 0) -> int:
 
 
 def _safe_filename(name: str) -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(name)).strip("_")
+    cleaned = re.sub("[^A-Za-z0-9_.-]+", "_", str(name)).strip("_")
     return cleaned or "component"
 
 
@@ -65,7 +61,7 @@ def _component_columns(rows: list[dict[str, str]]) -> list[str]:
     for column in columns:
         if column in BASE_COLUMNS or column.startswith("action_"):
             continue
-        if any(_safe_float(row.get(column)) is not None for row in rows):
+        if any((_safe_float(row.get(column)) is not None for row in rows)):
             out.append(column)
     return out
 
@@ -80,7 +76,9 @@ def _group_rows(rows: list[dict[str, str]]) -> dict[int, list[dict[str, str]]]:
     return dict(sorted(groups.items()))
 
 
-def _plot_component(component: str, groups: dict[int, list[dict[str, str]]], out_path: Path) -> bool:
+def _plot_component(
+    component: str, groups: dict[int, list[dict[str, str]]], out_path: Path
+) -> bool:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -106,11 +104,9 @@ def _plot_component(component: str, groups: dict[int, list[dict[str, str]]], out
             continue
         plotted = True
         ax.plot(xs, ys, linewidth=1.5, label=f"rollout {rollout_id}{label_extra}")
-
     if not plotted:
         plt.close(fig)
         return False
-
     ax.set_title(component)
     ax.set_xlabel("step")
     ax.set_ylabel(component)
@@ -134,16 +130,18 @@ def _finite_limits(*arrays: np.ndarray) -> tuple[float, float, float, float]:
         if flat.size:
             points.append(flat)
     if not points:
-        return 0.0, 1.0, -0.5, 0.5
+        return (0.0, 1.0, -0.5, 0.5)
     merged = np.concatenate(points, axis=0)
     x_min, y_min = np.min(merged, axis=0)
     x_max, y_max = np.max(merged, axis=0)
-    x_margin = max((x_max - x_min) * 0.08, 1e-3)
-    y_margin = max((y_max - y_min) * 0.08, 1e-3)
-    return x_min - x_margin, x_max + x_margin, y_min - y_margin, y_max + y_margin
+    x_margin = max((x_max - x_min) * 0.08, 0.001)
+    y_margin = max((y_max - y_min) * 0.08, 0.001)
+    return (x_min - x_margin, x_max + x_margin, y_min - y_margin, y_max + y_margin)
 
 
-def _finite_pair_array(r: np.ndarray, z: np.ndarray, valid: np.ndarray | None = None) -> np.ndarray:
+def _finite_pair_array(
+    r: np.ndarray, z: np.ndarray, valid: np.ndarray | None = None
+) -> np.ndarray:
     """Stack r/z into (..., 2) with invalid slots masked to NaN.
 
     无效槽位以 (0, 0) 填充，直接进坐标范围计算会把视野拉到原点，这里统一过滤：
@@ -170,11 +168,14 @@ def _plot_ip_comparison(observations: dict[str, np.ndarray], out_path: Path) -> 
     valid = np.asarray(observations["valid"], dtype=bool)
     if ip.ndim != 2 or reference_ip.shape != ip.shape:
         return False
-
     fig, ax = plt.subplots(figsize=(10, 5.5), dpi=150)
     plotted = False
     for env_idx in range(ip.shape[0]):
-        mask = valid[env_idx] & np.isfinite(ip[env_idx]) & np.isfinite(reference_ip[env_idx])
+        mask = (
+            valid[env_idx]
+            & np.isfinite(ip[env_idx])
+            & np.isfinite(reference_ip[env_idx])
+        )
         if not np.any(mask):
             continue
         steps = np.arange(1, ip.shape[1] + 1)[mask]
@@ -187,7 +188,6 @@ def _plot_ip_comparison(observations: dict[str, np.ndarray], out_path: Path) -> 
             label=f"rollout {env_idx} reference",
         )
         plotted = True
-
     if not plotted:
         plt.close(fig)
         return False
@@ -203,7 +203,9 @@ def _plot_ip_comparison(observations: dict[str, np.ndarray], out_path: Path) -> 
     return True
 
 
-def _extract_component_series(groups: dict[int, list[dict[str, str]]], component: str) -> dict[int, np.ndarray]:
+def _extract_component_series(
+    groups: dict[int, list[dict[str, str]]], component: str
+) -> dict[int, np.ndarray]:
     """Extract a component's values for each rollout as a numpy array."""
     series: dict[int, np.ndarray] = {}
     for rollout_id, rows in groups.items():
@@ -215,7 +217,6 @@ def _extract_component_series(groups: dict[int, list[dict[str, str]]], component
     return series
 
 
-# F2 独有的分数列（F1 的 CSV 中这些列全为空）
 F2_SCORE_COLUMNS = (
     "main_x_dist_score",
     "main_x_psi_score",
@@ -223,18 +224,11 @@ F2_SCORE_COLUMNS = (
     "second_x_psi_score",
     "strike_dist_score",
 )
-
-# 平台评分常量：(episode 总步数 N, 任务满分)，与 evaluation/eval/score/config.py 一致
-PLATFORM_SCORE_CFG = {"F1": (300, 40.0), "F2": (500, 30.0)}
+PLATFORM_SCORE_CFG = {"F2": (500, 30.0)}
 
 
 def _detect_task(groups: dict[int, list[dict[str, str]]]) -> str:
-    """F1 CSV 中 F2 分数列全为空，任一列出现有限值即判定为 F2。"""
-    for column in F2_SCORE_COLUMNS:
-        for series in _extract_component_series(groups, column).values():
-            if series.size and np.any(np.isfinite(series)):
-                return "F2"
-    return "F1"
+    return "F2"
 
 
 def _remove_contour(contour_set: Any) -> None:
@@ -242,7 +236,7 @@ def _remove_contour(contour_set: Any) -> None:
     if contour_set is None:
         return
     try:
-        collections = list(contour_set.collections)  # matplotlib < 3.10
+        collections = list(contour_set.collections)
     except AttributeError:
         collections = [contour_set]
     for coll in collections:
@@ -253,8 +247,7 @@ def _remove_contour(contour_set: Any) -> None:
 
 
 def _build_psi_series(
-    observations: dict[str, np.ndarray],
-    psi_env: int,
+    observations: dict[str, np.ndarray], psi_env: int
 ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
     """Extract psi grid series from observations.
 
@@ -266,15 +259,19 @@ def _build_psi_series(
     zx = observations.get("zx")
     fb = observations.get("fb")
     if fx is None or rx is None or zx is None:
-        return None, None, None, None
+        return (None, None, None, None)
     fx = np.asarray(fx, dtype=np.float64)
     rx1 = np.asarray(rx, dtype=np.float64).ravel()
     zx1 = np.asarray(zx, dtype=np.float64).ravel()
     if fx.ndim != 3 or psi_env >= fx.shape[0] or fx.shape[-1] != rx1.size * zx1.size:
-        return None, None, None, None
+        return (None, None, None, None)
     psi_series = fx[psi_env].reshape(fx.shape[1], rx1.size, zx1.size)
-    fb_series = np.asarray(fb, dtype=np.float64).reshape(fx.shape[:2])[psi_env] if fb is not None else None
-    return psi_series, rx1, zx1, fb_series
+    fb_series = (
+        np.asarray(fb, dtype=np.float64).reshape(fx.shape[:2])[psi_env]
+        if fb is not None
+        else None
+    )
+    return (psi_series, rx1, zx1, fb_series)
 
 
 def _save_lcfs_video(
@@ -294,104 +291,132 @@ def _save_lcfs_video(
     lcfs = np.asarray(observations["lcfs_points"], dtype=np.float64)
     reference_lcfs = np.asarray(observations["reference_lcfs_points"], dtype=np.float64)
     ip_values = np.asarray(observations.get("ip", np.zeros((1, 1))), dtype=np.float64)
-    reference_ip_values = np.asarray(observations.get("reference_ip", np.zeros((1, 1))), dtype=np.float64)
+    reference_ip_values = np.asarray(
+        observations.get("reference_ip", np.zeros((1, 1))), dtype=np.float64
+    )
     valid = np.asarray(observations["valid"], dtype=bool)
-    psi_series, rx_grid, zx_grid, fb_series = _build_psi_series(observations, int(psi_env))
-
-    # X-point series: rX/zX [N, T, 6] (only first nX entries valid), nX [N, T]
+    psi_series, rx_grid, zx_grid, fb_series = _build_psi_series(
+        observations, int(psi_env)
+    )
     xpoint_data: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
     rX_raw = observations.get("rX")
     zX_raw = observations.get("zX")
     if rX_raw is not None and zX_raw is not None:
         rX_arr = np.asarray(rX_raw, dtype=np.float64)
         zX_arr = np.asarray(zX_raw, dtype=np.float64)
-        if rX_arr.ndim == 3 and zX_arr.shape == rX_arr.shape and rX_arr.shape[-1] == 6:
+        if (
+            rX_arr.ndim == 3
+            and zX_arr.shape == rX_arr.shape
+            and (rX_arr.shape[-1] == 6)
+        ):
             nX_raw = observations.get("nX")
             if nX_raw is not None:
                 nX_arr = np.asarray(nX_raw, dtype=np.float64).reshape(rX_arr.shape[:2])
             else:
                 nX_arr = np.full(rX_arr.shape[:2], rX_arr.shape[-1], dtype=np.float64)
             xpoint_data = (rX_arr, zX_arr, nX_arr)
-
-    if lcfs.ndim != 4 or lcfs.shape[-2:] != (32, 2) or reference_lcfs.shape != lcfs.shape:
+    if (
+        lcfs.ndim != 4
+        or lcfs.shape[-2:] != (32, 2)
+        or reference_lcfs.shape != lcfs.shape
+    ):
         return False
     if not np.any(valid):
         return False
     if not animation.writers.is_available("ffmpeg"):
-        raise RuntimeError("matplotlib ffmpeg writer is not available; install ffmpeg to save mp4 videos")
-
-    # Extract reward components from CSV data
+        raise RuntimeError(
+            "matplotlib ffmpeg writer is not available; install ffmpeg to save mp4 videos"
+        )
     ip_score_series = _extract_component_series(groups, "ip_competition_score")
     lcfs_score_series = _extract_component_series(groups, "lcfs_competition_score")
     competition_score_series = _extract_component_series(groups, "competition_score")
     ip_abs_error_series = _extract_component_series(groups, "ip_abs_error")
     coil_margin_series = _extract_component_series(groups, "coil_margin")
     topology_mask_series = _extract_component_series(groups, "topology_mask")
-
-    # F2 额外的五个 XPT 分数曲线
     f2_score_names = list(F2_SCORE_COLUMNS)
-    f2_score_series_list = [_extract_component_series(groups, name) for name in f2_score_names]
+    f2_score_series_list = [
+        _extract_component_series(groups, name) for name in f2_score_names
+    ]
     is_f2 = any(
-        s.size and np.any(np.isfinite(s))
-        for series in f2_score_series_list
-        for s in series.values()
+        (
+            s.size and np.any(np.isfinite(s))
+            for series in f2_score_series_list
+            for s in series.values()
+        )
     )
-
     last_step = int(np.max(np.where(valid)[1])) + 1
     num_envs = lcfs.shape[0]
-
-    # Slot-matched X points / strike points + their targets (F2 npz keys saved by evaluate.py)
     slot_data: dict[str, np.ndarray] | None = None
     _slot_keys = (
-        "x_slot_r", "x_slot_z", "x_valid",
-        "strike_r", "strike_z", "strike_valid",
-        "ref_rX", "ref_zX", "ref_strike_r", "ref_strike_z",
+        "x_slot_r",
+        "x_slot_z",
+        "x_valid",
+        "strike_r",
+        "strike_z",
+        "strike_valid",
+        "ref_rX",
+        "ref_zX",
+        "ref_strike_r",
+        "ref_strike_z",
     )
-    if all(observations.get(k) is not None for k in _slot_keys):
+    if all((observations.get(k) is not None for k in _slot_keys)):
         _slot = {k: np.asarray(observations[k], dtype=np.float64) for k in _slot_keys}
         _t_steps = lcfs.shape[1]
-        if (
-            _slot["x_slot_r"].shape == (num_envs, _t_steps, 4)
-            and _slot["strike_r"].shape == (num_envs, _t_steps, 8)
-        ):
+        if _slot["x_slot_r"].shape == (num_envs, _t_steps, 4) and _slot[
+            "strike_r"
+        ].shape == (num_envs, _t_steps, 8):
             slot_data = _slot
     colors = plt.rcParams["axes.prop_cycle"].by_key().get("color", [])
-
-    # Create figure with gridspec for flexible layout (F2 追加两列显示 XPT 分数曲线)
     n_grid_cols = 5 if is_f2 else 3
     fig = plt.figure(figsize=(26, 12) if is_f2 else (20, 12), dpi=100)
     gs = fig.add_gridspec(3, n_grid_cols, wspace=0.25, hspace=0.35)
     fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.08)
-    
-    # Column 1: 3 rows
-    # Row 1-2: LCFS plot (span 2 rows)
     ax_lcfs = fig.add_subplot(gs[0:2, 0])
     limit_arrays: list[np.ndarray] = [lcfs, reference_lcfs]
     if slot_data is not None:
-        limit_arrays.append(_finite_pair_array(slot_data["ref_rX"], slot_data["ref_zX"]))
-        limit_arrays.append(_finite_pair_array(slot_data["x_slot_r"], slot_data["x_slot_z"], slot_data["x_valid"]))
-        limit_arrays.append(_finite_pair_array(slot_data["ref_strike_r"], slot_data["ref_strike_z"]))
-        limit_arrays.append(_finite_pair_array(slot_data["strike_r"], slot_data["strike_z"], slot_data["strike_valid"]))
+        limit_arrays.append(
+            _finite_pair_array(slot_data["ref_rX"], slot_data["ref_zX"])
+        )
+        limit_arrays.append(
+            _finite_pair_array(
+                slot_data["x_slot_r"], slot_data["x_slot_z"], slot_data["x_valid"]
+            )
+        )
+        limit_arrays.append(
+            _finite_pair_array(slot_data["ref_strike_r"], slot_data["ref_strike_z"])
+        )
+        limit_arrays.append(
+            _finite_pair_array(
+                slot_data["strike_r"], slot_data["strike_z"], slot_data["strike_valid"]
+            )
+        )
     x_min, x_max, y_min, y_max = _finite_limits(*limit_arrays)
     actual_lines = []
     reference_lines = []
     for env_idx in range(num_envs):
         color = colors[env_idx % len(colors)] if colors else None
-        (actual_line,) = ax_lcfs.plot([], [], linewidth=2.0, color=color, label=f"rollout {env_idx}")
-        (reference_line,) = ax_lcfs.plot([], [], linewidth=1.5, linestyle="--", color=color)
+        (actual_line,) = ax_lcfs.plot(
+            [], [], linewidth=2.0, color=color, label=f"rollout {env_idx}"
+        )
+        (reference_line,) = ax_lcfs.plot(
+            [], [], linewidth=1.5, linestyle="--", color=color
+        )
         actual_lines.append(actual_line)
         reference_lines.append(reference_line)
     xpoint_lines: list[Any] = []
     if xpoint_data is not None:
         for env_idx in range(num_envs):
             (xline,) = ax_lcfs.plot(
-                [], [], linestyle="None", marker="x", markersize=7,
-                markeredgewidth=1.8, color="black",
+                [],
+                [],
+                linestyle="None",
+                marker="x",
+                markersize=7,
+                markeredgewidth=1.8,
+                color="black",
                 label="X points" if env_idx == 0 else None,
             )
             xpoint_lines.append(xline)
-
-    # F2 slot artists: target X, X slot lines, strike points, target strike, strike slot lines
     target_x_segments: list[list[Any]] = []
     xslot_line_groups: list[list[Any]] = []
     strike_markers: list[Any] = []
@@ -403,34 +428,55 @@ def _save_lcfs_video(
             xlines = []
             for slot in range(4):
                 (sline,) = ax_lcfs.plot(
-                    [], [], linestyle="--", linewidth=0.9, alpha=0.55, color="black",
+                    [],
+                    [],
+                    linestyle="--",
+                    linewidth=0.9,
+                    alpha=0.55,
+                    color="black",
                     label="X slot match" if env_idx == 0 and slot == 0 else None,
                 )
                 xlines.append(sline)
             xslot_line_groups.append(xlines)
             (smarker,) = ax_lcfs.plot(
-                [], [], linestyle="None", marker="s", markersize=4.5, color=color,
+                [],
+                [],
+                linestyle="None",
+                marker="s",
+                markersize=4.5,
+                color=color,
                 label="strike points" if env_idx == 0 else None,
             )
             strike_markers.append(smarker)
             (tsmarker,) = ax_lcfs.plot(
-                [], [], linestyle="None", marker="s", markersize=5.5,
-                markerfacecolor="none", markeredgewidth=1.3, color=color,
+                [],
+                [],
+                linestyle="None",
+                marker="s",
+                markersize=5.5,
+                markerfacecolor="none",
+                markeredgewidth=1.3,
+                color=color,
                 label="target strike" if env_idx == 0 else None,
             )
             target_strike_markers.append(tsmarker)
             slines = []
             for slot in range(8):
                 (stline,) = ax_lcfs.plot(
-                    [], [], linestyle=":", linewidth=0.8, alpha=0.45, color="black",
+                    [],
+                    [],
+                    linestyle=":",
+                    linewidth=0.8,
+                    alpha=0.45,
+                    color="black",
                     label="strike slot match" if env_idx == 0 and slot == 0 else None,
                 )
                 slines.append(stline)
             strike_line_groups.append(slines)
-        # 目标坐标 episode 内为常量：静态画一次（无效槽位以 NaN 屏蔽）
         masked_ref_x = _finite_pair_array(slot_data["ref_rX"], slot_data["ref_zX"])
-        masked_ref_strike = _finite_pair_array(slot_data["ref_strike_r"], slot_data["ref_strike_z"])
-        # 目标 X 点：黑色虚线 X（两条对角虚线段）
+        masked_ref_strike = _finite_pair_array(
+            slot_data["ref_strike_r"], slot_data["ref_strike_z"]
+        )
         x_half = 0.03 * (x_max - x_min)
         for env_idx in range(num_envs):
             segs: list[Any] = []
@@ -441,31 +487,39 @@ def _save_lcfs_video(
                     (seg,) = ax_lcfs.plot(
                         [r_t - x_half, r_t + x_half],
                         [z_t - sgn * x_half, z_t + sgn * x_half],
-                        linestyle="--", linewidth=1.2, color="black", zorder=5,
+                        linestyle="--",
+                        linewidth=1.2,
+                        color="black",
+                        zorder=5,
                     )
                     segs.append(seg)
             target_x_segments.append(segs)
             target_strike_markers[env_idx].set_data(
-                masked_ref_strike[env_idx, 0, :, 0], masked_ref_strike[env_idx, 0, :, 1],
+                masked_ref_strike[env_idx, 0, :, 0], masked_ref_strike[env_idx, 0, :, 1]
             )
-
-    # 图例固定画在整图下方，位置不随数据变化、不遮挡曲线
     legend_handles, legend_labels = ax_lcfs.get_legend_handles_labels()
     if target_x_segments:
-        legend_handles.append(Line2D([], [], linestyle="--", linewidth=1.2, color="black", label="target X"))
+        legend_handles.append(
+            Line2D(
+                [], [], linestyle="--", linewidth=1.2, color="black", label="target X"
+            )
+        )
         legend_labels.append("target X")
     n_legend_rows = 1
     if legend_handles:
         n_legend_cols = min(len(legend_handles), 4)
         n_legend_rows = (len(legend_handles) + n_legend_cols - 1) // n_legend_cols
         fig.legend(
-            legend_handles, legend_labels,
-            loc="lower center", bbox_to_anchor=(0.5, 0.005),
-            ncol=n_legend_cols, fontsize=9, frameon=False,
+            legend_handles,
+            legend_labels,
+            loc="lower center",
+            bbox_to_anchor=(0.5, 0.005),
+            ncol=n_legend_cols,
+            fontsize=9,
+            frameon=False,
         )
     fig.subplots_adjust(
-        left=0.05, right=0.98, top=0.92,
-        bottom=max(0.08, 0.03 + 0.05 * n_legend_rows),
+        left=0.05, right=0.98, top=0.92, bottom=max(0.08, 0.03 + 0.05 * n_legend_rows)
     )
     ax_lcfs.set_xlim(x_min, x_max)
     ax_lcfs.set_ylim(y_min, y_max)
@@ -474,20 +528,23 @@ def _save_lcfs_video(
     ax_lcfs.set_ylabel("Z (m)", fontsize=10)
     ax_lcfs.grid(True, alpha=0.3)
     ax_lcfs.set_axisbelow(True)
-
-    # Psi (magnetic flux) background on LCFS subplot
     psi_image = None
     fb_contour: list[Any] = [None]
     if psi_series is not None:
         finite_psi = psi_series[valid[psi_env]]
         finite_psi = finite_psi[np.isfinite(finite_psi)]
         if finite_psi.size > 0:
-            vmin, vmax = float(np.min(finite_psi)), float(np.max(finite_psi))
+            vmin, vmax = (float(np.min(finite_psi)), float(np.max(finite_psi)))
             if vmax - vmin < 1e-12:
-                vmin, vmax = vmin - 0.5, vmax + 0.5
+                vmin, vmax = (vmin - 0.5, vmax + 0.5)
             psi_image = ax_lcfs.imshow(
                 np.full((zx_grid.size, rx_grid.size), np.nan),
-                extent=[float(rx_grid[0]), float(rx_grid[-1]), float(zx_grid[0]), float(zx_grid[-1])],
+                extent=[
+                    float(rx_grid[0]),
+                    float(rx_grid[-1]),
+                    float(zx_grid[0]),
+                    float(zx_grid[-1]),
+                ],
                 origin="lower",
                 interpolation="bilinear",
                 cmap="jet",
@@ -498,33 +555,31 @@ def _save_lcfs_video(
                 aspect="equal",
             )
             fig.colorbar(psi_image, ax=ax_lcfs, shrink=0.85, pad=0.02, label="psi (Wb)")
-
     lcfs_title = "LCFS vs reference"
     if psi_image is not None:
         lcfs_title += f" + psi (rollout {psi_env})"
     ax_lcfs.set_title(lcfs_title, fontsize=11, pad=12)
-    
-    # Row 3: Ip vs reference_Ip
     ax_ip = fig.add_subplot(gs[2, 0])
     ip_lines = []
     ref_ip_lines = []
     for env_idx in range(num_envs):
         color = colors[env_idx % len(colors)] if colors else None
-        (ip_line,) = ax_ip.plot([], [], linewidth=1.5, color=color, label=f"Ip {env_idx}")
-        (ref_ip_line,) = ax_ip.plot([], [], linewidth=1.2, linestyle="--", color=color, label=f"ref {env_idx}")
+        (ip_line,) = ax_ip.plot(
+            [], [], linewidth=1.5, color=color, label=f"Ip {env_idx}"
+        )
+        (ref_ip_line,) = ax_ip.plot(
+            [], [], linewidth=1.2, linestyle="--", color=color, label=f"ref {env_idx}"
+        )
         ip_lines.append(ip_line)
         ref_ip_lines.append(ref_ip_line)
-    
-    # Handle empty ip_values case
     if ip_values.size > 0 and np.any(np.isfinite(ip_values)):
         ip_max = max(np.nanmax(ip_values), np.nanmax(reference_ip_values)) * 1.1
         ip_min = min(np.nanmin(ip_values), np.nanmin(reference_ip_values)) * 0.9
-        if ip_max - ip_min < 1e-6:
-            ip_min = ip_max - 1e5
-            ip_max = ip_max + 1e5
+        if ip_max - ip_min < 1e-06:
+            ip_min = ip_max - 100000.0
+            ip_max = ip_max + 100000.0
     else:
-        ip_min, ip_max = 0, 1e6
-    
+        ip_min, ip_max = (0, 1000000.0)
     ax_ip.set_xlim(1, last_step)
     ax_ip.set_ylim(ip_min, ip_max)
     ax_ip.set_xlabel("step", fontsize=10)
@@ -532,22 +587,20 @@ def _save_lcfs_video(
     ax_ip.grid(True, alpha=0.3)
     ax_ip.legend(loc="best", fontsize=7, ncol=2)
     ax_ip.set_title("Ip vs reference_Ip", fontsize=11, pad=12)
-    
-    # Column 2: Score plots (3 rows)
     ax_ip_score = fig.add_subplot(gs[0, 1])
     ax_lcfs_score = fig.add_subplot(gs[1, 1])
     ax_comp_score = fig.add_subplot(gs[2, 1])
-    
     score_axes = [ax_ip_score, ax_lcfs_score, ax_comp_score]
     score_series_list = [ip_score_series, lcfs_score_series, competition_score_series]
     score_names = ["ip_score", "lcfs_score", "competition_score"]
     score_lines = []
-    
     for ax, series_dict, name in zip(score_axes, score_series_list, score_names):
         lines = []
         for env_idx in range(num_envs):
             color = colors[env_idx % len(colors)] if colors else None
-            (line,) = ax.plot([], [], linewidth=1.5, color=color, label=f"rollout {env_idx}")
+            (line,) = ax.plot(
+                [], [], linewidth=1.5, color=color, label=f"rollout {env_idx}"
+            )
             lines.append(line)
         score_lines.append(lines)
         ax.set_xlim(1, last_step)
@@ -557,25 +610,26 @@ def _save_lcfs_video(
         ax.grid(True, alpha=0.3)
         ax.legend(loc="best", fontsize=6)
         ax.tick_params(axis="both", labelsize=8)
-    
-    # Column 3: Metric plots (3 rows)
     ax_ip_error = fig.add_subplot(gs[0, 2])
     ax_coil_margin = fig.add_subplot(gs[1, 2])
     ax_topology_mask = fig.add_subplot(gs[2, 2])
-    
     metric_axes = [ax_ip_error, ax_coil_margin, ax_topology_mask]
     metric_series_list = [ip_abs_error_series, coil_margin_series, topology_mask_series]
     metric_names = ["ip_abs_error", "coil_margin", "topology_mask"]
     metric_lines = []
-    
-    ip_error_max = max(np.nanmax(s) if len(s) > 0 else 50000 for s in ip_abs_error_series.values())
-    coil_margin_max = max(np.nanmax(s) if len(s) > 0 else 1.5 for s in coil_margin_series.values())
-    
+    ip_error_max = max(
+        (np.nanmax(s) if len(s) > 0 else 50000 for s in ip_abs_error_series.values())
+    )
+    coil_margin_max = max(
+        (np.nanmax(s) if len(s) > 0 else 1.5 for s in coil_margin_series.values())
+    )
     for ax, series_dict, name in zip(metric_axes, metric_series_list, metric_names):
         lines = []
         for env_idx in range(num_envs):
             color = colors[env_idx % len(colors)] if colors else None
-            (line,) = ax.plot([], [], linewidth=1.5, color=color, label=f"rollout {env_idx}")
+            (line,) = ax.plot(
+                [], [], linewidth=1.5, color=color, label=f"rollout {env_idx}"
+            )
             lines.append(line)
         metric_lines.append(lines)
         ax.set_xlim(1, last_step)
@@ -584,16 +638,15 @@ def _save_lcfs_video(
         ax.grid(True, alpha=0.3)
         ax.legend(loc="best", fontsize=6)
         ax.tick_params(axis="both", labelsize=8)
-    
     ax_ip_error.set_ylim(0, max(ip_error_max, 55000) * 1.1)
-    ax_ip_error.axhline(50000, color="red", linestyle="--", linewidth=1.5, label="50kA threshold")
-    
+    ax_ip_error.axhline(
+        50000, color="red", linestyle="--", linewidth=1.5, label="50kA threshold"
+    )
     ax_coil_margin.set_ylim(0, max(coil_margin_max, 1.5) * 1.1)
-    ax_coil_margin.axhline(1.0, color="red", linestyle="--", linewidth=1.5, label="limit=1")
-    
+    ax_coil_margin.axhline(
+        1.0, color="red", linestyle="--", linewidth=1.5, label="limit=1"
+    )
     ax_topology_mask.set_ylim(0, 1.1)
-
-    # F2: 额外两列显示五个 XPT 分数曲线（第 4 列 3 个 + 第 5 列 2 个）
     extra_axes: list[Any] = []
     extra_lines_list: list[list[Any]] = []
     if is_f2:
@@ -608,12 +661,16 @@ def _save_lcfs_video(
             default=1.0,
         )
         extra_ymax = max(1.05, extra_max * 1.1)
-        for spec, series_dict, name in zip(extra_specs, f2_score_series_list, f2_score_names):
+        for spec, series_dict, name in zip(
+            extra_specs, f2_score_series_list, f2_score_names
+        ):
             ax = fig.add_subplot(spec)
             lines = []
             for env_idx in range(num_envs):
                 color = colors[env_idx % len(colors)] if colors else None
-                (line,) = ax.plot([], [], linewidth=1.5, color=color, label=f"rollout {env_idx}")
+                (line,) = ax.plot(
+                    [], [], linewidth=1.5, color=color, label=f"rollout {env_idx}"
+                )
                 lines.append(line)
             extra_lines_list.append(lines)
             ax.set_xlim(1, last_step)
@@ -624,28 +681,31 @@ def _save_lcfs_video(
             ax.legend(loc="best", fontsize=6)
             ax.tick_params(axis="both", labelsize=8)
             extra_axes.append(ax)
-
     main_title = fig.suptitle("", fontsize=14)
-    
-    def _compute_stats(series: np.ndarray, current_step: int) -> tuple[float, float, int]:
+
+    def _compute_stats(
+        series: np.ndarray, current_step: int
+    ) -> tuple[float, float, int]:
         if current_step <= 0 or len(series) == 0:
-            return 0.0, 0.0, 0
+            return (0.0, 0.0, 0)
         valid_slice = series[:current_step]
         valid_vals = valid_slice[np.isfinite(valid_slice)]
         if len(valid_vals) == 0:
-            return 0.0, 0.0, 0
+            return (0.0, 0.0, 0)
         total = float(np.sum(valid_vals))
         mean = float(np.mean(valid_vals))
         count = len(valid_vals)
-        return total, mean, count
-    
-    def _count_exceed_threshold(series: np.ndarray, current_step: int, threshold: float) -> int:
+        return (total, mean, count)
+
+    def _count_exceed_threshold(
+        series: np.ndarray, current_step: int, threshold: float
+    ) -> int:
         if current_step <= 0 or len(series) == 0:
             return 0
         valid_slice = series[:current_step]
         valid_vals = valid_slice[np.isfinite(valid_slice)]
         return int(np.sum(valid_vals > threshold))
-    
+
     def _first_exceed_step(series: np.ndarray, threshold: float) -> int:
         if len(series) == 0:
             return -1
@@ -654,23 +714,21 @@ def _save_lcfs_video(
         if len(exceed_indices) == 0:
             return -1
         return int(exceed_indices[0]) + 1
-    
-    def _count_mask_value(series: np.ndarray, current_step: int, target_value: float) -> int:
+
+    def _count_mask_value(
+        series: np.ndarray, current_step: int, target_value: float
+    ) -> int:
         if current_step <= 0 or len(series) == 0:
             return 0
         valid_slice = series[:current_step]
         valid_vals = valid_slice[np.isfinite(valid_slice)]
         return int(np.sum(np.isclose(valid_vals, target_value)))
-    
+
     def update(frame_idx: int):
         current_step = frame_idx + 1
         artists = [main_title]
         main_title.set_text(f"Rollout Analysis - Step {current_step}/{last_step}")
-        
-        # Update LCFS plot
         ax_lcfs.set_title(f"{lcfs_title} (step {current_step})", fontsize=11, pad=12)
-
-        # Update psi background + FB separatrix contour
         _remove_contour(fb_contour[0])
         fb_contour[0] = None
         if psi_image is not None:
@@ -678,18 +736,25 @@ def _save_lcfs_video(
             psi_image.set_visible(show_psi)
             if show_psi:
                 psi_frame = psi_series[frame_idx]
-                psi_image.set_data(psi_frame.T)  # (65, 66): rows -> zx, cols -> rx
-                fb_val = float(fb_series[frame_idx]) if fb_series is not None else np.nan
+                psi_image.set_data(psi_frame.T)
+                fb_val = (
+                    float(fb_series[frame_idx]) if fb_series is not None else np.nan
+                )
                 if np.isfinite(fb_val):
                     try:
                         fb_contour[0] = ax_lcfs.contour(
-                            rx_grid, zx_grid, psi_frame,
-                            levels=[fb_val], colors="red", linewidths=1.2,
+                            rx_grid,
+                            zx_grid,
+                            psi_frame,
+                            levels=[fb_val],
+                            colors="red",
+                            linewidths=1.2,
                         )
                     except Exception:
                         fb_contour[0] = None
-
-        for env_idx, (actual_line, reference_line) in enumerate(zip(actual_lines, reference_lines)):
+        for env_idx, (actual_line, reference_line) in enumerate(
+            zip(actual_lines, reference_lines)
+        ):
             if frame_idx < valid.shape[1] and valid[env_idx, frame_idx]:
                 actual = lcfs[env_idx, frame_idx]
                 reference = reference_lcfs[env_idx, frame_idx]
@@ -699,8 +764,6 @@ def _save_lcfs_video(
                 actual_line.set_data([], [])
                 reference_line.set_data([], [])
             artists.extend([actual_line, reference_line])
-
-        # Update X-point markers (only first nX entries are valid)
         if xpoint_data is not None:
             rX_arr, zX_arr, nX_arr = xpoint_data
             for env_idx, xline in enumerate(xpoint_lines):
@@ -717,8 +780,6 @@ def _save_lcfs_video(
                 else:
                     xline.set_data([], [])
                 artists.append(xline)
-
-        # Update slot-matched X/strike points and slot-to-target dashed lines (F2)
         if slot_data is not None:
             xs_r = slot_data["x_slot_r"]
             xs_z = slot_data["x_slot_z"]
@@ -731,7 +792,9 @@ def _save_lcfs_video(
             ref_sr = slot_data["ref_strike_r"]
             ref_sz = slot_data["ref_strike_z"]
             for env_idx in range(num_envs):
-                frame_ok = frame_idx < valid.shape[1] and bool(valid[env_idx, frame_idx])
+                frame_ok = frame_idx < valid.shape[1] and bool(
+                    valid[env_idx, frame_idx]
+                )
                 sv = svm[env_idx, frame_idx] > 0.5 if frame_ok else None
                 if frame_ok:
                     strike_markers[env_idx].set_data(
@@ -745,8 +808,14 @@ def _save_lcfs_video(
                     line = xslot_line_groups[env_idx][slot]
                     if frame_ok and xvm[env_idx, frame_idx, slot] > 0.5:
                         line.set_data(
-                            [xs_r[env_idx, frame_idx, slot], ref_xr[env_idx, frame_idx, slot]],
-                            [xs_z[env_idx, frame_idx, slot], ref_xz[env_idx, frame_idx, slot]],
+                            [
+                                xs_r[env_idx, frame_idx, slot],
+                                ref_xr[env_idx, frame_idx, slot],
+                            ],
+                            [
+                                xs_z[env_idx, frame_idx, slot],
+                                ref_xz[env_idx, frame_idx, slot],
+                            ],
                         )
                     else:
                         line.set_data([], [])
@@ -755,33 +824,34 @@ def _save_lcfs_video(
                     line = strike_line_groups[env_idx][slot]
                     if frame_ok and sv[slot]:
                         line.set_data(
-                            [st_r[env_idx, frame_idx, slot], ref_sr[env_idx, frame_idx, slot]],
-                            [st_z[env_idx, frame_idx, slot], ref_sz[env_idx, frame_idx, slot]],
+                            [
+                                st_r[env_idx, frame_idx, slot],
+                                ref_sr[env_idx, frame_idx, slot],
+                            ],
+                            [
+                                st_z[env_idx, frame_idx, slot],
+                                ref_sz[env_idx, frame_idx, slot],
+                            ],
                         )
                     else:
                         line.set_data([], [])
                     artists.append(line)
-
-        # Update Ip plot
         for env_idx, (ip_line, ref_ip_line) in enumerate(zip(ip_lines, ref_ip_lines)):
-            # Check if ip_values has enough environments
             if env_idx < ip_values.shape[0]:
-                # Find the last valid step for this env
                 if frame_idx < ip_values.shape[1] and valid[env_idx, frame_idx]:
-                    # Current step is valid, show up to current
                     valid_steps = current_step
                 else:
-                    # Current step is invalid, find last valid step
-                    valid_mask = valid[env_idx, :min(frame_idx+1, valid.shape[1])]
+                    valid_mask = valid[env_idx, : min(frame_idx + 1, valid.shape[1])]
                     if np.any(valid_mask):
                         valid_steps = int(np.max(np.where(valid_mask)[0])) + 1
                     else:
                         valid_steps = 0
-                
                 if valid_steps > 0:
                     steps = np.arange(1, valid_steps + 1)
                     ip_line.set_data(steps, ip_values[env_idx, :valid_steps])
-                    ref_ip_line.set_data(steps, reference_ip_values[env_idx, :valid_steps])
+                    ref_ip_line.set_data(
+                        steps, reference_ip_values[env_idx, :valid_steps]
+                    )
                 else:
                     ip_line.set_data([], [])
                     ref_ip_line.set_data([], [])
@@ -789,9 +859,9 @@ def _save_lcfs_video(
                 ip_line.set_data([], [])
                 ref_ip_line.set_data([], [])
             artists.extend([ip_line, ref_ip_line])
-        
-        # Update score plots
-        for ax, lines, series_dict, name in zip(score_axes, score_lines, score_series_list, score_names):
+        for ax, lines, series_dict, name in zip(
+            score_axes, score_lines, score_series_list, score_names
+        ):
             all_totals = []
             all_means = []
             all_counts = []
@@ -801,8 +871,6 @@ def _save_lcfs_video(
                 all_totals.append(total)
                 all_means.append(mean)
                 all_counts.append(count)
-                
-                # Show data up to min(current_step, len(series))
                 if len(series) > 0:
                     show_steps = min(current_step, len(series))
                     steps = np.arange(1, show_steps + 1)
@@ -810,19 +878,19 @@ def _save_lcfs_video(
                     lines[env_idx].set_data(steps, vals)
                 else:
                     lines[env_idx].set_data([], [])
-            
             avg_total = np.mean(all_totals) if all_totals else 0.0
             avg_mean = np.mean(all_means) if all_means else 0.0
             avg_count = np.mean(all_counts) if all_counts else 0
-            ax.set_title(f"{name}\nlen={avg_count:.0f}, total={avg_total:.3f}", fontsize=9, pad=8)
+            ax.set_title(
+                f"{name}\nlen={avg_count:.0f}, total={avg_total:.3f}", fontsize=9, pad=8
+            )
             artists.extend(lines)
-        
-        # Update ip_abs_error
         ip_error_exceed_count = 0
         for env_idx in range(num_envs):
             series = ip_abs_error_series.get(env_idx, np.array([]))
-            ip_error_exceed_count += _count_exceed_threshold(series, current_step, 50000)
-            # Show data up to min(current_step, len(series))
+            ip_error_exceed_count += _count_exceed_threshold(
+                series, current_step, 50000
+            )
             if len(series) > 0:
                 show_steps = min(current_step, len(series))
                 steps = np.arange(1, show_steps + 1)
@@ -830,17 +898,16 @@ def _save_lcfs_video(
                 metric_lines[0][env_idx].set_data(steps, vals)
             else:
                 metric_lines[0][env_idx].set_data([], [])
-        ax_ip_error.set_title(f"ip_abs_error\nexceed 50kA: {ip_error_exceed_count}", fontsize=9, pad=8)
+        ax_ip_error.set_title(
+            f"ip_abs_error\nexceed 50kA: {ip_error_exceed_count}", fontsize=9, pad=8
+        )
         artists.extend(metric_lines[0])
-        
-        # Update coil_margin
         first_exceed_steps = []
         for env_idx in range(num_envs):
             series = coil_margin_series.get(env_idx, np.array([]))
             first_exceed = _first_exceed_step(series, 1.0)
             if first_exceed > 0:
                 first_exceed_steps.append(first_exceed)
-            # Show data up to min(current_step, len(series))
             if len(series) > 0:
                 show_steps = min(current_step, len(series))
                 steps = np.arange(1, show_steps + 1)
@@ -848,18 +915,15 @@ def _save_lcfs_video(
                 metric_lines[1][env_idx].set_data(steps, vals)
             else:
                 metric_lines[1][env_idx].set_data([], [])
-        first_exceed_info = f"first exceed: {min(first_exceed_steps) if first_exceed_steps else 'N/A'}"
+        first_exceed_info = f"first exceed: {(min(first_exceed_steps) if first_exceed_steps else 'N/A')}"
         ax_coil_margin.set_title(f"coil_margin\n{first_exceed_info}", fontsize=9, pad=8)
         artists.extend(metric_lines[1])
-        
-        # Update topology_mask
         mask_05_count = 0
         mask_total_count = 0
         for env_idx in range(num_envs):
             series = topology_mask_series.get(env_idx, np.array([]))
             mask_05_count += _count_mask_value(series, current_step, 0.5)
             mask_total_count += current_step
-            # Show data up to min(current_step, len(series))
             if len(series) > 0:
                 show_steps = min(current_step, len(series))
                 steps = np.arange(1, show_steps + 1)
@@ -867,18 +931,21 @@ def _save_lcfs_video(
                 metric_lines[2][env_idx].set_data(steps, vals)
             else:
                 metric_lines[2][env_idx].set_data([], [])
-        mask_05_ratio = mask_05_count / mask_total_count if mask_total_count > 0 else 0.0
-        ax_topology_mask.set_title(f"topology_mask\nmask=0.5: {mask_05_ratio:.1%}", fontsize=9, pad=8)
+        mask_05_ratio = (
+            mask_05_count / mask_total_count if mask_total_count > 0 else 0.0
+        )
+        ax_topology_mask.set_title(
+            f"topology_mask\nmask=0.5: {mask_05_ratio:.1%}", fontsize=9, pad=8
+        )
         artists.extend(metric_lines[2])
-
-        # Update F2 extra score plots
-        for ax, lines, series_dict, name in zip(extra_axes, extra_lines_list, f2_score_series_list, f2_score_names):
+        for ax, lines, series_dict, name in zip(
+            extra_axes, extra_lines_list, f2_score_series_list, f2_score_names
+        ):
             all_means = []
             for env_idx in range(num_envs):
                 series = series_dict.get(env_idx, np.array([]))
                 _, mean, _ = _compute_stats(series, current_step)
                 all_means.append(mean)
-                # Show data up to min(current_step, len(series))
                 if len(series) > 0:
                     show_steps = min(current_step, len(series))
                     steps = np.arange(1, show_steps + 1)
@@ -889,7 +956,6 @@ def _save_lcfs_video(
             avg_mean = np.mean(all_means) if all_means else 0.0
             ax.set_title(f"{name}\nmean={avg_mean:.3f}", fontsize=9, pad=8)
             artists.extend(lines)
-
         return artists
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -907,61 +973,67 @@ def visualize(args: argparse.Namespace) -> int:
     figures_dir = run_dir / "eval" / "figures"
     if not csv_path.exists():
         raise FileNotFoundError(f"rollout csv not found: {csv_path}")
-
     rows = _read_rows(csv_path)
     if not rows:
         raise ValueError(f"rollout csv is empty: {csv_path}")
-
     groups = _group_rows(rows)
     components = _component_columns(rows)
-    
-    # Print competition_score totals for each episode
     competition_score_series = _extract_component_series(groups, "competition_score")
-    task = _detect_task(groups)
-    episode_steps, task_total = PLATFORM_SCORE_CFG[task]
-    print(f"\n[competition_score totals per episode] (task={task}, platform total={task_total:.0f})")
+    episode_steps, task_total = PLATFORM_SCORE_CFG["F2"]
+    print(
+        f"\n[competition_score totals per episode] (task=F2, platform total={task_total:.0f})"
+    )
     for env_idx, series in sorted(competition_score_series.items()):
         valid_vals = series[np.isfinite(series)]
         total = float(np.sum(valid_vals)) if len(valid_vals) > 0 else 0.0
         mean = float(np.mean(valid_vals)) if len(valid_vals) > 0 else 0.0
         competition_fraction_score = total / episode_steps * task_total
         count = len(valid_vals)
-        print(f"  episode {env_idx}: total={total:.4f}, mean={mean:.4f}, steps={count}, platform score={competition_fraction_score:.2f}/{task_total:.0f}")
-    
+        print(
+            f"  episode {env_idx}: total={total:.4f}, mean={mean:.4f}, steps={count}, platform score={competition_fraction_score:.2f}/{task_total:.0f}"
+        )
     if args.components:
-        wanted = {component.strip() for component in args.components.split(",") if component.strip()}
+        wanted = {
+            component.strip()
+            for component in args.components.split(",")
+            if component.strip()
+        }
         components = [component for component in components if component in wanted]
     if not components:
         raise ValueError("no reward component columns found to plot")
-
     saved = 0
     for component in components:
         out_path = figures_dir / f"{_safe_filename(component)}.png"
         if _plot_component(component, groups, out_path):
             saved += 1
-
     if observations_path.exists():
         with np.load(observations_path, allow_pickle=False) as data:
             observations = {key: data[key] for key in data.files}
         if _plot_ip_comparison(observations, figures_dir / "ip_vs_reference.png"):
             saved += 1
         if _save_lcfs_video(
-            observations, groups, figures_dir / "lcfs_rollout.mp4",
-            fps=int(args.fps), psi_env=int(args.psi_env),
+            observations,
+            groups,
+            figures_dir / "lcfs_rollout.mp4",
+            fps=int(args.fps),
+            psi_env=int(args.psi_env),
         ):
             saved += 1
     else:
-        print(f"warning: rollout observations not found, skipped LCFS/video plots: {observations_path}")
-
+        print(
+            f"warning: rollout observations not found, skipped LCFS/video plots: {observations_path}"
+        )
     print(f"loaded: {csv_path}")
     print(f"saved {saved} figures to: {figures_dir}")
     return 0
 
-# python rollout/visualize_rollout.py --run_name 20260823_065302_f1_fix_reset_params_delta_action_soft_ip_error_mask_topology_mask
+
 def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--run_name", type=str, required=True)
     parser.add_argument("--csv-name", type=str, default="step_reward_components.csv")
-    parser.add_argument("--observations-name", type=str, default="rollout_observations.npz")
+    parser.add_argument(
+        "--observations-name", type=str, default="rollout_observations.npz"
+    )
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument(
         "--psi-env",

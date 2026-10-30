@@ -1,6 +1,6 @@
 {
   "shot_id": "13906_500",
-  "note": "reference 来自 13906_500 目标位形；用于 F2a/F2b XPT 目标训练/调试参考",
+  "note": "13906_500 XPT reference for the F2b experiment",
   "reference_lcfs_points": [
     [
       0.30071442390024183,

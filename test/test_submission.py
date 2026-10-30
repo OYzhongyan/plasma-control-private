@@ -60,14 +60,6 @@ def start_services(
         env["SUBMISSION_PORT2"] = str(port2)
         processes = [
             subprocess.Popen(
-                [sys.executable, str(ROOT / "submission" / "service1.py")],
-                cwd=str(ROOT / "submission"),
-                env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ),
-            subprocess.Popen(
                 [sys.executable, str(ROOT / "submission" / "service2.py")],
                 cwd=str(ROOT / "submission"),
                 env=env,
@@ -103,10 +95,6 @@ def start_services(
                 text=True,
             )
             .strip()
-        )
-        subprocess.run(
-            ["docker", "exec", "-d", container_id, "python3", "/app/submission/service1.py"],
-            check=True,
         )
         subprocess.run(
             ["docker", "exec", "-d", container_id, "python3", "/app/submission/service2.py"],
@@ -191,12 +179,10 @@ def main() -> None:
             args.service_url,
             service_url2,
         )
-        print("service1 health:", wait_for_health(args.service_url.rstrip("/")))
         print("service2 health:", wait_for_health(service_url2.rstrip("/")))
 
-        run_env_steps(env, args.service_url, episode_id="local-test-F1", steps=args.steps)
-        run_env_steps(env, service_url2, episode_id="local-test-F2", steps=args.steps)
-        print("two-service integration test passed")
+        run_env_steps(env, service_url2, episode_id="local-test-F2b", steps=args.steps)
+        print("F2b service integration test passed")
     finally:
         env.close()
         if container_id is not None:

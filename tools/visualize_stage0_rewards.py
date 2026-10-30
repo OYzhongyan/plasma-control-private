@@ -13,10 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-DEFAULT_RUNS = {
-    "f1_stage0a_parallel_hold": Path("results/f1_stage0a_parallel_hold"),
-    "f1_stage0b_hold_perturb": Path("results/f1_stage0b_hold_perturb"),
-}
+DEFAULT_RUNS = {"f2b_direct": Path("results/f2b_direct")}
 
 
 def read_rows(path: Path, comment: str | None = None) -> list[dict[str, float]]:

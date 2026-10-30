@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 """Convenience wrapper for rolling out F2 SB3 policies from a train config."""
 
 from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -10,10 +8,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
-from training.references import normalize_task  # noqa: E402
-from training.train_ppo import _rooted_path, load_train_config  # noqa: E402
-from tools import rollout_stage0_policy  # noqa: E402
+from train.legacy_train_ppo import _rooted_path, load_train_config
+from tools import rollout_stage0_policy
 
 
 def _rooted(path: str | Path | None) -> Path | None:
@@ -38,7 +34,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--deterministic", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--deterministic", action=argparse.BooleanOptionalAction, default=True
+    )
     parser.add_argument("--policy-mode", choices=["model", "zero"], default="model")
     parser.add_argument("--perturb-mode", choices=["none", "config"], default="none")
     parser.add_argument("--reference-variant-index", type=int, default=None)
@@ -51,16 +49,15 @@ def parse_args() -> argparse.Namespace:
 
 def inferred_paths(train_config_path: Path) -> tuple[Path, Path, Path]:
     train_config = load_train_config(train_config_path)
-    task = normalize_task(train_config.get("task", "F2"))
-    if task != "F2":
-        raise ValueError(f"rollout_f2_policy expects an F2 train config, got {task}")
-    output_dir = _rooted_path(train_config.get("output_dir"), PROJECT_ROOT / "results/f2_policy")
+    output_dir = _rooted_path(
+        train_config.get("output_dir"), PROJECT_ROOT / "results/f2_policy"
+    )
     if output_dir is None:
         raise ValueError("could not infer output_dir from train config")
     model = output_dir / "ppo_f2_latest.zip"
     vecnormalize = output_dir / "vecnormalize.pkl"
     rollout_dir = output_dir / "rollout_analysis"
-    return model, vecnormalize, rollout_dir
+    return (model, vecnormalize, rollout_dir)
 
 
 def main() -> int:
@@ -69,17 +66,27 @@ def main() -> int:
     if train_config is None:
         raise ValueError("train-config path could not be resolved")
     model_default, vec_default, out_default = inferred_paths(train_config)
-
     model = _rooted(args.model) or model_default
     if args.vecnormalize is None:
         vecnormalize = vec_default
     else:
         vec_spec = str(args.vecnormalize).strip().lower()
-        vecnormalize = None if vec_spec in {"", "none", "null", "false"} else _rooted(args.vecnormalize)
+        vecnormalize = (
+            None
+            if vec_spec in {"", "none", "null", "false"}
+            else _rooted(args.vecnormalize)
+        )
     output_dir = _rooted(args.output_dir) or out_default
-    infer_result = _rooted(args.infer_result) if args.infer_result else output_dir / "infer_result.json"
-    score_output = _rooted(args.score_output) if args.score_output else output_dir / "score_summary.json"
-
+    infer_result = (
+        _rooted(args.infer_result)
+        if args.infer_result
+        else output_dir / "infer_result.json"
+    )
+    score_output = (
+        _rooted(args.score_output)
+        if args.score_output
+        else output_dir / "score_summary.json"
+    )
     forwarded = [
         "--train-config",
         str(train_config),
@@ -104,7 +111,7 @@ def main() -> int:
         forwarded.extend(["--vecnormalize", str(vecnormalize)])
     if args.shots:
         forwarded.append("--shots")
-        forwarded.extend(str(shot) for shot in args.shots)
+        forwarded.extend((str(shot) for shot in args.shots))
     if args.port is not None:
         forwarded.extend(["--port", str(args.port)])
     if args.max_steps is not None:
@@ -112,13 +119,14 @@ def main() -> int:
     if not args.deterministic:
         forwarded.append("--no-deterministic")
     if args.reference_variant_index is not None:
-        forwarded.extend(["--reference-variant-index", str(args.reference_variant_index)])
+        forwarded.extend(
+            ["--reference-variant-index", str(args.reference_variant_index)]
+        )
     forwarded.append("--score" if args.score else "--no-score")
     forwarded.extend(["--infer-result", str(infer_result)])
     forwarded.extend(["--score-output", str(score_output)])
     if args.validate_only:
         forwarded.append("--validate-only")
-
     sys.argv = ["rollout_stage0_policy.py", *forwarded]
     return int(rollout_stage0_policy.main())
 

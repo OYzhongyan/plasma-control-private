@@ -1,0 +1,6 @@
+shot_id: '15892_400'
+target_source: official_target
+target_json: evaluation/results/target.json
+target_lX: 1
+max_steps: 500
+reference_mode: trajectory

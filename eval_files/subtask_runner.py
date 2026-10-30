@@ -4,27 +4,21 @@
 """
 
 from __future__ import annotations
-
 import copy
 import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-
 import numpy as np
 import yaml
-
 import obs_perturb
 import submission_client
 import trajectory_utils
 
-# 子任务 ID 顺序（与复赛评估一致）
-TASK_IDS = ["F1", "F2a", "F2b"]
-
+TASK_IDS = ["F2b"]
 SCRIPT_DIR = Path(__file__).resolve().parent
 SAISDATA_ROOT = SCRIPT_DIR.parent
-
-from environment import HFMSimulator  # noqa: E402
+from environment import HFMSimulator
 
 
 def load_config(config_path: str) -> dict[str, Any]:
@@ -32,13 +26,15 @@ def load_config(config_path: str) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def load_task_specs(task_config_path: str) -> dict[str, Any]:
-    with open(task_config_path, encoding="utf-8") as f:
+def load_reference_spec(reference_config_path: str) -> dict[str, Any]:
+    with open(reference_config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
-    return cfg.get("tasks", {}), int(cfg.get("max_steps", 500))
+    return (cfg, int(cfg.get("max_steps", 500)))
 
 
-def _reset_reference_obs(env_base_config: dict[str, Any], shot_id: str) -> dict[str, Any]:
+def _reset_reference_obs(
+    env_base_config: dict[str, Any], shot_id: str
+) -> dict[str, Any]:
     """Reset a shot once to obtain its shape reference."""
     cfg = copy.deepcopy(env_base_config)
     cfg.setdefault("predictor", {})
@@ -61,21 +57,16 @@ def start_submission_service(
     构建并启动 submission 容器，等待健康检查通过。
     返回 container_id，失败则抛异常。
     """
-    parsed = urlparse(service_url)
-    host_port = parsed.port or 9000
-    parsed2 = urlparse(service_url2) if service_url2 else None
-    host_port2 = parsed2.port if parsed2 and parsed2.port is not None else host_port + 1
+    selected_url = service_url2 or service_url
+    host_port = urlparse(selected_url).port or 9000
     submission_client.build_submission_image(project_root, image_name)
-    container_id = submission_client.start_submission_container(image_name, host_port, host_port2)
-    submission_client.wait_for_health(service_url)
-    if service_url2 and service_url2 != service_url:
-        submission_client.wait_for_health(service_url2)
+    container_id = submission_client.start_submission_container(image_name, host_port)
+    submission_client.wait_for_health(selected_url)
     return container_id
 
 
-def run_single_task(
-    task_id: str,
-    task_spec: dict[str, Any],
+def run_rollout(
+    reference_spec: dict[str, Any],
     service_url: str,
     env_base_config: dict[str, Any],
     act_timeout_s: float,
@@ -86,33 +77,34 @@ def run_single_task(
     /reset 与第一步 /act 不设 HTTP 超时（初始化可能较久）；从第二步起每步 /act 使用 act_timeout_s。
     返回 { "trajectory": {...}, "f_surv": float, "timeout": bool }。
     """
-    print(f"[subtask] start {task_id}", flush=True)
-    task_config = copy.deepcopy(env_base_config)
-    task_config["max_steps"] = int(task_spec.get("max_steps", task_config.get("max_steps", 500)))
-    task_config.setdefault("predictor", {})
-    task_config["predictor"]["shot_id"] = task_spec["shot_id"]
-
-    warmup_env = HFMSimulator(task_config)
+    print("[subtask] start F2b", flush=True)
+    rollout_config = copy.deepcopy(env_base_config)
+    rollout_config["max_steps"] = int(
+        reference_spec.get("max_steps", rollout_config.get("max_steps", 500))
+    )
+    rollout_config.setdefault("predictor", {})
+    rollout_config["predictor"]["shot_id"] = reference_spec["shot_id"]
+    warmup_env = HFMSimulator(rollout_config)
     try:
         initial_obs, _ = warmup_env.reset(options={"reference_mode": "hold"})
     finally:
         warmup_env.close()
-    target_obs = trajectory_utils.build_official_target_observation(task_spec)
-    target_shot_id = task_spec.get("target_shot_id")
+    target_obs = trajectory_utils.build_official_target_observation(reference_spec)
+    target_shot_id = reference_spec.get("target_shot_id")
     if target_obs is None and target_shot_id:
-        target_obs = _reset_reference_obs(task_config, str(target_shot_id))
-    reference_trajectory = trajectory_utils.build_task_reference(
-        task_spec, initial_obs, task_config["max_steps"], target_obs=target_obs
+        target_obs = _reset_reference_obs(rollout_config, str(target_shot_id))
+    reference_trajectory = trajectory_utils.build_reference_trajectory(
+        reference_spec, initial_obs, rollout_config["max_steps"], target_obs=target_obs
     )
-
-    env = HFMSimulator(task_config)
+    env = HFMSimulator(rollout_config)
     options = {
-        "reference_mode": task_spec.get("reference_mode", "hold"),
-        "reference": reference_trajectory
-        if task_spec.get("reference_mode", "hold") == "trajectory"
-        else None,
+        "reference_mode": reference_spec.get("reference_mode", "hold"),
+        "reference": (
+            reference_trajectory
+            if reference_spec.get("reference_mode", "hold") == "trajectory"
+            else None
+        ),
     }
-
     obs_list: list[dict[str, Any]] = []
     steps_survived = 0
     timed_out = False
@@ -126,36 +118,29 @@ def run_single_task(
     record_max_flat = 128
     if record_scalars and obs_perturb_cfg:
         record_max_flat = int(obs_perturb_cfg.get("record_sent_max_flat", 128))
-
     try:
         reset_payload = submission_client.post_json(
             service_url,
             "/reset",
-            {
-                "episode_id": task_id,
-                "options": trajectory_utils.to_jsonable(options),
-            },
+            {"episode_id": "F2b", "options": trajectory_utils.to_jsonable(options)},
             timeout=None,
         )
         if not reset_payload.get("ok", False):
-            raise RuntimeError(f"submission reset failed for {task_id}: {reset_payload}")
-
+            raise RuntimeError(f"submission reset failed for F2b: {reset_payload}")
         obs, _ = env.reset(options=options)
-
         perturb_on = bool(obs_perturb_cfg and obs_perturb_cfg.get("enabled", False))
         delay_steps = 0
         if perturb_on:
             delay_steps = obs_perturb.delay_steps_from_config(obs_perturb_cfg)
             nb = obs_perturb_cfg.get("noise") or {}
-            if delay_steps <= 0 and not bool(nb.get("enabled", False)):
+            if delay_steps <= 0 and (not bool(nb.get("enabled", False))):
                 perturb_on = False
         obs_hist: list[dict[str, np.ndarray]] = []
         if perturb_on:
             obs_hist.append(obs_perturb.snapshot_obs_arrays(obs))
             seed = int(obs_perturb_cfg.get("seed", 0))
-            rng = obs_perturb.make_task_rng(seed, task_id, TASK_IDS)
-
-        for step_t in range(task_config["max_steps"]):
+            rng = obs_perturb.make_observation_rng(seed)
+        for step_t in range(rollout_config["max_steps"]):
             try:
                 if record_scalars:
                     true_scalars.append(
@@ -177,9 +162,7 @@ def run_single_task(
                     }
                 else:
                     policy_obs = None
-                    obs_payload = {
-                        k: np.asarray(v).tolist() for k, v in obs.items()
-                    }
+                    obs_payload = {k: np.asarray(v).tolist() for k, v in obs.items()}
                 if record_scalars:
                     src = policy_obs if policy_obs is not None else obs
                     sent_scalars.append(
@@ -208,7 +191,6 @@ def run_single_task(
             if not act_payload.get("ok", False):
                 timed_out = True
                 break
-
             action = np.asarray(act_payload["action"], dtype=np.float32)
             obs, _, terminated, truncated, _ = env.step(action)
             obs_list.append(dict(obs))
@@ -219,14 +201,10 @@ def run_single_task(
                 break
     finally:
         env.close()
-
-    f_surv = min(1.0, steps_survived / max(task_config["max_steps"], 1))
+    f_surv = min(1.0, steps_survived / max(rollout_config["max_steps"], 1))
     trajectory = trajectory_utils.extract_semifinal_trajectory_from_obs_list(
-        obs_list,
-        task_id=task_id,
-        target_obs=target_obs,
+        obs_list, target_obs=target_obs
     )
-
     out: dict[str, Any] = {
         "trajectory": trajectory_utils.to_jsonable(trajectory),
         "f_surv": float(f_surv),
@@ -238,7 +216,7 @@ def run_single_task(
         out["observation_true_record"] = true_record
         out["observation_sent_record"] = sent_record
     print(
-        f"[subtask] done {task_id}: f_surv={out['f_surv']:.3f}, timeout={out['timeout']}",
+        f"[subtask] done F2b: f_surv={out['f_surv']:.3f}, timeout={out['timeout']}",
         flush=True,
     )
     return out

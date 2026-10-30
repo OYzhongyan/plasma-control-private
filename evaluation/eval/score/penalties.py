@@ -1,9 +1,5 @@
-# Copyright @2025 ENN Energy(enn.cn)
-# 复赛位形惩罚、电流偏差熔断、线圈电流约束、X 点拓扑约束。
-
 import numpy as np
 from typing import Optional
-
 from . import config
 
 
@@ -19,22 +15,21 @@ def _pad_or_trim(arr: np.ndarray, N: int, fill: float = 0.0) -> np.ndarray:
     return out
 
 
-def compute_eta(lX: np.ndarray, task_id: str, N: int, K_eff: int) -> np.ndarray:
+def compute_eta(lX: np.ndarray, N: int, K_eff: int) -> np.ndarray:
     """位形类型惩罚系数。
 
-    F1 (限制器目标)：lX==0 → 1，否则 0.5
-    F2a/F2b (XPT 属于偏滤器目标)：lX==1 → 1，否则 0.5
+    F2b (XPT 属于偏滤器目标)：lX==1 → 1，否则 0.5
     超出有效步数 (k >= K_eff) 部分不影响（任意值，因 sigma 已置 0），统一填 1。
     """
     eta = np.ones(N, dtype=np.float64)
-    target_topo = config.TASK_TARGET_TOPOLOGY.get(task_id, "limiter")
+    target_topo = config.TASK_TARGET_TOPOLOGY.get("F2b", "limiter")
     lX = _pad_or_trim(lX, N, fill=0.0)
     if K_eff <= 0:
         return eta
     valid = slice(0, K_eff)
     if target_topo == "limiter":
         good = lX[valid] == 0
-    else:  # divertor (含 XPT)
+    else:
         good = lX[valid] == 1
     eta_valid = np.where(good, 1.0, 0.5)
     eta[valid] = eta_valid
@@ -42,10 +37,7 @@ def compute_eta(lX: np.ndarray, task_id: str, N: int, K_eff: int) -> np.ndarray:
 
 
 def compute_mu(
-    Ip_actual: np.ndarray,
-    Ip_ref: np.ndarray,
-    N: int,
-    K_eff: int,
+    Ip_actual: np.ndarray, Ip_ref: np.ndarray, N: int, K_eff: int
 ) -> np.ndarray:
     """电流偏差熔断系数。|ΔIp|<=50kA 时 1，否则 0。
 
@@ -77,17 +69,17 @@ def compute_rho(Icoil: np.ndarray, N: int) -> np.ndarray:
         return rho
     coil_count = Ic.shape[1]
     limits = config.COIL_LIMITS_A[:coil_count]
-    over = np.abs(Ic[:M]) > limits[None, :]  # (M, n_coil)
-    any_over_step = np.any(over, axis=1)     # (M,)
+    over = np.abs(Ic[:M]) > limits[None, :]
+    any_over_step = np.any(over, axis=1)
     if not np.any(any_over_step):
         return rho
-    K_coil = int(np.argmax(any_over_step))  # 首个 True 的索引
+    K_coil = int(np.argmax(any_over_step))
     rho[K_coil:] = 0.0
     return rho
 
 
 def compute_topo_zero_mask(nX: np.ndarray, N: int, K_eff: int) -> np.ndarray:
-    """XPT 拓扑约束掩码：nX==4 时 1，否则 0。仅对 F2a/F2b 的 XPT 专属指标生效。
+    """XPT 拓扑约束掩码：nX==4 时 1，否则 0。仅对 F2b 的 XPT 专属指标生效。
 
     超出有效步数 (k >= K_eff) 部分填 0。
     """
@@ -95,7 +87,9 @@ def compute_topo_zero_mask(nX: np.ndarray, N: int, K_eff: int) -> np.ndarray:
     if K_eff <= 0:
         return mask
     nX_arr = _pad_or_trim(nX, N, fill=0.0)
-    mask[:K_eff] = (np.round(nX_arr[:K_eff]).astype(int) == config.XPT_REQUIRED_NX).astype(np.float64)
+    mask[:K_eff] = (
+        np.round(nX_arr[:K_eff]).astype(int) == config.XPT_REQUIRED_NX
+    ).astype(np.float64)
     return mask
 
 
