@@ -36,16 +36,16 @@ def _to_serializable(value: Any) -> Any:
 
 
 def _coerce_observation(obs: dict[str, Any]) -> dict[str, Any]:
-    return {key: np.asarray(value, dtype=np.float32) for key, value in obs.items()}
+    return {key: np.asarray(value, dtype=np.float64) for key, value in obs.items()}
 
 
-def create_app() -> Flask:
+def create_app(model_dir: str | Path | None = None) -> Flask:
     app = Flask(__name__)
-    policy = Policy()
+    policy = Policy(model_dir=model_dir or os.environ.get("SUBMISSION_MODEL_DIR"))
 
     @app.get("/health")
     def health() -> Any:
-        return jsonify({"ok": True})
+        return jsonify(policy.status()), 200 if policy.ready else 503
 
     @app.post("/reset")
     def reset() -> Any:
@@ -77,9 +77,15 @@ def create_app() -> Flask:
             observation = _coerce_observation(payload["observation"])
             action = np.asarray(policy.act(observation), dtype=np.float32).reshape(-1)
             if action.size != 12:
-                return jsonify(
-                    {"ok": False, "error": f"Policy must return 12D action, got size {action.size}"}
-                ), 400
+                return (
+                    jsonify(
+                        {
+                            "ok": False,
+                            "error": f"Policy must return 12D action, got size {action.size}",
+                        }
+                    ),
+                    400,
+                )
             return jsonify({"ok": True, "action": action.tolist()})
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500

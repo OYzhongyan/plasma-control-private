@@ -361,8 +361,8 @@ def load_vecnormalize_stats(
             with np.load(candidate) as data:
                 if "obs_mean" not in data or "obs_var" not in data:
                     continue
-                mean = np.asarray(data["obs_mean"], dtype=np.float32).reshape(-1)
-                var = np.asarray(data["obs_var"], dtype=np.float32).reshape(-1)
+                mean = np.asarray(data["obs_mean"], dtype=np.float64).reshape(-1)
+                var = np.asarray(data["obs_var"], dtype=np.float64).reshape(-1)
                 if mean.size != obs_dim or var.size != obs_dim:
                     continue
                 clip_obs = (
@@ -397,8 +397,8 @@ def apply_obs_normalization(
     obs = np.asarray(obs, dtype=np.float32).reshape(-1)
     if stats is None:
         return obs
-    mean = np.asarray(stats["mean"], dtype=np.float32).reshape(-1)
-    var = np.asarray(stats["var"], dtype=np.float32).reshape(-1)
+    mean = np.asarray(stats["mean"], dtype=np.float64).reshape(-1)
+    var = np.asarray(stats["var"], dtype=np.float64).reshape(-1)
     if mean.size != obs.size or var.size != obs.size:
         return obs
     epsilon = float(stats.get("epsilon", 1e-08))
@@ -408,7 +408,7 @@ def apply_obs_normalization(
 
 
 class BaseOnnxPolicy:
-    """ONNX-backed policy with zero-action fallback."""
+    """ONNX-backed policy; invalid artifacts are reported instead of zero actions."""
 
     def __init__(self, *, model_dir: str | Path, preferred_name: str):
         self.model_dir = Path(model_dir)
@@ -416,6 +416,8 @@ class BaseOnnxPolicy:
         self.session = None
         self.input_name = None
         self.output_name = None
+        self.load_error: str | None = None
+        self.history_adapter = None
         self.metadata = default_metadata()
         self.obs_normalization: dict[str, Any] | None = None
         self._last_observation: dict[str, Any] | None = None
@@ -437,24 +439,66 @@ class BaseOnnxPolicy:
 
     def _try_load_model(self) -> None:
         model_path = self._resolve_model_path()
+        if model_path is None:
+            self.load_error = f"No ONNX model found in {self.model_dir}"
+            return
         self.metadata = load_metadata(model_path)
         self.obs_normalization = load_vecnormalize_stats(
             model_path, int(self.metadata.get("obs_dim", 0))
         )
-        if model_path is None:
-            return
         try:
             import onnxruntime as ort
+
+            if self.metadata.get("feature_mode") == "historical_observation_v1":
+                from submission.history import HistoricalPolicyAdapter
+
+                self.history_adapter = HistoricalPolicyAdapter(self.metadata)
+            if self.metadata.get("observation_normalization") is False:
+                self.obs_normalization = None
+            if (
+                self.metadata.get("requires_vecnormalize")
+                and self.obs_normalization is None
+            ):
+                raise ValueError(
+                    "Matching VecNormalize observation statistics are required"
+                )
 
             self.session = ort.InferenceSession(
                 str(model_path), providers=["CPUExecutionProvider"]
             )
             self.input_name = self.session.get_inputs()[0].name
             self.output_name = self.session.get_outputs()[0].name
-        except Exception:
+            input_dim = self.session.get_inputs()[0].shape[-1]
+            if isinstance(input_dim, int) and input_dim != int(
+                self.metadata["obs_dim"]
+            ):
+                raise ValueError(
+                    f"ONNX input has {input_dim} features but metadata defines {self.metadata['obs_dim']}"
+                )
+            output_dim = self.session.get_outputs()[0].shape[-1]
+            if isinstance(output_dim, int) and output_dim != int(
+                self.metadata["action_dim"]
+            ):
+                raise ValueError("ONNX output dimension does not match metadata")
+        except Exception as exc:
+            self.load_error = str(exc)
             self.session = None
             self.input_name = None
             self.output_name = None
+
+    @property
+    def ready(self) -> bool:
+        return self.session is not None and self.load_error is None
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "ok": self.ready,
+            "model_loaded": self.ready,
+            "feature_mode": self.metadata.get("feature_mode"),
+            "obs_dim": self.metadata.get("obs_dim"),
+            "normalization_loaded": self.obs_normalization is not None,
+            "error": self.load_error,
+        }
 
     def _reset_history(self) -> None:
         steps = max(0, int(self.metadata.get("history_steps", 0)))
@@ -570,19 +614,28 @@ class BaseOnnxPolicy:
 
     def reset(self) -> None:
         self._reset_history()
+        if self.history_adapter is not None:
+            self.history_adapter.reset()
         return None
 
     def act(self, observation: dict[str, Any]) -> np.ndarray:
-        if self.session is None or self.input_name is None:
-            return np.zeros(ACTION_DIM, dtype=np.float32)
+        if not self.ready:
+            raise RuntimeError(self.load_error or "ONNX model is not ready")
+        if self.history_adapter is not None:
+            features = self.history_adapter.encode(observation)
+            obs = apply_obs_normalization(features, self.obs_normalization).reshape(
+                1, -1
+            )
+            action = self.session.run([self.output_name], {self.input_name: obs})[0]
+            return self.history_adapter.decode(action)
         observation = self._sanitize_reference_rz(observation)
         self._update_physical_history(observation)
         obs = flatten_observation(observation, self.metadata, self._history)
         obs = apply_obs_normalization(obs, self.obs_normalization).reshape(1, -1)
         try:
             action = self.session.run([self.output_name], {self.input_name: obs})[0]
-        except Exception:
-            return np.zeros(ACTION_DIM, dtype=np.float32)
+        except Exception as exc:
+            raise RuntimeError(f"ONNX inference failed: {exc}") from exc
         action = np.asarray(action, dtype=np.float32).reshape(-1)
         action = np.nan_to_num(action, nan=0.0, posinf=0.0, neginf=0.0)
         action12, action7 = self._action7_from_output(action)

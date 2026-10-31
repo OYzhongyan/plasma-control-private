@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import pickle
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ from train.references import build_reference, default_reference_path
 from train.rewards import SemifinalDenseReward
 from train.wrappers import *
 from train.utils import warmup_cosine_schedule
+from submission.history import history_metadata
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -421,6 +423,18 @@ def run_training(cfg: DictConfig) -> int:
     save_dir.mkdir(parents=True, exist_ok=True)
     with open(save_dir / "configs.pkl", "wb") as f:
         pickle.dump(cfg, f)
+    (save_dir / "f2_features.metadata.json").write_text(
+        json.dumps(
+            history_metadata(
+                history_steps=int(cfg.features.history_steps),
+                action_mode=str(cfg.actions.mode),
+                norm_obs=bool(cfg.vecnormalize.enabled and cfg.vecnormalize.norm_obs),
+            ),
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     env_fns = [
         make_env(
             base_config,

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 import argparse
+import json
 import pickle
 import shutil
 import sys
-from dataclasses import replace
 from pathlib import Path
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from train.features import FeatureMetadata
+from submission.history import HISTORY_FEATURE_MODE, history_metadata
 
 
 class OnnxablePolicy(torch.nn.Module):
@@ -120,7 +121,71 @@ def export_vecnormalize_stats(
     return None
 
 
-def export_onnx(model_path: Path, out_path: Path, metadata: FeatureMetadata) -> None:
+def load_export_metadata(
+    model_path: Path,
+    metadata_path: Path | None = None,
+    config_path: Path | None = None,
+) -> dict:
+    """Recover the preprocessing contract saved alongside a model/checkpoint."""
+    if metadata_path is not None:
+        return json.loads(metadata_path.read_text(encoding="utf-8"))
+    directories = [model_path.parent, model_path.parent.parent]
+    if config_path is None:
+        for directory in directories:
+            candidate = directory / "f2_features.metadata.json"
+            if candidate.is_file():
+                return json.loads(candidate.read_text(encoding="utf-8"))
+        config_path = next(
+            (
+                directory / "configs.pkl"
+                for directory in directories
+                if (directory / "configs.pkl").is_file()
+            ),
+            None,
+        )
+    if config_path is None:
+        return FeatureMetadata.create().to_dict()
+    if config_path.suffix == ".pkl":
+        with config_path.open("rb") as stream:
+            config = pickle.load(stream)
+    else:
+        import yaml
+
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    # Old JSON-trainer snapshots already contain their complete metadata.
+    saved_metadata = config.get("metadata")
+    if saved_metadata is not None:
+        return (
+            saved_metadata.to_dict()
+            if hasattr(saved_metadata, "to_dict")
+            else dict(saved_metadata)
+        )
+    features = config.get("features", {})
+    actions = config.get("actions", {})
+    normalization = config.get("vecnormalize", {})
+    if "mode" not in features:
+        return history_metadata(
+            history_steps=int(features.get("history_steps", 4)),
+            action_mode=str(actions.get("mode", "absolute")),
+            norm_obs=bool(
+                normalization.get("enabled", True)
+                and normalization.get("norm_obs", True)
+            ),
+        )
+    return FeatureMetadata.create(
+        mode=str(features["mode"]),
+        history_steps=int(features.get("history_steps", 0)),
+        action_units=(
+            "normalized"
+            if actions.get("mode") == "normalized_7d"
+            else "physical_voltage"
+        ),
+    ).to_dict()
+
+
+def export_onnx(
+    model_path: Path, out_path: Path, metadata: FeatureMetadata | dict
+) -> None:
     try:
         from stable_baselines3 import PPO
     except ImportError as exc:
@@ -135,8 +200,20 @@ def export_onnx(model_path: Path, out_path: Path, metadata: FeatureMetadata) -> 
     action_dim = (
         int(action_shape[0]) if action_shape is not None and len(action_shape) else 7
     )
-    action_mode = "7D" if action_dim == 7 else "12D"
-    metadata = replace(metadata, action_dim=action_dim, action_mode=action_mode)
+    metadata = (
+        metadata.to_dict() if isinstance(metadata, FeatureMetadata) else dict(metadata)
+    )
+    if len(obs_shape) != 1 or int(metadata["obs_dim"]) != int(obs_shape[0]):
+        raise ValueError(
+            f"Model input {obs_shape} does not match metadata obs_dim={metadata.get('obs_dim')}. "
+            "Provide the model's training configs.pkl with --config or matching --metadata."
+        )
+    if metadata.get("feature_mode") == HISTORY_FEATURE_MODE:
+        if action_dim != 7:
+            raise ValueError("The historical action wrapper requires a 7D actor")
+    else:
+        metadata["action_mode"] = "7D" if action_dim == 7 else "12D"
+    metadata["action_dim"] = action_dim
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sample_obs = torch.zeros((1, *obs_shape), dtype=torch.float32, device="cpu")
     module = OnnxablePolicy(model.policy).to("cpu")
@@ -152,7 +229,9 @@ def export_onnx(model_path: Path, out_path: Path, metadata: FeatureMetadata) -> 
             opset_version=17,
             dynamo=False,
         )
-    metadata.save(metadata_path_for_onnx(out_path))
+    metadata_path_for_onnx(out_path).write_text(
+        json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"exported: {out_path}")
     print(f"metadata: {metadata_path_for_onnx(out_path)}")
 
@@ -165,7 +244,13 @@ def main(argv: list[str] | None = None) -> int:
         "--metadata",
         type=Path,
         default=None,
-        help="Optional metadata JSON from training; defaults to F2b feature metadata.",
+        help="Optional matching metadata JSON; otherwise detected from the training directory.",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Training configs.pkl or YAML, needed if the model was moved away from its run directory.",
     )
     parser.add_argument(
         "--vecnormalize",
@@ -175,13 +260,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     out_path = args.out or default_out_path()
-    metadata = (
-        FeatureMetadata.load(args.metadata)
-        if args.metadata
-        else FeatureMetadata.create()
-    )
+    metadata = load_export_metadata(args.model, args.metadata, args.config)
     export_onnx(args.model, out_path, metadata)
-    export_vecnormalize_stats(args.model, out_path, args.vecnormalize)
+    stats = export_vecnormalize_stats(args.model, out_path, args.vecnormalize)
+    if metadata.get("requires_vecnormalize"):
+        if stats is None:
+            raise ValueError("This model requires VecNormalize observation statistics")
+        with np.load(stats) as data:
+            if any(
+                np.asarray(data[key]).size != int(metadata["obs_dim"])
+                for key in ("obs_mean", "obs_var")
+            ):
+                raise ValueError(
+                    "VecNormalize statistics do not match the exported observation layout"
+                )
     return 0
 
 

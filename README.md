@@ -1,4 +1,4 @@
-## 训练模型
+## 1.训练模型
 
 ```bash
 python train/train_ppo.py \
@@ -9,7 +9,7 @@ python train/train_ppo.py \
   actions.mode=delta
 ```
 
-## 验证模型
+## 2.验证模型
 
 将 `YOUR_RUN` 替换为训练生成的 `results/` 下的运行目录名。
 
@@ -24,7 +24,7 @@ python train/evaluate.py \
 
 验证指定 checkpoint 时，在上述命令后添加 `eval.cp_num=CHECKPOINT_STEPS`。
 
-## 可视化结果
+## 3.可视化结果
 
 验证完成后执行：
 
@@ -32,11 +32,10 @@ python train/evaluate.py \
 python rollout/visualize_rollout.py --run_name YOUR_RUN
 ```
 
-## submission：模型导出与推理服务
+## 4.submission
+submission 用于把训练好的模型部署成推理服务，供仿真环境或评测平台调用。`submission` 使用 ONNX 模型，不能直接加载 PPO 的 `.zip` 文件。以下命令在项目根目录执行。
 
-以下命令在项目根目录执行。`submission` 使用 ONNX 模型，不能直接加载 PPO 的 `.zip` 文件。
-
-### 导出模型
+### 3.1.导出模型
 
 ```bash
 python train/export_onnx.py \
@@ -45,7 +44,7 @@ python train/export_onnx.py \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
-如果有与模型匹配的特征 metadata，导出时追加 `--metadata /path/to/features.metadata.json`。导出产物为：
+导出产物为：
 
 ```text
 submission/model/
@@ -54,9 +53,9 @@ submission/model/
 └── policy2_vecnormalize_stats.npz
 ```
 
-**当前限制：**`train/train_ppo.py` 使用历史观测特征，而现有导出工具默认 metadata 和 `submission` 预处理使用旧版特征接口。导出成功不代表能够直接部署当前训练模型，仍需核对输入特征、归一化和动作解释；不要用默认 metadata 替代匹配的 metadata。
+### 3.2.启动服务
 
-### 启动服务
+启动模型推理 HTTP 服务，供评测程序或外部平台调用训练好的模型。
 
 ```bash
 pip install -r submission/requirements.txt
@@ -72,9 +71,9 @@ curl -X POST http://127.0.0.1:8001/reset \
   -d '{"episode_id":"F2b"}'
 ```
 
-`POST /act` 接收 `{"observation": {...}}`，返回 12 维动作。模型缺失或推理异常时，当前服务可能返回零动作，因此 `/health` 成功不能证明训练模型已正确运行。
+每个 episode 先调用 `/reset`，再通过 `POST /act` 发送 `{"observation": {...}}`，返回 12 维物理电压。`/health` 会报告模型输入维度和归一化加载情况；模型或必要统计文件缺失、维度不匹配时返回 HTTP 503，推理异常返回 HTTP 500，不再静默返回零动作。可用环境变量 `SUBMISSION_MODEL_DIR` 指定模型目录。
 
-### 本地联调与镜像
+### 3.3.本地联调与镜像
 
 先启动 HFM socket 服务，并准备官方目标文件 `evaluation/results/target.json`，再执行：
 
@@ -92,18 +91,8 @@ python eval_files/run_test.py --no-build \
   --output results/submission_infer_result.json
 ```
 
-在 Linux / WSL 中构建镜像并单独启动推理服务：
 
-```bash
-tar -cf - --exclude='__pycache__' submission eval_files evaluation/eval/score \
-  | docker build -f submission/Dockerfile -t plasma-f2b:local -
-docker run --rm -p 8001:8001 --entrypoint python3 \
-  plasma-f2b:local /app/submission/service2.py
-```
-
-镜像内的完整入口是 `/app/run.sh`，需要赛事环境的 `/saisdata/40` 数据挂载及 MATLAB Runtime。上面的命令只启动推理服务，不启动仿真器。正式上传镜像需要另行指定目标平台的镜像仓库和凭据。
-
-## platformtohf：远程边界设计评测
+## 4.platformtohf评测
 
 该工具提交边界系数 JSONL，不接收 F2b 的 PPO / ONNX 模型，也不接收 rollout 结果。实际脚本位于两层同名目录中；以下命令在 Linux / WSL 的 Bash 中执行：
 
