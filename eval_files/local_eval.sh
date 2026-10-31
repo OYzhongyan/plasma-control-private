@@ -14,5 +14,5 @@ python eval_files/run_test.py --no-build \
   --output infer_result.json \
   --reference-config eval_files/references.yaml \
   --obs-perturb eval_files/obs_perturb.yaml \
-  --target-json evaluation/results/target.json
+  --target-json plasma-control/evaluation/result/target.json
 python evaluation/eval/evaluate.py evaluation/results/target.json infer_result.json
