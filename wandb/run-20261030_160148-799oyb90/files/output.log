@@ -1,0 +1,69 @@
+WandB run initialized: f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
+TensorBoard logs will be synced to wandb from: runs/799oyb90
+env observation_space: (812,), action_space: (7,) (history_steps=4, include_xpt=True, action_mode=delta)
+VecNormalize: norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0
+training F2: reference_mode=trajectory, max_steps=500, assignments=[env0:15892_400@2223, env1:15892_500@2224, env2:15892_400@2225, env3:15892_500@2226, env4:15892_400@2227, env5:15892_500@2228, env6:15892_400@2229, env7:15892_500@2230, env8:15892_400@2231, env9:15892_500@2232, env10:15892_400@2233, env11:15892_500@2234, env12:15892_400@2235, env13:15892_500@2236, env14:15892_400@2237, env15:15892_500@2238, env16:15892_400@2239, env17:15892_500@2240, env18:15892_400@2241, env19:15892_500@2242, env20:15892_400@2243, env21:15892_500@2244, env22:15892_400@2245, env23:15892_500@2246, env24:15892_400@2247, env25:15892_500@2248, env26:15892_400@2249, env27:15892_500@2250, env28:15892_400@2251, env29:15892_500@2252, env30:15892_400@2253, env31:15892_500@2254]
+Using warmup + cosine annealing: initial_lr=0.0001, warmup_updates=10, timesteps_per_update=8192
+Using cpu device
+Error executing job with overrides: ['output_dir=f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action', 'reset_perturbation.fix_reset_params=true', 'num_envs=32', 'features.delay_step=1', 'actions.mode=delta']
+Traceback (most recent call last):
+  File "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/train/train_ppo.py", line 547, in run_training
+    model.learn(
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/ppo/ppo.py", line 311, in learn
+    return super().learn(
+           ^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/on_policy_algorithm.py", line 311, in learn
+    total_timesteps, callback = self._setup_learn(
+                                ^^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/base_class.py", line 423, in _setup_learn
+    self._last_obs = self.env.reset()  # type: ignore[assignment]
+                     ^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/vec_normalize.py", line 297, in reset
+    obs = self.venv.reset()
+          ^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/vec_monitor.py", line 69, in reset
+    obs = self.venv.reset()
+          ^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/subproc_vec_env.py", line 145, in reset
+    results = [remote.recv() for remote in self.remotes]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/subproc_vec_env.py", line 145, in <listcomp>
+    results = [remote.recv() for remote in self.remotes]
+               ^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/multiprocessing/connection.py", line 250, in recv
+    buf = self._recv_bytes()
+          ^^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
+    buf = self._recv(4)
+          ^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/multiprocessing/connection.py", line 395, in _recv
+    chunk = read(handle, remaining)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/train/train_ppo.py", line 580, in main
+    return run_training(cfg)
+           ^^^^^^^^^^^^^^^^^
+  File "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/train/train_ppo.py", line 565, in run_training
+    vec_env.close()
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/base_vec_env.py", line 402, in close
+    return self.venv.close()
+           ^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/vec_monitor.py", line 99, in close
+    return self.venv.close()
+           ^^^^^^^^^^^^^^^^^
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/site-packages/stable_baselines3/common/vec_env/subproc_vec_env.py", line 159, in close
+    remote.send(("close", None))
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/multiprocessing/connection.py", line 206, in send
+    self._send_bytes(_ForkingPickler.dumps(obj))
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/multiprocessing/connection.py", line 427, in _send_bytes
+    self._send(header + buf)
+  File "/root/miniforge3/envs/competition_env/lib/python3.11/multiprocessing/connection.py", line 384, in _send
+    n = write(self._handle, buf)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

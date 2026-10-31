@@ -50,7 +50,7 @@ reset_perturbation:
   - 0.95
   - 1.05
 ppo:
-  total_timesteps: 32768000
+  total_timesteps: 256
   policy: MlpPolicy
   learning_rate: 0.0001
   n_steps: 256
