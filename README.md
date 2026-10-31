@@ -44,6 +44,11 @@ python train/export_onnx.py \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
+python train/export_onnx.py \
+  --model results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip \
+  --out submission/model/policy2.onnx \
+  --vecnormalize results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
+
 导出产物为：
 
 ```text
@@ -90,9 +95,19 @@ python eval_files/run_test.py --no-build \
   --target-json evaluation/results/target.json \
   --output results/submission_infer_result.json
 ```
+如果报错`ModuleNotFoundError: No module named 'environment'`使用：
+```
+PYTHONPATH="$PWD:$PWD/evaluation/eval:${PYTHONPATH:-}" \
+SAISDATA_SHOTS_CONFIG="$PWD/configs/shots.yaml" \
+python eval_files/run_test.py --no-build \
+  --service-url http://127.0.0.1:8001 \
+  --reference-config eval_files/references.yaml \
+  --target-json evaluation/results/target.json \
+  --output results/submission_infer_result.json
+```
 
 
-## 4.platformtohf评测
+## 5.platformtohf评测
 
 该工具提交边界系数 JSONL，不接收 F2b 的 PPO / ONNX 模型，也不接收 rollout 结果。实际脚本位于两层同名目录中；以下命令在 Linux / WSL 的 Bash 中执行：
 
