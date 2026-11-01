@@ -22,6 +22,16 @@ python train/evaluate.py \
   actions.mode=delta
 ```
 
+例如
+```
+python train/evaluate.py \
+  eval.model_path=results/20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action \
+  target.default_reference_path=configs/xpt_reference_targets.json \
+  'eval.shots="14795_400"' \
+  eval.obs_perturb.enabled=true \
+  actions.mode=delta
+```
+
 验证指定 checkpoint 时，在上述命令后添加 `eval.cp_num=CHECKPOINT_STEPS`。
 
 ## 3.可视化结果
@@ -32,10 +42,15 @@ python train/evaluate.py \
 python rollout/visualize_rollout.py --run_name YOUR_RUN
 ```
 
+例如
+```
+python rollout/visualize_rollout.py --run_name 20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
+```
+
 ## 4.submission
 submission 用于把训练好的模型部署成推理服务，供仿真环境或评测平台调用。`submission` 使用 ONNX 模型，不能直接加载 PPO 的 `.zip` 文件。以下命令在项目根目录执行。
 
-### 3.1.导出模型
+### 4.1.导出模型
 
 ```bash
 python train/export_onnx.py \
@@ -44,10 +59,13 @@ python train/export_onnx.py \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
+例如
+```
 python train/export_onnx.py \
-  --model results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip \
+  --model results/20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip \
   --out submission/model/policy2.onnx \
-  --vecnormalize results/20261030_164400_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
+  --vecnormalize results/20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
+```
 
 导出产物为：
 
@@ -58,7 +76,7 @@ submission/model/
 └── policy2_vecnormalize_stats.npz
 ```
 
-### 3.2.启动服务
+### 4.2.启动服务
 
 启动模型推理 HTTP 服务，供评测程序或外部平台调用训练好的模型。
 
@@ -78,7 +96,7 @@ curl -X POST http://127.0.0.1:8001/reset \
 
 每个 episode 先调用 `/reset`，再通过 `POST /act` 发送 `{"observation": {...}}`，返回 12 维物理电压。`/health` 会报告模型输入维度和归一化加载情况；模型或必要统计文件缺失、维度不匹配时返回 HTTP 503，推理异常返回 HTTP 500，不再静默返回零动作。可用环境变量 `SUBMISSION_MODEL_DIR` 指定模型目录。
 
-### 3.3.本地联调与镜像
+### 4.3.本地联调与镜像
 
 先启动 HFM socket 服务，并准备官方目标文件 `evaluation/results/target.json`，再执行：
 
