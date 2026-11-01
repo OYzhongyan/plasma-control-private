@@ -113,17 +113,9 @@ LISTEN_PORT=5558 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
 bash eval_files/local_eval.sh
 ```
 
-该脚本启动端口 `10001` 的推理服务并执行 F2b rollout 和评分。使用已有服务时：
+该脚本启动端口 `10001` 的推理服务并执行 F2b rollout 和评分。使用已有服务时，在项目根目录执行以下命令；`PYTHONPATH` 用于确保 Python 能导入项目中的 `environment` 等模块：
 
 ```bash
-python eval_files/run_test.py --no-build \
-  --service-url http://127.0.0.1:8001 \
-  --reference-config eval_files/references.yaml \
-  --target-json evaluation/results/target.json \
-  --output results/submission_infer_result.json
-```
-如果报错`ModuleNotFoundError: No module named 'environment'`使用：
-```
 PYTHONPATH="$PWD:$PWD/evaluation/eval:${PYTHONPATH:-}" \
 SAISDATA_SHOTS_CONFIG="$PWD/configs/shots.yaml" \
 python eval_files/run_test.py --no-build \
