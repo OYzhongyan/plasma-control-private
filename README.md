@@ -139,7 +139,45 @@ TAG=my-run bash submit.sh /path/to/submission.jsonl
 
 JSONL 每行是一个 JSON 对象，包含 `tag`、`nfp`、`boundary.r_cos` 和 `boundary.z_sin`；两个系数矩阵的样例形状均为 `5 × 9`，完整样例见同目录的 `submission.jsonl`。
 
-默认服务地址为 `https://sii-lwy-sii-ste-eva.hf.space`，脚本向其 `/evaluate` 发送请求。指定服务地址和访问 token：
+### 5.1.配置 Hugging Face
+
+以下配置均可通过 Bash 环境变量覆盖，无需把自己的 token 写进脚本：
+
+`submit.sh` 中的配置应保持为以下 Bash 语法；地址使用纯 URL，不要粘贴 `[https://...](https://...)` 这样的 Markdown 链接。每个赋值单独占一行，`SCRIPT_DIR` 和 `JSONL_PATH` 之间不要添加续行反斜杠：
+
+```bash
+HF_SPACE_URL="${HF_SPACE_URL:-https://sii-lwy-sii-ste-eva.hf.space}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+JSONL_PATH="${1:-$SCRIPT_DIR/submission.jsonl}"
+HF_TOKEN="${HF_TOKEN:-}"
+TAG="${TAG:-}"
+```
+
+上面是推荐的脚本配置写法，token 默认留空。仓库现有脚本含预填 token，若采用此写法，请同步替换脚本中的 `HF_TOKEN` 配置行。`${HF_SPACE_URL:-默认地址}` 表示：环境变量非空时使用环境变量，否则使用默认地址；`${HF_TOKEN:-}` 和 `${TAG:-}` 表示未配置时为空。`SCRIPT_DIR` 自动定位脚本目录，通常无需修改。
+
+| 配置项 | 如何填写 |
+| --- | --- |
+| `HF_SPACE_URL` | 评测服务的根地址，默认是 `https://sii-lwy-sii-ste-eva.hf.space`，不要添加 `/evaluate` 或使用 Markdown 链接格式。脚本会自动追加 `/evaluate`。 |
+| `HF_TOKEN` | 有权限访问目标 Space 的 Hugging Face User Access Token。脚本会将其放入 `Authorization: Bearer ...` 请求头。 |
+| `TAG` | 本次提交的标签，例如 `team-a-run-01`；优先于 JSONL 内的 `tag`，不会修改原文件，也不会自动创建排行榜。 |
+| 第一个命令行参数 | JSONL 文件路径；省略时使用脚本目录中的 `submission.jsonl`。`/path/to/submission.jsonl` 是占位符，需要替换。 |
+
+1. **确认评测服务地址。** 使用现有服务时，向维护者确认 Space 地址及访问权限。Space 页面地址（例如 `https://huggingface.co/spaces/SII-LWY/sii-ste-eva`）不是 API 根地址；应使用运行应用的 `https://...hf.space` 地址。地址从 Space 的应用链接或嵌入信息中获取。
+2. **创建访问 token。** 登录 Hugging Face，打开 [Settings → Access Tokens](https://huggingface.co/settings/tokens)，创建自己的 token。私有 Space 需要账号本身已有访问权限；token 无法赋予账号原本没有的权限。可使用仅允许读取目标 Space 的细粒度 token；按服务端要求配置额外的应用认证。无需为了调用评测接口授予仓库写权限。参见 [官方 Token 文档](https://huggingface.co/docs/hub/security-tokens)。
+3. **如果使用自己的 Space。** 先在 Space 中部署能接收 `{"points": [...], "tag": "..."}` 的 `POST /evaluate` 评分服务，再填写其应用地址。仅创建空 Space 或修改地址不会自动部署评测程序、保存成绩或生成排行榜。参见 [官方 Spaces 文档](https://huggingface.co/docs/hub/spaces-overview)。
+
+在 `platformtohf-main/platformtohf-main` 目录中执行，交互输入 token（输入不会显示）：
+
+```bash
+export HF_SPACE_URL="https://sii-lwy-sii-ste-eva.hf.space"
+read -rsp 'Hugging Face token: ' HF_TOKEN
+echo
+export HF_TOKEN
+TAG=team-a-run-01 bash submit.sh ./submission.jsonl
+unset HF_TOKEN
+```
+
+`HF_SPACE_URL` 可换成已部署相同接口的自有 Space。也可以为单次命令指定变量（以下均为占位值）：
 
 ```bash
 HF_SPACE_URL=https://YOUR-SPACE.hf.space \
@@ -148,4 +186,6 @@ TAG=my-run \
 bash submit.sh /path/to/submission.jsonl
 ```
 
-依赖 `bash`、`python3` 和 `curl`。脚本中存在预填 token，使用时请用自己的 `HF_TOKEN` 覆盖，不要将 token 写进提交文件或日志。远程返回成功的评分 JSON 才算提交完成；当前本机核验的请求尚未获得评分响应，出现超时。
+依赖 `bash`、`python3` 和 `curl`。脚本中存在预填 token，使用时请用自己的 `HF_TOKEN` 覆盖，不要将 token 写进提交文件或日志。公开服务若不需要认证，应先将脚本的 token 配置改为 `HF_TOKEN="${HF_TOKEN:-}"`，再不设置 `HF_TOKEN`；当前含预填值的 `${HF_TOKEN:-...}` 写法在变量为空时仍会使用预填 token。
+
+远程返回 `"success": true` 的评分 JSON 才算评测完成；`"得分": 0.0` 表示评测成功但得分为零。此前一次提交已获得成功响应，耗时约 342 秒，计算期间可能长时间没有输出。`401/403` 应检查认证与权限；`404` 应同时检查 Space 地址、接口路径和私有服务的访问权限，不能单凭 404 判定服务下线。
