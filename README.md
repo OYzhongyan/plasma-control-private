@@ -98,7 +98,16 @@ curl -X POST http://127.0.0.1:8001/reset \
 
 ### 4.3.本地联调与镜像
 
-先启动 HFM socket 服务，并准备官方目标文件 `evaluation/results/target.json`，再执行：
+在项目根目录打开一个终端，启动本地评测默认连接的 HFM socket 服务（端口 `5558`）：
+
+```bash
+LISTEN_PORT=5558 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  bash hfm-runtime-release-sealed-latest/run_hfm_server.sh
+```
+
+保持该终端运行，等待输出 `Waiting for a client to connect...`。如果仿真器不在项目根目录下，将上述脚本路径替换为实际路径。
+
+准备包含 F2b 目标数据的官方文件 `evaluation/results/target.json`，然后在同一计算节点的另一个终端进入项目根目录执行：
 
 ```bash
 bash eval_files/local_eval.sh
