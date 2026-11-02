@@ -24,7 +24,7 @@ from train.callbacks import (
     save_vecnormalize_stats,
 )
 from train.references import build_reference, default_reference_path
-from train.rewards import SemifinalDenseReward
+from train.rewards import CompetitionReward
 from train.wrappers import *
 from train.utils import warmup_cosine_schedule
 from submission.history import history_metadata
@@ -151,10 +151,7 @@ def make_env(
             max_steps=max_steps,
             reference_mode=reference_mode,
         )
-        reward_fn = SemifinalDenseReward(
-            reward_weights=reward_weights,
-            score_lower_bound=reward_weights.score_lower_bound,
-        )
+        reward_fn = CompetitionReward()
         env: gym.Env = HFMSimulator(env_configs, reward_fn=reward_fn)
         if reference_mode == "hold_initial":
             env = HoldInitialResetWrapper(

@@ -20,7 +20,7 @@ xpt = ["matplotlib>=3.5", "scipy>=1.9"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["environment*", "train*", "submission*"]
+include = ["environment*", "train*", "submission*", "eval_files", "evaluation", "evaluation.eval", "evaluation.eval.score"]
 
 [tool.setuptools.package-data]
 train = ["configs/*.yaml", "configs/*.json", "targets/*.json"]

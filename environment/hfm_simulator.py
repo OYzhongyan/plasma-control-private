@@ -300,7 +300,7 @@ class HFMSimulator(gym.Env):
     def __init__(
         self,
         config: dict[str, Any],
-        reward_fn: Callable[[dict, np.ndarray], float] | None = None,
+        reward_fn: Callable[..., tuple[float, bool]] | None = None,
     ):
         super().__init__()
         self.config = config
@@ -359,6 +359,9 @@ class HFMSimulator(gym.Env):
             reference=self.reference,
             reference_index=self.step_count,
         )
+        reset_reward = getattr(self.reward_fn, "reset_state", None)
+        if callable(reset_reward):
+            reset_reward()
         info = {
             "reset_params": reset_params,
             "shot_id": self.shot_id,

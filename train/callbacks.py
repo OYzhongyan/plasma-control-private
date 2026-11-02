@@ -44,6 +44,22 @@ REWARD_COMPONENT_KEYS = [
     "strike_valid_ratio",
 ]
 
+REWARD_COMPONENT_KEYS += [
+    "competition_step_score",
+    "competition_total_score",
+    "competition_terminal_correction",
+    "gamma",
+    "eta",
+    "rho",
+    "F2b_Ip",
+    "F2b_LCFS",
+    "F2b_X",
+    "F2b_strike",
+    "F2b_psiX",
+    "F2b_X2",
+    "F2b_psiX2",
+]
+
 INFO_COMPONENT_KEYS = [
     "hfm_timeout_rate",
     "hfm_timeout_count",

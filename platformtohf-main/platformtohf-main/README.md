@@ -7,7 +7,7 @@ sdk: static
 app_file: index.html
 license: apache-2.0
 pinned: false
-short_description: Score F2b trajectory and target JSON in your browser using Pyodide.
+short_description: Score F2b trajectory JSON in your browser with Pyodide.
 ---
 
 # F2b 轨迹 JSON 评分

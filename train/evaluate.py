@@ -44,7 +44,7 @@ from environment import HFMSimulator
 from environment.xpt_utils import extract_xpt_observation_pack
 from score.evaluate_core import evaluate
 from trajectory_utils import extract_semifinal_trajectory_from_obs_list, to_jsonable
-from train.rewards import SemifinalDenseReward
+from train.rewards import CompetitionReward
 from train.wrappers import (
     COIL_LIMITS_A,
     EpisodeResetWrapper,
@@ -114,10 +114,7 @@ def make_eval_env(
             max_steps=int(cfg.max_steps),
             reference_mode=str(cfg.target.reference_mode),
         )
-        reward_fn = SemifinalDenseReward(
-            reward_weights=cfg.reward_weights,
-            score_lower_bound=cfg.reward_weights.get("score_lower_bound", False),
-        )
+        reward_fn = CompetitionReward()
         env: gym.Env = HFMSimulator(env_config, reward_fn=reward_fn)
         if cfg.target.reference_mode == "hold_initial":
             env = HoldInitialResetWrapper(

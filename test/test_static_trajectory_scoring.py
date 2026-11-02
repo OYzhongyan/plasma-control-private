@@ -110,6 +110,13 @@ def test_bundle_matches_project_sources():
     assert check.returncode == 0, check.stdout + check.stderr
 
 
+def test_space_metadata_short_description_fits_hf_limit():
+    readme = (SITE / "README.md").read_text(encoding="utf-8")
+    metadata = readme.split("---", 2)[1]
+    description = next(line.split(":", 1)[1].strip() for line in metadata.splitlines() if line.startswith("short_description:"))
+    assert 1 <= len(description) <= 60
+
+
 def test_browser_runner_reports_missing_files_before_browser_start(tmp_path):
     proc = subprocess.run([sys.executable, str(SITE / "submit.py"), str(tmp_path / "missing infer.json"), str(tmp_path / "target.json")], capture_output=True, text=True)
     assert proc.returncode != 0

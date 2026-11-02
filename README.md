@@ -1,5 +1,7 @@
 ## 1.训练模型
 
+训练奖励已改为正式比赛的逐步得分贡献：正常情况下每步奖励为该步七项加权得分（含约束惩罚）除以固定的 500，完美运行 500 步的**原始、未折扣奖励之和为 30 分**。不再使用旧的平滑奖励、可调分项权重或额外 `-5` 惩罚。训练与验证命令保持原接口。
+
 ```bash
 python train/train_ppo.py \
   output_dir=f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action \
@@ -8,6 +10,14 @@ python train/train_ppo.py \
   features.delay_step=1 \
   actions.mode=delta
 ```
+
+要与服务器按官方目标评分保持一致，请在训练和验证命令中都指定同一份目标文件，例如追加 `target.default_reference_path=evaluation/results/target.json`。未指定时仍使用项目默认的 `configs/xpt_reference_targets.json`，奖励会针对该活动参考目标的几何形状计算；不同目标的分数不可直接比较。电流目标统一使用正式评分的固定曲线，几何目标在每个 episode 内固定。
+
+奖励沿用正式评分器的 6/6/4/3/4/3/4 权重、硬误差阈值、位形系数、X 点数要求和线圈超限后清零规则；线圈恰好达到上限不算超限。提前结束后的剩余步不产生分数，不额外终止 episode，模拟器自身的失败与最大步数规则仍生效。超过 500 步的额外步通常不产生奖励。每次 reset 都清除上一轮约束状态。
+
+若奖励函数收到明确的整段超时标记，或显式提供的推理时间触发正式评分中的整段惩罚，会通过当前步的负修正撤回之前奖励。训练环境未提供推理时间时不虚构耗时，也无法根据未捕获的外部异常做结算。PPO 的 `gamma` 和 `VecNormalize.norm_reward` 仍按配置运行，因此折扣回报、归一化后奖励不等于上述原始总分；新的奖励训练曲线也不宜与旧版直接比较。
+
+`logs/reward_components.csv` 增加原始累计比赛分、单步得分、全局结算修正和 `F2b_*` 七项奖励贡献，便于核对。旧模型权重仍可加载，但旧 `reward_weights` / `score_lower_bound` 配置不再改变新奖励。
 
 ## 2.验证模型
 

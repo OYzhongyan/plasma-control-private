@@ -24,18 +24,9 @@ features:
   delay_noise_std: {}
 actions:
   mode: absolute
-reward_weights:
-  use_competition_score: false
-  ip_score: 6.0
-  lcfs_score: 6.0
-  main_x_dist_score: 4.0
-  main_x_psi_score: 4.0
-  second_x_psi_score: 3.0
-  second_x_dist_score: 4.0
-  strike_dist_score: 3.0
-  failure_penalty: -5.0
-  coil_current_exceed_limit_penalty: -5.0
-  score_lower_bound: false
+# Official weights/thresholds are taken from evaluation/eval/score/config.py.
+# Retained as an empty compatibility node for saved training configurations.
+reward_weights: {}
 reset_perturbation:
   enabled: true
   apply_mode: all

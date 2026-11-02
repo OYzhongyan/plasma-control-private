@@ -1,352 +1,172 @@
-"""Dense rewards aligned with the public semifinal scoring script."""
+"""Per-step contributions to the unchanged official F2b competition score.
 
+The undiscounted, unnormalized episode reward sum equals its offline score when
+both use the same trajectory and target. PPO may separately normalize/discount
+these rewards. No additional shaping or reward-induced termination is applied.
+"""
 from __future__ import annotations
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 import numpy as np
-from environment.xpt_utils import extract_xpt_observation_pack
 
-COIL_LIMITS_A = np.asarray([45000.0] + [14000.0] * 10 + [4000.0], dtype=np.float64)
-MAIN_X_POINT_IDX = [1, 2]
-SECOND_X_POINT_IDX = [0, 3]
+from evaluation.eval.score import config, metrics, penalties, scoring
+from eval_files.trajectory_utils import extract_semifinal_trajectory_from_obs_list
 
 
-def _scalar(obs: dict[str, Any], key: str, default: float = 0.0) -> float:
-    arr = np.asarray(obs.get(key, default), dtype=np.float64).reshape(-1)
-    if arr.size == 0:
-        return float(default)
-    value = float(arr[0])
-    return value if np.isfinite(value) else float(default)
+def _scalar(value: Any, default: float = 0.0) -> float:
+    array = np.asarray(value, dtype=np.float64).reshape(-1)
+    return float(array[0]) if array.size else default
 
 
-def _array(
-    obs: dict[str, Any], key: str, shape: tuple[int, ...], default: float = 0.0
-) -> np.ndarray:
-    out = np.full(int(np.prod(shape)), default, dtype=np.float64)
-    value = obs.get(key)
-    if value is not None:
-        flat = np.asarray(value, dtype=np.float64).reshape(-1)
-        n = min(out.size, flat.size)
-        if n > 0:
-            out[:n] = flat[:n]
-    return np.nan_to_num(out, nan=default, posinf=default, neginf=default).reshape(
-        shape
-    )
+def _target_from_observation(obs: dict[str, Any]) -> dict[str, np.ndarray]:
+    """Geometry references are targets, never the actual observed geometry."""
+    required = ("reference_lcfs_points", "reference_rX", "reference_zX", "reference_strike_r", "reference_strike_z")
+    missing = [key for key in required if key not in obs]
+    if missing:
+        raise ValueError(f"Competition reward requires target references: {', '.join(missing)}")
+    r = np.asarray(obs["reference_rX"], dtype=np.float64).reshape(4)
+    z = np.asarray(obs["reference_zX"], dtype=np.float64).reshape(4)
+    return {
+        "lcfs_points": np.asarray(obs["reference_lcfs_points"], dtype=np.float64).copy(),
+        "Xpt_main": np.column_stack([r[[1, 2]], z[[1, 2]]]),
+        "Xpt_sec": np.column_stack([r[[0, 3]], z[[0, 3]]]),
+        "strike": np.column_stack([np.asarray(obs["reference_strike_r"]).reshape(8), np.asarray(obs["reference_strike_z"]).reshape(8)]).astype(np.float64),
+    }
 
 
-def _score(error: float, epsilon_max: float, lower_bound: bool = True) -> float:
-    """
-    let ε represent the error
-    if lower_bound=True:
-        if ε<0, the score returned is 1.
-        elif ε≥0:
-            elif ε>ε_{max}:
-                return score=0.
-            elif ε≤ε_{max}:
-                return 1-ε/ε_{max}
-    elif lower_bound=False:
-        if ε<0:
-            return 2.
-        elif 0<ε<ε_{max}:
-            return 2-ε/ε_{max}
-        elif ε≥ε_{max}:
-            return exp[1-ε/ε_{max}]
-
-    """
-    if not np.isfinite(error):
-        return 0.0
-    if lower_bound:
-        return float(max(0.0, 1.0 - max(float(error), 0.0) / float(epsilon_max)))
-    else:
-        raw_score = float(1.0 - max(float(error), 0.0) / float(epsilon_max))
-        if raw_score < 0.0:
-            return np.exp(raw_score)
-        else:
-            return raw_score + 1.0
+def _reference_observation(target: dict[str, Any]) -> dict[str, np.ndarray]:
+    main = np.asarray(target["Xpt_main"], dtype=np.float64)
+    secondary = np.asarray(target["Xpt_sec"], dtype=np.float64)
+    strike = np.asarray(target["strike"], dtype=np.float64)
+    points = np.asarray([secondary[0], main[0], main[1], secondary[1]])
+    return {"reference_rX": points[:, 0], "reference_zX": points[:, 1],
+            "reference_strike_r": strike[:, 0], "reference_strike_z": strike[:, 1]}
 
 
 @dataclass
-class SemifinalDenseReward:
-    """Stateful per-env dense reward for F2b PPO training (Version 2)."""
+class CompetitionReward:
+    """Streaming official score, normally returning 0..30/500 per step.
 
-    reward_weights: dict[str, float] | None = None
-    prev_action: np.ndarray | None = field(default=None, init=False)
+    ``target`` optionally supplies an official target block (or a F2b/F2a dict).
+    Otherwise freeze geometry from the active environment references on step 1.
+    Legacy constructor keywords remain accepted for saved-config compatibility;
+    reward_weights and score_lower_bound do not override official scoring rules.
+
+    ``info.inference_time_ms`` is optional and is never synthesized. If provided,
+    the original whole-episode gamma rule applies. ``timeout``/``hfm_timeout`` in
+    info permanently invalidates the episode. Such global invalidation reverses
+    previous credit in the current reward, which can therefore be negative.
+    """
+    reward_weights: Any = None
+    score_lower_bound: bool = True
+    target: dict[str, Any] | None = None
     last_components: dict[str, float] = field(default_factory=dict, init=False)
-    coil_max_current_mask: float = 1.0
-    score_lower_bound: bool = False
+
+    def __post_init__(self):
+        self.horizon = config.get_total_steps()
+        self._ip_reference = config.build_Ip_ref()
+        self._weights = config.metric_weights()
+        self._fixed_target = deepcopy(self.target)
+        if self._fixed_target is not None:
+            self._fixed_target = self._fixed_target.get("F2b", self._fixed_target.get("F2a", self._fixed_target))
+        self.reset_state()
 
     def reset_state(self) -> None:
-        self.prev_action = None
-        self.coil_max_current_mask = 1.0
+        self._step = 0
+        self._finished = False
+        self._target = deepcopy(self._fixed_target)
+        self._reference = _reference_observation(self._target) if self._target is not None else None
+        self._coil_mask = 1.0
+        self._timing_over_steps = 0
+        self._timeout = False
+        self._metric_totals = {key: 0.0 for key in self._weights}
+        self._credited_metrics = {key: 0.0 for key in self._weights}
+        self.last_components = {}
 
-    def __call__(
-        self,
-        observation: dict[str, Any],
-        action: np.ndarray,
-        terminated: bool = False,
-        truncated: bool = False,
-        info: dict[str, Any] | None = None,
-    ) -> float:
-        if _scalar(observation, "failure", 0.0) > 0.5:
-            failure_penalty = self.reward_weights.get("failure_penalty", 0.0)
-            self.last_components = {
-                "reward": float(failure_penalty),
-                "failure": 1.0,
-                "failure_penalty": float(failure_penalty),
-            }
-            reward = failure_penalty
-        ipf = _array(observation, "I_PF", (12,))
-        coil_margin = np.max(np.abs(ipf) / COIL_LIMITS_A)
-        if coil_margin >= 1.0:
-            self.coil_max_current_mask = 0.0
-            coil_penalty = self.reward_weights.get(
-                "coil_current_exceed_limit_penalty", 0.0
-            )
-            self.last_components = {
-                "reward": float(coil_penalty),
-                "coil_current_exceeded": 1.0,
-            }
-            reward = coil_penalty
-            terminated = True
-        if terminated:
-            self.reset_state()
-            return (reward, terminated)
-        is_episode_start = bool(info and int(info.get("step", 1)) <= 1)
-        if is_episode_start:
-            self.prev_action = None
-        ref_ip = _scalar(observation, "reference_Ip", 500000.0)
-        ip = _scalar(observation, "Ip", ref_ip)
-        ip_abs_error = abs(ip - ref_ip)
-        ip_rel = ip_abs_error / max(abs(ref_ip), 1.0)
-        ip_score = _score(ip_rel, 0.05, lower_bound=self.score_lower_bound)
-        ip_competition_score = _score(ip_rel, 0.05, lower_bound=True)
-        lcfs = _array(observation, "lcfs_points", (32, 2))
-        ref_lcfs = _array(observation, "reference_lcfs_points", (32, 2))
-        lcfs_error_cm = float(
-            np.sqrt(np.mean(np.sum((lcfs - ref_lcfs) ** 2, axis=1))) * 100.0
-        )
-        lcfs_score = _score(lcfs_error_cm, 3.0, lower_bound=self.score_lower_bound)
-        lcfs_competition_score = _score(lcfs_error_cm, 3.0, lower_bound=True)
-        main_x_dist_score = main_x_psi_score = 0.0
-        second_x_dist_score = second_x_psi_score = 0.0
-        strike_dist_score = 0.0
-        main_x_valid_ratio = second_x_valid_ratio = strike_valid_ratio = 0.0
-        pack = extract_xpt_observation_pack(
-            observation,
-            observation["reference_rX"],
-            observation["reference_zX"],
-            observation["reference_strike_r"],
-            observation["reference_strike_z"],
-            fx_order="C",
-        )
-        target_x_valid = (
-            np.asarray(observation["reference_x_valid"], dtype=np.float64) > 0.5
-        )
-        x_valid = pack["x_valid"] > 0.5
-        n_x_point_mask = 1.0 if pack["nX"] == 4 else 0.0
-        main_x_valid = target_x_valid[MAIN_X_POINT_IDX] & x_valid[MAIN_X_POINT_IDX]
-        main_x_valid_ratio = np.mean(np.asarray(main_x_valid, dtype=np.float32))
-        if np.any(main_x_valid):
-            main_x_dist_cm = (
-                np.sqrt(
-                    np.mean(
-                        (
-                            pack["x_r"][MAIN_X_POINT_IDX]
-                            - observation["reference_rX"][MAIN_X_POINT_IDX]
-                        )
-                        ** 2
-                        + (
-                            pack["x_z"][MAIN_X_POINT_IDX]
-                            - observation["reference_zX"][MAIN_X_POINT_IDX]
-                        )
-                        ** 2
-                    )
-                )
-                * 100.0
-            )
-            main_x_dist_score = (
-                _score(main_x_dist_cm, 3, lower_bound=self.score_lower_bound)
-                * main_x_valid_ratio
-            )
-            main_x_dist_competition_score = (
-                _score(main_x_dist_cm, 3, lower_bound=True) * n_x_point_mask
-            )
-            main_x_psi, lcfs_psi, axis_psi = (
-                pack["x_fx"][MAIN_X_POINT_IDX],
-                pack["fb"],
-                observation["FA"],
-            )
-            psi_denom = lcfs_psi - axis_psi
-            safe_psi_denom = psi_denom if abs(psi_denom) > 1e-12 else 1.0
-            main_x_psi_error = np.sqrt(
-                np.mean(((main_x_psi - lcfs_psi) / safe_psi_denom) ** 2)
-            )
-            main_x_psi_score = (
-                _score(main_x_psi_error, 0.003, lower_bound=self.score_lower_bound)
-                * main_x_valid_ratio
-            )
-            main_x_psi_competition_score = (
-                _score(main_x_psi_error, 0.003, lower_bound=True) * n_x_point_mask
-            )
-        else:
-            main_x_dist_score = main_x_dist_competition_score = main_x_psi_score = (
-                main_x_psi_competition_score
-            ) = 0.0
-        second_x_valid = (
-            target_x_valid[SECOND_X_POINT_IDX] & x_valid[SECOND_X_POINT_IDX]
-        )
-        second_x_valid_ratio = np.mean(np.asarray(second_x_valid, dtype=np.float32))
-        if np.any(second_x_valid):
-            second_x_dist_cm = (
-                np.sqrt(
-                    np.mean(
-                        (
-                            pack["x_r"][SECOND_X_POINT_IDX]
-                            - observation["reference_rX"][SECOND_X_POINT_IDX]
-                        )
-                        ** 2
-                        + (
-                            pack["x_z"][SECOND_X_POINT_IDX]
-                            - observation["reference_zX"][SECOND_X_POINT_IDX]
-                        )
-                        ** 2
-                    )
-                )
-                * 100.0
-            )
-            second_x_dist_score = (
-                _score(second_x_dist_cm, 5, lower_bound=self.score_lower_bound)
-                * second_x_valid_ratio
-            )
-            second_x_dist_competition_score = (
-                _score(second_x_dist_cm, 5, lower_bound=True) * n_x_point_mask
-            )
-            second_x_psi, lcfs_psi, axis_psi = (
-                pack["x_fx"][SECOND_X_POINT_IDX],
-                pack["fb"],
-                observation["FA"],
-            )
-            psi_denom = lcfs_psi - axis_psi
-            safe_psi_denom = psi_denom if abs(psi_denom) > 1e-12 else 1.0
-            second_x_psi_error = np.sqrt(
-                np.mean(((second_x_psi - lcfs_psi) / safe_psi_denom) ** 2)
-            )
-            second_x_psi_score = (
-                _score(second_x_psi_error, 0.005, lower_bound=self.score_lower_bound)
-                * second_x_valid_ratio
-            )
-            second_x_psi_competition_score = (
-                _score(second_x_psi_error, 0.005, lower_bound=True) * n_x_point_mask
-            )
-        else:
-            second_x_dist_score = second_x_dist_competition_score = (
-                second_x_psi_score
-            ) = second_x_psi_competition_score = 0.0
-        target_strike_valid = (
-            np.asarray(observation["reference_n_strike"], dtype=np.float64) > 0.5
-        )
-        strike_valid = (pack["strike_valid"] > 0.5) & target_strike_valid
-        strike_valid_ratio = np.mean(np.asarray(strike_valid, dtype=np.float32))
-        if np.any(strike_valid):
-            strike_dist_cm = (
-                np.sqrt(
-                    np.mean(
-                        (pack["strike_r"] - observation["reference_strike_r"]) ** 2
-                        + (pack["strike_z"] - observation["reference_strike_z"]) ** 2
-                    )
-                )
-                * 100.0
-            )
-            strike_dist_score = (
-                _score(strike_dist_cm, 10, lower_bound=self.score_lower_bound)
-                * strike_valid_ratio
-            )
-            strike_dist_competition_score = (
-                _score(strike_dist_cm, 10, lower_bound=True) * n_x_point_mask
-            )
-        else:
-            strike_dist_score = strike_dist_competition_score = 0.0
-        ip_error_fuse_limit = 50000.0
-        ip_error_mask = 1.0 if ip_abs_error <= ip_error_fuse_limit else 0.0
-        if ip_abs_error <= 50000.0:
-            soft_ip_error_mask = 1.0
-        elif ip_abs_error <= 100000.0:
-            soft_ip_error_mask = (100000.0 - ip_abs_error) / 50000.0
-        else:
-            soft_ip_error_mask = 0.0
-        default_lx = 1.0
-        target_lx = _scalar(observation, "reference_lX", default_lx)
-        lx = _scalar(observation, "lX", target_lx)
-        topology_score = 1.0 if int(round(lx)) == int(round(target_lx)) else 0.0
-        topology_mask = 1.0 if int(round(lx)) == int(round(target_lx)) else 0.5
-        competition_score = (
-            6.0 * ip_competition_score
-            + 6.0 * lcfs_competition_score
-            + 4.0 * main_x_dist_competition_score
-            + 4.0 * main_x_psi_competition_score
-            + 3.0 * second_x_dist_competition_score
-            + 4.0 * second_x_psi_competition_score
-            + 3.0 * strike_dist_competition_score
-        ) / 30.0
-        competition_score = (
-            competition_score
-            * ip_error_mask
-            * self.coil_max_current_mask
-            * topology_mask
-        )
-        if self.reward_weights.get("use_competition_score", False):
-            reward = competition_score
-        else:
-            score_values = {
-                "ip_score": ip_score,
-                "lcfs_score": lcfs_score,
-                "main_x_dist_score": main_x_dist_score,
-                "main_x_psi_score": main_x_psi_score,
-                "second_x_psi_score": second_x_psi_score,
-                "second_x_dist_score": second_x_dist_score,
-                "strike_dist_score": strike_dist_score,
-            }
-            score_weight_sum = 0.0
-            weighted_score = 0.0
-            for key, score_value in score_values.items():
-                weight = float(self.reward_weights.get(key, 0.0))
-                if weight <= 0.0:
-                    continue
-                weighted_score += weight * float(score_value)
-                score_weight_sum += weight
-            normalized_score = weighted_score / score_weight_sum
-            normalized_score = normalized_score * soft_ip_error_mask
-            normalized_score = normalized_score * topology_mask
-            reward = normalized_score
-        self.last_components = {
-            "reward": float(reward),
-            "failure_penalty": 0.0,
-            "coil_current_exceeded": 0.0,
-            "ip_abs_error": float(ip_abs_error),
-            "ip_relative_error": float(ip_rel),
-            "ip_score": float(ip_score),
-            "ip_competition_score": float(ip_competition_score),
-            "lcfs_error_cm": float(lcfs_error_cm),
-            "lcfs_score": float(lcfs_score),
-            "lcfs_competition_score": float(lcfs_competition_score),
-            "topology_score": float(topology_score),
-            "coil_margin": float(coil_margin),
-            "ip_error_mask": float(ip_error_mask),
-            "soft_ip_error_mask": float(soft_ip_error_mask),
-            "competition_score": float(competition_score),
+    def _step_scores(self, frame, index):
+        target = self._target
+        ip_ref = self._ip_reference[index:index+1]
+        eps = {
+            config.METRIC_IP: metrics.epsilon_Ip(frame["Ip"], ip_ref),
+            config.METRIC_LCFS: metrics.epsilon_LCFS(target["lcfs_points"], frame["lcfs_per_step"]),
+            config.METRIC_X: metrics.epsilon_xpoints(frame["Xpt_main"], target["Xpt_main"]),
+            config.METRIC_STRIKE: metrics.epsilon_strikes(frame["strike"], target["strike"]),
+            config.METRIC_PSIX: metrics.epsilon_psix(frame["psiX_main"], frame["psib"], frame["psia"]),
+            config.METRIC_X2: metrics.epsilon_xpoints(frame["Xpt_sec"], target["Xpt_sec"]),
+            config.METRIC_PSIX2: metrics.epsilon_psix(frame["psiX_sec"], frame["psib"], frame["psia"]),
         }
-        self.last_components.update(
-            {
-                "main_x_dist_score": main_x_dist_score,
-                "main_x_psi_score": main_x_psi_score,
-                "main_x_valid_ratio": main_x_valid_ratio,
-                "second_x_psi_score": second_x_psi_score,
-                "second_x_dist_score": second_x_dist_score,
-                "second_x_valid_ratio": second_x_valid_ratio,
-                "strike_dist_score": strike_dist_score,
-                "strike_valid_ratio": strike_valid_ratio,
-            }
-        )
-        if truncated:
+        eta = penalties.compute_eta(frame["lX"], 1, 1)
+        mu = penalties.compute_mu(frame["Ip"], ip_ref, 1, 1)
+        self._coil_mask *= float(penalties.compute_rho(frame["Icoil"], 1)[0])
+        rho = np.asarray([self._coil_mask])
+        topo = penalties.compute_topo_zero_mask(frame["nX"], 1, 1)
+        # N=1 computes one step using the exact official weighting/masks.
+        # The fixed full-episode 1/500 factor is applied by __call__.
+        total, contributions, _ = scoring.task_score(eps, self._weights, config.EPSILON_MAX, 1, 1,
+                                                     eta, mu, rho, topo)
+        return total, contributions, eps, float(eta[0]), float(mu[0])
+
+    def __call__(self, observation, action, terminated=False, truncated=False, info=None) -> tuple[float, bool]:
+        info = info or {}
+        if info.get("step") is not None and int(info["step"]) == 1:
             self.reset_state()
-        return (float(reward) if np.isfinite(reward) else -5.0, terminated)
+        if self._finished:
+            raise RuntimeError("Reset the reward/environment before starting another episode")
+        if self._target is None:
+            self._target = _target_from_observation(observation)
+            self._reference = _reference_observation(self._target)
+        index = self._step
+        self._step += 1
+        self._timeout |= bool(info.get("timeout", False) or info.get("hfm_timeout", False))
+        if info.get("inference_time_ms") is not None:
+            duration = float(info["inference_time_ms"])
+            if not np.isfinite(duration) or duration < 0:
+                raise ValueError("inference_time_ms must be a finite nonnegative number")
+            self._timing_over_steps += int(duration > config.INFER_TIME_LIMIT_MS)
+        # Passing one value per over-limit step preserves the original gamma's
+        # fixed-horizon denominator, including explicit measurements after N.
+        gamma = penalties.compute_gamma(np.full(self._timing_over_steps, config.INFER_TIME_LIMIT_MS + 1.0), self.horizon)
+        if self._timeout:
+            gamma = 0.0
+        step_score, eps, eta, mu = 0.0, {}, 1.0, 1.0
+        if index < self.horizon:
+            frame = extract_semifinal_trajectory_from_obs_list([observation], target_obs=self._reference)
+            step_score, contributions, eps, eta, mu = self._step_scores(frame, index)
+            for name, value in contributions.items():
+                self._metric_totals[name] += value / self.horizon
+        credited = {name: gamma * value for name, value in self._metric_totals.items()}
+        deltas = {name: credited[name] - self._credited_metrics[name] for name in credited}
+        reward = float(sum(deltas.values()))
+        self._credited_metrics = credited
+        self._finished = bool(terminated or truncated)
+        ip_error = abs(_scalar(observation.get("Ip")) - float(self._ip_reference[min(index, self.horizon-1)]))
+        coil = np.asarray(observation.get("I_PF", np.zeros(12)), dtype=np.float64).reshape(12)
+        self.last_components = {
+            "reward": reward,
+            "competition_score": float(gamma * step_score / config.TOTAL_MAX_SCORE),
+            "competition_step_score": float(step_score),
+            "competition_total_score": float(sum(credited.values())),
+            "competition_terminal_correction": reward - gamma * step_score / self.horizon,
+            "gamma": float(gamma), "eta": eta, "rho": self._coil_mask,
+            "ip_abs_error": ip_error,
+            "ip_relative_error": float(eps[config.METRIC_IP][0]) if eps else 0.0,
+            "lcfs_error_cm": float(eps[config.METRIC_LCFS][0]) if eps else 0.0,
+            "coil_margin": float(np.max(np.abs(coil) / config.COIL_LIMITS_A)),
+            "coil_current_exceeded": 1.0 - self._coil_mask,
+            "ip_error_mask": mu, "soft_ip_error_mask": mu,
+            "topology_score": float(_scalar(observation.get("lX")) == 1),
+            "failure_penalty": 0.0,
+            **{f"F2b_{name}": float(value) for name, value in deltas.items()},
+        }
+        component_names = {config.METRIC_IP: "ip_score", config.METRIC_LCFS: "lcfs_score",
+                           config.METRIC_X: "main_x_dist_score", config.METRIC_PSIX: "main_x_psi_score",
+                           config.METRIC_X2: "second_x_dist_score", config.METRIC_PSIX2: "second_x_psi_score",
+                           config.METRIC_STRIKE: "strike_dist_score"}
+        for name, component in component_names.items():
+            self.last_components[component] = float(scoring.score_single_step(eps[name], config.EPSILON_MAX[name])[0]) if eps else 0.0
+        return reward, bool(terminated)
+
+
+# Older checkpoints/configs/tools may still import this public class name.
+SemifinalDenseReward = CompetitionReward
