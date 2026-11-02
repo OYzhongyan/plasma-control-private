@@ -1,106 +1,111 @@
-# platformtohf
-
+---
+title: F2b Trajectory Scoring
+emoji: 📊
+colorFrom: blue
+colorTo: green
+sdk: static
+app_file: index.html
+license: apache-2.0
+pinned: false
+short_description: Score F2b trajectory and target JSON in your browser using Pyodide.
 ---
 
-**李文洋**
+# F2b 轨迹 JSON 评分
 
-[**上海创智学院**](http://www.sii.edu.cn) | 博士研究生
+使用免费的 **Hugging Face Static Space + Pyodide + NumPy**，在访问者自己的浏览器里运行 Python，对比仿真轨迹与目标并评分。不需要 Docker、Gradio、HF PRO、远程 CPU 服务器或 HF Token。参考所提供的 `hf-static-pyodide-json.zip`，将数值演示替换成项目 F2b 评分。
 
-[AI 驱动受控核聚变仿真、控制与设计实验室](https://github.com/SII-AI4Fusion)
+旧版边界系数 JSONL、预填 token 和远程 `/evaluate` 已移除。此目录既是独立静态应用，也是命令行评分工具。
 
-* **电话**：[+86-156-2003-5216](tel:+86-156-2003-5216)
-* **邮箱**：[lwydsg@mail.nankai.edu.cn](mailto:lwydsg@mail.nankai.edu.cn)
+## 命令行
 
----
-
->把本地 JSONL 提交格式的评测样本 POST 到远程 HF Space (`SII-LWY/sii-ste-eva`) 的 `/evaluate`。
-
-## 文件
-
-```
-platformtohf/
-├── submit.sh          # 读 jsonl → 拼 inline payload → POST 到 /evaluate
-├── submission.jsonl   # 样例提交(1 行, tag="example", NFP=3)
-└── README.md
-```
-
-## 快速上手
+在 `plasma-control` 项目根目录执行：
 
 ```bash
-cd platformtohf
-./submit.sh
+python -m pip install -r platformtohf-main/platformtohf-main/requirements.txt
+python -m playwright install chromium
+PYTHON_BIN=python bash platformtohf-main/platformtohf-main/submit.sh \
+  results/submission_infer_result.json \
+  evaluation/results/target.json \
+  --tag team-a-run-01 \
+  --output results/submission_score.json
 ```
 
-默认行为:读同目录的 `submission.jsonl` → 打到 `https://sii-lwy-sii-ste-eva.hf.space/evaluate`。
+Linux 缺少 Chromium 系统库时使用 `python -m playwright install --with-deps chromium`，可能需要系统安装权限。Windows 可直接使用 `python platformtohf-main/platformtohf-main/submit.py`，参数相同。
 
-## submission.jsonl 格式
+- 必填路径依次为**轨迹 JSON、目标 JSON**，相对当前工作目录解析，也支持绝对路径。
+- 读取完整 JSON 文档，不是逐行 JSONL，支持多行缩进和 UTF-8 BOM。
+- 默认临时开启 `127.0.0.1` 静态文件服务，在本机无界面 Chromium 的 Pyodide 中评分，结束后关闭。不需要显示器、HFM 或推理服务。
+- `--output` 保存结果；`--tag` 或 `TAG` 标记本次计算；`--timeout` 默认 300 秒。
+- stdout 为评分 JSON；失败时 `success: false`、`score: null`，退出码非零。
+- `PYTHON_BIN` 指定 Bash 调用的 Python，默认 `python3`。
 
-
-```jsonc
-{"tag": "example",          // 必选,提交标识符,服务端会回显到响应
- "nfp": 3,
- "boundary": {"r_cos": [[...5x9...]], "z_sin": [[...5x9...]]}
-```
-
-- `tag`/`nfp` / `boundary.r_cos` / `boundary.z_sin`:**必填**
-
-
-## submit.sh 的环境变量
-
-| 变量 | 默认 | 作用 |
-|---|---|---|
-| `HF_SPACE_URL` | `https://sii-lwy-sii-ste-eva.hf.space` | Space 服务根 URL |
-| `HF_TOKEN` | 脚本里预填了一个 | 我的私有 Space token，供访问提交评测 |
-| `TAG` | 空 | 覆盖本次提交的 tag(优先级高于 jsonl 里 row 带的 tag) |
-
-## 用法示例
+加载已经部署的公开 Static 页面：
 
 ```bash
-./submit.sh                              # 默认 jsonl + jsonl 里的 tag='example'
-./submit.sh /path/to/other.jsonl         # 指定别的 jsonl 文件
-TAG=run-20260513 ./submit.sh             # 临时覆盖 tag
+PYTHON_BIN=python bash platformtohf-main/platformtohf-main/submit.sh \
+  results/submission_infer_result.json evaluation/results/target.json \
+  --space-url https://YOUR-STATIC-SPACE.hf.space
 ```
 
-## 典型输出
+也可通过 `HF_SPACE_URL` 指定页面地址；必须部署本目录的新版页面，不是旧评测接口，不加 `/evaluate`。如果旧变量影响本地模式，先 `unset HF_SPACE_URL`。命令行将文件内容传给本机浏览器里的页面函数，不发送评分 POST 请求。只加载信任的页面代码；私有 Space 登录不在本工具范围内。
 
-终端会先打一行提交摘要,然后跟上服务端返回的 JSON:
-```
-[submit] /path/submission.jsonl  →  https://sii-lwy-sii-ste-eva.hf.space/evaluate   (rows=1 tag='example')
-{
-  "success": true,
-  "tag": "example",
-  "metrics_scores": {
-    "得分": 47.266,
-    "边界数量": 1.0,
-    "最小可行性": 0.00894,
-    "平均可行性": 0.00894,
-    "通过": 1.0, "达到目标": 1.0, "优于基线": 1.0
-  },
-  "metrics_per_boundary": [{...12 个物理指标...}],
-  "timings_seconds": {...},
-  "message": "评测完成: score=47.2655, pass=True, num_boundaries=1, total=59.43s",
-  "detail_url": null
-}
+## 网页部署
+
+1. 创建或打开自己的 HF Space，选择 **Static → Blank**。
+2. 将 `README.md`、`index.html`、`app.js`、`worker.js`、`compute.py`、`scorer_bundle.py`、`LICENSE` 放在 Space 根目录；解压后上传文件，不上传 ZIP 本身。
+3. 等待发布并打开 App。选择两个 JSON 文件，输入可选标签，点击“开始评分”。可取消计算、查看各指标贡献分并下载 `f2b_score.json`。
+
+网页用户无需安装本地依赖；首次需联网下载 Pyodide 314.0.7 与 NumPy。使用 module Web Worker 避免阻塞界面。两个输入上限分别为 128 MiB，浏览器内存可能限制实际可处理大小。
+
+本地预览（项目根目录）：
+
+```bash
+python -m http.server 8000 --bind 127.0.0.1 \
+  --directory platformtohf-main/platformtohf-main
 ```
 
-## 关于 tag
+打开 `http://127.0.0.1:8000`，不要双击 HTML 通过 `file://` 访问。
 
-- 优先级:**`TAG` 环境变量 > JSONL row 里的 `tag` > 不带**
-- 服务端不强制,不带也能跑,响应里 `"tag": null`,但是强烈建议带上,以方便后期查找
-- 并发提交时**务必带上**,否则 HF Space `logs/run` 里多个请求的日志会交织,很难对账
-- 在日志里找某次提交:`grep "tag='example'" <log-stream>`
+## JSON 格式与评分
 
-## 依赖
+轨迹结构（数组内为逐步实际观测）：
 
-- `curl`(系统自带)
-- `python3`(标准库就够,用来把 jsonl 拼成 JSON payload,避开 `jq` 对浮点的精度坑)
+```json
+{"F2b": {"trajectory": {"Ip": [], "lX": [], "Icoil": [], "lcfs_per_step": []}, "timeout": false}}
+```
 
-## 关于题目评测平台的一些设想
+上面仅演示结构，空轨迹不产生有效得分；真实文件由项目 rollout 输出。
 
-- 在平台上实现每次接收选手上传的jsonl文件，建立对应的文件夹，标注时间等相关信息，内部存放其提交的文件
+| 字段 | 形状与含义 |
+| --- | --- |
+| `Ip`, `lX`, `nX` | 电流、位形、X 点数，`(T,)` |
+| `Icoil` | 线圈电流，`(T,12)` |
+| `lcfs_per_step` | 边界采样点，`(T,P,2)` |
+| `Xpt_main`, `Xpt_sec` | 主/次 X 点坐标，`(T,2,2)` |
+| `strike` | 打击点坐标，`(T,8,2)` |
+| `psiX_main`, `psiX_sec` | X 点磁通，`(T,2)` |
+| `psia`, `psib` | 轴/边界磁通，`(T,)` |
+| `inference_time_ms` | 可选推理时间，影响原规则中的 gamma |
 
-- 使用sh文件提交到云端评测服务，返回的所有信息中提取得分作为排行，并将所有信息返回给选手，实时更新
+目标顶层为 `F2b`，兼容原评分器的 `F2a` 回退；目标块须有 `lcfs_points`、`Xpt_main`、`Xpt_sec`、`strike`。A1/A2/B1/B2/B3、边界系数 JSONL 和训练参考配置不能直接替代官方目标。数组应为有限数值；NaN/Infinity 或错误形状明确报错。
 
-- 由于云端评测能力限制，每支队伍每天最多提交三个样本
+`scorer_bundle.py` 是 `evaluation/eval/score` 的未修改快照，按原规则以 500 步、30 分为基准。电流参考来自 `config.build_Ip_ref()`，目标 JSON 提供几何参考。保留提前终止、timeout、拓扑、电流熔断、线圈电流和推理时间惩罚。缺少非核心指标字段时沿用原规则，在 `warnings` 中提示；不会补造观测。
 
-- 经过测试，评测服务可以同时评测多个样本，但是并行后单个样本的评估时间均会变长
+输出兼容原 `evaluate.py` 的 `success`、`errorMsg`、`score`、`score1`、`scoreJson`，另有各指标详细得分、有效步数、规则及输入哈希。哈希用于识别文件和版本，不证明轨迹真实或分数未被篡改。
+
+## 更新规则
+
+在完整项目中运行，之后重新上传快照：
+
+```bash
+python platformtohf-main/platformtohf-main/build_scorer.py
+python platformtohf-main/platformtohf-main/build_scorer.py --check
+```
+
+独立 Space 无需训练包、Torch、SB3 或 MATLAB；运行评分仅需 `compute.py` 和生成的 `scorer_bundle.py`。发布包应保留 `LICENSE` 与原版权声明。
+
+## 范围
+
+文件不发送到原远程服务，结果仅存在当前页面或下载文件中。本版不自动维护跨设备共享排行榜，不能保密浏览器内的目标或防止用户修改评分；不把本地评分当作有身份验证的竞赛裁决。
+
+官方资料：[Static Spaces](https://huggingface.co/docs/hub/spaces-sdks-static)、[Pyodide Workers](https://pyodide.org/en/stable/usage/webworker.html)。

@@ -126,66 +126,75 @@ python eval_files/run_test.py --no-build \
 ```
 
 
-## 5.platformtohf评测
+## 5.platformtohf：轨迹 JSON 评分（免费 Static Space + Pyodide）
 
-该工具提交边界系数 JSONL，不接收 F2b 的 PPO / ONNX 模型，也不接收 rollout 结果。实际脚本位于两层同名目录中；以下命令在 Linux / WSL 的 Bash 中执行：
+该工具读取仿真得到的完整轨迹 JSON 和官方目标 JSON，复用 `evaluation/eval/score` 比较实际轨迹与目标并评分。不再提交边界系数 JSONL，也不再请求师兄的 `/evaluate` 接口；无需 HF Token、PRO 或 CPU 服务器。
 
-```bash
-cd platformtohf-main/platformtohf-main
-bash submit.sh                         # 提交自带的 submission.jsonl
-bash submit.sh /path/to/submission.jsonl
-TAG=my-run bash submit.sh /path/to/submission.jsonl
-```
+### 5.1.命令行评分
 
-JSONL 每行是一个 JSON 对象，包含 `tag`、`nfp`、`boundary.r_cos` 和 `boundary.z_sin`；两个系数矩阵的样例形状均为 `5 × 9`，完整样例见同目录的 `submission.jsonl`。
-
-### 5.1.配置 Hugging Face
-
-以下配置均可通过 Bash 环境变量覆盖，无需把自己的 token 写进脚本：
-
-`submit.sh` 中的配置应保持为以下 Bash 语法；地址使用纯 URL，不要粘贴 `[https://...](https://...)` 这样的 Markdown 链接。每个赋值单独占一行，`SCRIPT_DIR` 和 `JSONL_PATH` 之间不要添加续行反斜杠：
+在项目根目录安装一次依赖，使用当前 Conda 环境的 Python：
 
 ```bash
-HF_SPACE_URL="${HF_SPACE_URL:-https://sii-lwy-sii-ste-eva.hf.space}"
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-JSONL_PATH="${1:-$SCRIPT_DIR/submission.jsonl}"
-HF_TOKEN="${HF_TOKEN:-}"
-TAG="${TAG:-}"
+python -m pip install -r platformtohf-main/platformtohf-main/requirements.txt
+python -m playwright install chromium
 ```
 
-上面是推荐的脚本配置写法，token 默认留空。仓库现有脚本含预填 token，若采用此写法，请同步替换脚本中的 `HF_TOKEN` 配置行。`${HF_SPACE_URL:-默认地址}` 表示：环境变量非空时使用环境变量，否则使用默认地址；`${HF_TOKEN:-}` 和 `${TAG:-}` 表示未配置时为空。`SCRIPT_DIR` 自动定位脚本目录，通常无需修改。
+Linux 如果提示缺少 Chromium 系统库，执行 `python -m playwright install --with-deps chromium`（可能需要管理员权限）。
 
-| 配置项 | 如何填写 |
-| --- | --- |
-| `HF_SPACE_URL` | 评测服务的根地址，默认是 `https://sii-lwy-sii-ste-eva.hf.space`，不要添加 `/evaluate` 或使用 Markdown 链接格式。脚本会自动追加 `/evaluate`。 |
-| `HF_TOKEN` | 有权限访问目标 Space 的 Hugging Face User Access Token。脚本会将其放入 `Authorization: Bearer ...` 请求头。 |
-| `TAG` | 本次提交的标签，例如 `team-a-run-01`；优先于 JSONL 内的 `tag`，不会修改原文件，也不会自动创建排行榜。 |
-| 第一个命令行参数 | JSONL 文件路径；省略时使用脚本目录中的 `submission.jsonl`。`/path/to/submission.jsonl` 是占位符，需要替换。 |
-
-1. **确认评测服务地址。** 使用现有服务时，向维护者确认 Space 地址及访问权限。Space 页面地址（例如 `https://huggingface.co/spaces/SII-LWY/sii-ste-eva`）不是 API 根地址；应使用运行应用的 `https://...hf.space` 地址。地址从 Space 的应用链接或嵌入信息中获取。
-2. **创建访问 token。** 登录 Hugging Face，打开 [Settings → Access Tokens](https://huggingface.co/settings/tokens)，创建自己的 token。私有 Space 需要账号本身已有访问权限；token 无法赋予账号原本没有的权限。可使用仅允许读取目标 Space 的细粒度 token；按服务端要求配置额外的应用认证。无需为了调用评测接口授予仓库写权限。参见 [官方 Token 文档](https://huggingface.co/docs/hub/security-tokens)。
-3. **如果使用自己的 Space。** 先在 Space 中部署能接收 `{"points": [...], "tag": "..."}` 的 `POST /evaluate` 评分服务，再填写其应用地址。仅创建空 Space 或修改地址不会自动部署评测程序、保存成绩或生成排行榜。参见 [官方 Spaces 文档](https://huggingface.co/docs/hub/spaces-overview)。
-
-在 `platformtohf-main/platformtohf-main` 目录中执行，交互输入 token（输入不会显示）：
+两个必填路径依次为**轨迹、目标**：
 
 ```bash
-export HF_SPACE_URL="https://sii-lwy-sii-ste-eva.hf.space"
-read -rsp 'Hugging Face token: ' HF_TOKEN
-echo
-export HF_TOKEN
-TAG=team-a-run-01 bash submit.sh ./submission.jsonl
-unset HF_TOKEN
+PYTHON_BIN=python bash platformtohf-main/platformtohf-main/submit.sh \
+  results/submission_infer_result.json \
+  evaluation/results/target.json \
+  --tag team-a-run-01 \
+  --output results/submission_score.json
 ```
 
-`HF_SPACE_URL` 可换成已部署相同接口的自有 Space。也可以为单次命令指定变量（以下均为占位值）：
+脚本启动本机无界面 Chromium 和临时回环静态文件服务，在浏览器的 Pyodide + NumPy 中计算，结束后自动关闭。计算不依赖远程 CPU 或 HFM 服务。路径相对于当前工作目录，也可传绝对路径；有空格的路径加引号。`PYTHON_BIN` 默认是 `python3`。Windows 可直接运行 `python platformtohf-main/platformtohf-main/submit.py`，参数相同。
+
+成功时输出 `success: true`、总分 `score`、各指标贡献分 `scoreJson` 和有效步数 `K_eff`，满分 30 分；`--output` 同时保存 JSON，`--tag` 仅标记本次计算。失败时退出码非零，不生成有效分数。首次需联网下载 Pyodide 和 NumPy，网络较慢可添加 `--timeout 600`。
+
+轨迹顶层应为 `{"F2b": {"trajectory": {...}, "timeout": false}}`。目标须包含 `F2b`（兼容原评分器的 `F2a` 目标回退），且目标块包含 `lcfs_points`、`Xpt_main`、`Xpt_sec`、`strike`。A1/A2/B1/B2/B3、训练参考配置或边界系数 JSONL 不可替代该目标。
+
+### 5.2.部署免费 Static Space
+
+1. 创建或使用已有 HF Space，选择 **Static → Blank**；公开展示时选择 Public。
+2. 将 `platformtohf-main/platformtohf-main` 内的 `README.md`、`index.html`、`app.js`、`worker.js`、`compute.py`、`scorer_bundle.py`、`LICENSE` 上传到 Space 仓库**根目录**。上传解压后的文件，不是 ZIP 本身；无需上传训练代码或仿真器。
+3. 等待发布，打开 App，选择轨迹和目标两个 JSON，点击“开始评分”，可查看分数并下载 `f2b_score.json`。网页用户无需安装 Python、Playwright 或填写 token。
+
+本地预览（项目根目录）：
 
 ```bash
-HF_SPACE_URL=https://YOUR-SPACE.hf.space \
-HF_TOKEN=YOUR_TOKEN \
-TAG=my-run \
-bash submit.sh /path/to/submission.jsonl
+python -m http.server 8000 --bind 127.0.0.1 \
+  --directory platformtohf-main/platformtohf-main
 ```
 
-依赖 `bash`、`python3` 和 `curl`。脚本中存在预填 token，使用时请用自己的 `HF_TOKEN` 覆盖，不要将 token 写进提交文件或日志。公开服务若不需要认证，应先将脚本的 token 配置改为 `HF_TOKEN="${HF_TOKEN:-}"`，再不设置 `HF_TOKEN`；当前含预填值的 `${HF_TOKEN:-...}` 写法在变量为空时仍会使用预填 token。
+打开 `http://127.0.0.1:8000`，不要通过 `file://` 双击 HTML。
 
-远程返回 `"success": true` 的评分 JSON 才算评测完成；`"得分": 0.0` 表示评测成功但得分为零。此前一次提交已获得成功响应，耗时约 342 秒，计算期间可能长时间没有输出。`401/403` 应检查认证与权限；`404` 应同时检查 Space 地址、接口路径和私有服务的访问权限，不能单凭 404 判定服务下线。
+命令行也可以加载已部署的新版 Static 网页：
+
+```bash
+PYTHON_BIN=python bash platformtohf-main/platformtohf-main/submit.sh \
+  results/submission_infer_result.json \
+  evaluation/results/target.json \
+  --space-url https://YOUR-STATIC-SPACE.hf.space \
+  --output results/submission_score.json
+```
+
+`--space-url` 或 `HF_SPACE_URL` 是部署本目录文件的公开 Static 应用根地址，不加 `/evaluate`。未设置时使用本地页面；如果之前导出过旧地址，先 `unset HF_SPACE_URL`。数据在本机浏览器中计算，不发送到 HF 评分后端；只加载你信任的页面代码。
+
+### 5.3.规则与限制
+
+沿用原评分器的电流、LCFS、主/次 X 点、打击点和磁通偏差规则，以及提前结束、拓扑、线圈电流、超时和推理时间惩罚。电流参考曲线仍由 `config.build_Ip_ref()` 定义，并非任意读取目标 JSON 中的 `Ip`。
+
+单个输入上限为 128 MiB，可处理规模取决于设备内存。此版本计算并下载单次评分，不运行仿真、不验证轨迹来源，也不自动维护多人共享排行榜。浏览器代码和用户选择的目标均可查看。
+
+项目评分规则更新后，重新生成快照并同步上传：
+
+```bash
+python platformtohf-main/platformtohf-main/build_scorer.py
+python platformtohf-main/platformtohf-main/build_scorer.py --check
+```
+
+详见 [platformtohf README](platformtohf-main/platformtohf-main/README.md)。参考：[HF Static Spaces](https://huggingface.co/docs/hub/spaces-sdks-static)、[Pyodide Web Worker](https://pyodide.org/en/stable/usage/webworker.html)。
