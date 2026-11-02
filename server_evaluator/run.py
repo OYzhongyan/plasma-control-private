@@ -28,7 +28,6 @@ def build_parser():
     parser.add_argument("--platform-url", default=os.environ.get("PLATFORM_BASE_URL", "https://competition.opensii.ai"))
     parser.add_argument("--target", type=Path, default=ROOT / "evaluation/results/target.json")
     parser.add_argument("--data-dir", type=Path, default=ROOT / "server_evaluator/runtime")
-    parser.add_argument("--metric-name", default="得分", help="Must exactly match the platform's configured metric")
     parser.add_argument("--sources", default="offline,manual", help="Comma-separated sources: offline,manual")
     parser.add_argument("--limit", type=int, default=100, help="Pending records per source, 1..500")
     parser.add_argument("--poll-interval", type=float, default=15)
@@ -55,12 +54,12 @@ def main(argv=None):
     stop = Event()
     def request_stop(signum, frame): stop.set()
     try:
-        grader = Grader(args.target, args.metric_name)
+        grader = Grader(args.target)
         client = PlatformClient(args.platform_url, args.problem_id, username=os.environ.get("PLATFORM_USERNAME"),
                                 password=os.environ.get("PLATFORM_PASSWORD"), token=os.environ.get("PLATFORM_TOKEN"), timeout=args.http_timeout)
         if args.check_config:
             print(json.dumps({"ok": True, "problem_id": args.problem_id, "sources": sources, "target": str(args.target.resolve()),
-                              "metric_name": grader.metric_name, "max_score": 30, "rules_fingerprint": grader.fingerprint}, ensure_ascii=False))
+                              "metric_names": grader.metric_names, "max_score": 30, "rules_fingerprint": grader.fingerprint}, ensure_ascii=False))
             return 0
         fingerprint = hashlib.sha256(json.dumps({"rules": grader.fingerprint, "platform": client.base_url,
                                                 "problem": args.problem_id, "sources": sources}, sort_keys=True).encode()).hexdigest()
@@ -69,7 +68,7 @@ def main(argv=None):
         with instance_lock(args.data_dir), Store(args.data_dir, fingerprint) as store:
             worker = Worker(client, store, grader, args.data_dir / "downloads", sources=sources, limit=args.limit,
                             max_bytes=int(args.max_file_mb * 1024 * 1024), download_retries=args.download_retries)
-            LOG.info("Offline grader started problem=%s sources=%s metric=%s", args.problem_id, ",".join(sources), grader.metric_name)
+            LOG.info("Offline grader started problem=%s sources=%s metrics=%s", args.problem_id, ",".join(sources), ",".join(grader.metric_names))
             while not stop.is_set():
                 try:
                     outstanding = worker.cycle()

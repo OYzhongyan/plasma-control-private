@@ -11,6 +11,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+METRIC_MAXIMA = {"Ip": 6.0, "LCFS": 6.0, "X": 4.0, "strike": 3.0, "psiX": 4.0, "X2": 3.0, "psiX2": 4.0}
 
 
 @pytest.fixture
@@ -32,13 +33,15 @@ def test_grader_uses_original_scoring_and_fixed_target(tmp_path, sample):
     infer, target = sample
     target_path = tmp_path / "target.json"
     target_path.write_text(json.dumps(target))
-    grader = Grader(target_path, metric_name="得分")
-    assert grader.grade_bytes(json.dumps(infer).encode())["metrics_scores"] == {"得分": 30.0}
+    grader = Grader(target_path)
+    assert grader.grade_bytes(json.dumps(infer).encode())["metrics_scores"] == METRIC_MAXIMA
     changed = copy.deepcopy(infer)
     changed["F2b"]["trajectory"]["Icoil"][4][0] = 50000
     from evaluation.eval.score import evaluate
-    expected = round(evaluate(changed, target)["total_score"], 6)
-    assert grader.grade_bytes(json.dumps(changed).encode())["metrics_scores"]["得分"] == expected
+    expected = evaluate(changed, target)
+    actual = grader.grade_bytes(json.dumps(changed).encode())["metrics_scores"]
+    assert actual == pytest.approx(expected["task_metric_scores"]["F2b"])
+    assert sum(actual.values()) == pytest.approx(expected["total_score"])
     for payload in (b'not json', b'{"A1":{}}', b'{"F2b":{"trajectory":{"Ip":[NaN]}}}'):
         with pytest.raises(InvalidSubmission): grader.grade_bytes(payload)
 
@@ -103,6 +106,8 @@ def platform(sample):
             if self.headers.get("Authorization") != "Bearer test-platform-token":
                 self.reply(401, {}); return
             state["batches"].append(data["items"])
+            if any(set(item["metrics_scores"]) - set(METRIC_MAXIMA) for item in data["items"]):
+                self.reply(400, {"message": "Unregistered metric name"}); return
             if state["fail_reports"]:
                 state["fail_reports"] -= 1; self.reply(503, {}); return
             results, errors = [], []
@@ -148,7 +153,7 @@ def test_poll_score_report_and_never_send_token_to_download(tmp_path, sample, pl
         assert platform["downloads"] == 2
         assert platform["download_headers"] == [None, None]
         assert all(r["status"] == "completed" for r in platform["records"].values())
-        assert all(r["metrics_scores"] == {"得分": 30.0} for r in platform["records"].values())
+        assert all(r["metrics_scores"] == METRIC_MAXIMA for r in platform["records"].values())
         assert store.outstanding_count() == 0
         worker.cycle()
         assert platform["downloads"] == 2
@@ -257,6 +262,7 @@ def test_cli_check_config_is_offline(tmp_path, sample):
     proc = subprocess.run([sys.executable, str(ROOT / "server_evaluator/run.py"), "--problem-id", "p1", "--target", str(path), "--check-config"], capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["max_score"] == 30
+    assert json.loads(proc.stdout)["metric_names"] == list(METRIC_MAXIMA)
 
 
 def test_cli_once_full_protocol(tmp_path, sample, platform):
@@ -285,3 +291,30 @@ def test_oversized_numeric_and_deep_json_are_invalid_submissions(tmp_path, sampl
     infer["F2b"]["trajectory"]["Ip"][0] = 10**1000
     with pytest.raises(InvalidSubmission): grader.grade_bytes(json.dumps(infer).encode())
     with pytest.raises(InvalidSubmission): grader.grade_bytes(b'[' * 2000 + b']' * 2000)
+
+
+@pytest.mark.parametrize("case", ["offset", "topology", "limiter", "current", "timing", "timeout", "short", "empty"])
+def test_seven_contributions_preserve_original_penalties(tmp_path, sample, case):
+    from server_evaluator.grader import Grader
+    from evaluation.eval.score import evaluate
+    infer, target = sample
+    path = tmp_path / "target.json"; path.write_text(json.dumps(target))
+    traj = infer["F2b"]["trajectory"]
+    if case == "offset":
+        traj["lcfs_per_step"] = copy.deepcopy(traj["lcfs_per_step"])
+        traj["lcfs_per_step"][0][0][0] += .01
+    elif case == "topology": traj["nX"] = [2] * 500
+    elif case == "limiter": traj["lX"] = [0] * 500
+    elif case == "current": traj["Ip"][0] += 60000
+    elif case == "timing": traj["inference_time_ms"] = [1.] * 500
+    elif case == "timeout": infer["F2b"]["timeout"] = True
+    elif case in {"short", "empty"}:
+        n = 8 if case == "short" else 0
+        for key in list(traj): traj[key] = traj[key][:n]
+    expected = evaluate(infer, target)
+    actual = Grader(path).grade_bytes(json.dumps(infer).encode())
+    assert actual["status"] == "completed"
+    assert set(actual["metrics_scores"]) == set(METRIC_MAXIMA)
+    assert actual["metrics_scores"] == pytest.approx(expected["task_metric_scores"]["F2b"])
+    assert sum(actual["metrics_scores"].values()) == pytest.approx(expected["total_score"])
+    assert "得分" not in actual["metrics_scores"]

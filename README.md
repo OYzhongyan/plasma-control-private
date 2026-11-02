@@ -1,5 +1,7 @@
 > 本分支 `server/offline-grading` 用于服务器按操作手册 **4.5** 主动拉取任务、评分并回传。部署说明见 [server_evaluator/README.md](server_evaluator/README.md)。交给选手的 baseline 保留在 `main` 分支。
 
+服务器回传 `Ip、LCFS、X、strike、psiX、X2、psiX2` 七项已加权贡献分。平台首页综合分公式应配置为 `[0:Ip]+[0:LCFS]+[0:X]+[0:strike]+[0:psiX]+[0:X2]+[0:psiX2]`，按降序排名，满分 30 分。
+
 ## 1.训练模型
 
 ```bash

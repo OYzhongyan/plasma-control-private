@@ -40,7 +40,12 @@ The root README on this branch identifies the server role and links to deploymen
 instructions. Configuration includes problem id, fixed target path, metric name,
 data directory, sources, limits and polling interval. `--once` supports smoke tests.
 
-Default metric is `得分`, with the existing 0–30 scale; platform names must match.
+Platform metrics are `Ip`, `LCFS`, `X`, `strike`, `psiX`, `X2`, `psiX2`.
+Each value is the original scorer's final weighted contribution, already averaged
+over the full horizon and penalized. Their sum retains the existing 0–30 scale.
+The platform must use an explicit sum formula rather than weighted averaging.
+The old single `得分` field and `--metric-name` option are no longer emitted.
+Use a new data directory when upgrading old cached single-metric results.
 No platform account is accessed during development; all network integration uses
 a local fake API. The supplied manual is reference specification, not permission
 to use its embedded credentials. Live platform validation requires the owner to

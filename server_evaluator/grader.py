@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 from evaluation.eval.score import evaluate
 
+METRIC_NAMES = ("Ip", "LCFS", "X", "strike", "psiX", "X2", "psiX2")
+
 
 class InvalidSubmission(ValueError):
     pass
@@ -34,10 +36,8 @@ def numeric(value, name, ndim, tail=None):
 
 
 class Grader:
-    def __init__(self, target_path, metric_name="得分"):
-        self.metric_name = metric_name.strip()
-        if not self.metric_name:
-            raise ValueError("metric name must not be empty")
+    def __init__(self, target_path):
+        self.metric_names = METRIC_NAMES
         raw = Path(target_path).read_bytes()
         self.target = decode_json(raw)
         if not isinstance(self.target, dict):
@@ -49,7 +49,7 @@ class Grader:
             if name not in ref or not isinstance(ref[name], list) or not ref[name]:
                 raise ValueError(f"Official target is missing {name}")
             numeric(ref[name], f"target.{name}", 2, (2,))
-        digest = hashlib.sha256(raw + self.metric_name.encode())
+        digest = hashlib.sha256(raw + json.dumps(self.metric_names).encode())
         for path in sorted((Path(__file__).resolve().parents[1] / "evaluation/eval/score").glob("*.py")):
             digest.update(path.name.encode()); digest.update(path.read_bytes())
         # Changes to this adapter also invalidate cached results.
@@ -84,8 +84,11 @@ class Grader:
         except (TypeError, ValueError, IndexError, AssertionError) as exc:
             raise InvalidSubmission(f"Invalid trajectory structure: {exc}") from exc
         score = round(float(result["total_score"]), 6)
-        if not np.isfinite(score):
+        # These contributions already include the original metric weights,
+        # time averaging and every penalty. The platform should sum them once.
+        metrics = {name: float(result["task_metric_scores"]["F2b"][name]) for name in self.metric_names}
+        if not np.isfinite(score) or not all(np.isfinite(value) for value in metrics.values()):
             raise InvalidSubmission("Scorer returned a non-finite score")
         detail = result["per_task_results"][0]
-        return {"metrics_scores": {self.metric_name: score}, "status": "completed",
+        return {"metrics_scores": metrics, "status": "completed",
                 "evaluator_message": f"F2b score={score:.6f}/30; K_eff={detail.K_eff}/500; gamma={detail.gamma:g}"}

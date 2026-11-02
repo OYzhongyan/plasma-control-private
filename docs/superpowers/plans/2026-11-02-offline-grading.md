@@ -40,3 +40,9 @@ download retry/size limits, foreign/auto exclusion, auth refresh, no credentials
 on download requests or in persisted state, malformed/deep JSON, single-instance
 locking, source/target fingerprinting and offline config checks. Python 3.9 syntax
 and git whitespace checks passed. No live platform accounts were accessed.
+
+Metric schema update: the operator configured seven named metrics in the panel.
+Changed the server payload to final per-metric contributions, removed single-name
+CLI configuration, documented the explicit sum formula and new cache-directory
+requirement. All 22 server tests pass, including fake-platform rejection of unknown
+metric names and parity of all seven contributions under penalties/termination.
