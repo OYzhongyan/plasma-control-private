@@ -128,7 +128,7 @@ python eval_files/run_test.py --no-build \
 
 ## 5.platformtohf：轨迹 JSON 评分（免费 Static Space + Pyodide）
 
-该工具读取仿真得到的完整轨迹 JSON 和官方目标 JSON，复用 `evaluation/eval/score` 比较实际轨迹与目标并评分。不再提交边界系数 JSONL，也不再请求师兄的 `/evaluate` 接口；无需 HF Token、PRO 或 CPU 服务器。
+该工具读取仿真得到的完整轨迹 JSON 和官方目标 JSON，复用 `evaluation/eval/score` 比较实际轨迹与目标并评分。
 
 ### 5.1.命令行评分
 
