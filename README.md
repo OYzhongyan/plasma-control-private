@@ -1,3 +1,5 @@
+> 本分支 `server/offline-grading` 用于服务器按操作手册 **4.5** 主动拉取任务、评分并回传。部署说明见 [server_evaluator/README.md](server_evaluator/README.md)。交给选手的 baseline 保留在 `main` 分支。
+
 ## 1.训练模型
 
 ```bash

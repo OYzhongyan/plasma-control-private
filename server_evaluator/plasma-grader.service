@@ -1,0 +1,21 @@
+[Unit]
+Description=Plasma F2b competition offline grader (section 4.5)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+# Replace account, checkout, Python and real platform problem id before installing.
+User=plasma-grader
+WorkingDirectory=/opt/plasma-control-server
+EnvironmentFile=/etc/plasma-grader.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server/server_evaluator/run.py --target /opt/plasma-control-server/evaluation/results/target.json --data-dir /var/lib/plasma-grader
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=180
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
