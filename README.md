@@ -1,3 +1,18 @@
+## 0.准备工作
+
+在启智平台招生营专项空间中新建交互式建模，资源设置使用**标准模式**，计算规格使用55核cpu，镜像选择subexl50u-new:v2
+将本项目clone到你的工作目录下；
+从本项目public文件夹中复制仿真环境到你的工作目录下：
+```
+cp ../public/inspire_shared/hfm-runtime-release-sealed-latest.tar .
+```
+启动conda虚拟环境
+```
+conda activate competition_env
+```
+terminal可能是#号开头，输入bash回车转为bash
+
+zhua
 ## 1.训练模型
 
 ```bash
@@ -139,7 +154,7 @@ curl -X POST http://127.0.0.1:8001/reset \
 
 ```bash
 LISTEN_PORT=5558 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  bash hfm-runtime-release-sealed-latest/run_hfm_server.sh
+  bash ../hfm-runtime-release-sealed-latest/run_hfm_server.sh
 ```
 
 保持该终端运行，等待输出 `Waiting for a client to connect...`。如果仿真器不在项目根目录下，将上述脚本路径替换为实际路径。
@@ -165,4 +180,4 @@ python eval_files/run_test.py --no-build \
 
 ### 4.4.平台提交
 
-在 https://competition.opensii.ai/ 中提交json文件。
+在 https://competition.opensii.ai/ 中提交submission_infer_result.json文件。
