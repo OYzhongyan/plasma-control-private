@@ -61,8 +61,8 @@ python -m pip install -r server_evaluator/requirements.txt
 在服务器终端配置助教身份，密码交互输入，不写入仓库：
 
 ```bash
-export PLATFORM_USERNAME='YOUR_TEACHER_ACCOUNT'
-export PLATFORM_PROBLEM_ID='YOUR_PLATFORM_STRING_PROBLEM_ID'
+export PLATFORM_USERNAME='autumn26_t02'
+export PLATFORM_PROBLEM_ID='6ae84a300a686d1bbf619417'
 read -rsp '平台助教密码: ' PLATFORM_PASSWORD
 echo
 export PLATFORM_PASSWORD
