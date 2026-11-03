@@ -11,20 +11,12 @@ python train/train_ppo.py \
 
 ## 2.验证模型
 
-将 `YOUR_RUN` 替换为训练生成的 `results/` 下的运行目录名。
+以下命令在服务器的 `plasma-control` 项目根目录、Bash 终端中执行。将 `YOUR_RUN` 替换为训练生成的运行目录名。
+
+训练至少保存一次 checkpoint 后，可以按 `Ctrl+C` 中断训练，再执行以下命令验证。命令从 `checkpoints/` 中选择训练步数最大的模型，通过 `eval.cp_num` 加载，同时查找对应的 `*_vecnormalize.pkl` 归一化文件：
 
 ```bash
-python train/evaluate.py \
-  eval.model_path=results/YOUR_RUN \
-  target.default_reference_path=configs/xpt_reference_targets.json \
-  'eval.shots="14795_400"' \
-  eval.obs_perturb.enabled=true \
-  actions.mode=delta
-```
-
-可以中断训练，使用训练时保存的最新模型：
-```
-RUN_DIR=results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
+RUN_DIR=results/YOUR_RUN
 
 LATEST_CP=$(find "$RUN_DIR/checkpoints" -maxdepth 1 -type f \
   -name 'ppo_f2_*_steps.zip' -printf '%f\n' | sort -V | tail -n 1)
@@ -46,10 +38,12 @@ else
 fi
 ```
 
-例如
-```
+`ppo_f2_latest.zip` 在训练正常结束后保存，中断训练时可能不存在。若要验证正常结束后保存的最终模型，使用：
+
+```bash
 python train/evaluate.py \
-  eval.model_path=results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action \
+  eval.model_path=results/YOUR_RUN \
+  eval.cp_num=null \
   target.default_reference_path=configs/xpt_reference_targets.json \
   'eval.shots="14795_400"' \
   eval.obs_perturb.enabled=true \
