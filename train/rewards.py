@@ -157,7 +157,7 @@ class CompetitionReward:
             "ip_error_mask": mu, "soft_ip_error_mask": mu,
             "topology_score": float(_scalar(observation.get("lX")) == 1),
             "failure_penalty": 0.0,
-            **{f"F2b_{name}": float(value) for name, value in deltas.items()},
+            **{name: float(value) for name, value in deltas.items()},
         }
         component_names = {config.METRIC_IP: "ip_score", config.METRIC_LCFS: "lcfs_score",
                            config.METRIC_X: "main_x_dist_score", config.METRIC_PSIX: "main_x_psi_score",

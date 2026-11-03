@@ -187,7 +187,7 @@ def test_training_factory_and_ppo_update_with_competition_reward(monkeypatch):
     try:
         env.reset()
         _, reward, _, _, info = env.step(np.zeros(7))
-        assert sum(info["reward_components"][f"F2b_{name}"] for name in config.metric_weights()) == pytest.approx(reward)
+        assert sum(info["reward_components"][name] for name in config.metric_weights()) == pytest.approx(reward)
         model = PPO("MlpPolicy", env, n_steps=8, batch_size=8, n_epochs=1, policy_kwargs={"net_arch": [8]}, device="cpu", verbose=0, seed=0)
         model.learn(total_timesteps=16)
         assert model.num_timesteps == 16
