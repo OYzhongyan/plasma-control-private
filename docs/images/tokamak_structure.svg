@@ -46,7 +46,7 @@
   <text x="872" y="261" class="label">磁轴</text>
   <path d="M966 239 C965 216 957 196 946 182" fill="none" stroke="#0f766e" stroke-width="2.4" marker-end="url(#greenArrow)"/>
   <text x="969" y="216" class="label" style="fill:#0f766e">Bₚ</text>
-  <circle cx="861" cy="222" r="7" fill="none" stroke="#2563eb" stroke-width="1.4"/><circle cx="861" cy="222" r="2" fill="#2563eb"/>
+  <circle cx="861" cy="222" r="7" fill="none" stroke="#2563eb" stroke-width="1.4"/><path d="M857 218L865 226M865 218L857 226" fill="none" stroke="#2563eb" stroke-width="1.4"/>
   <text x="827" y="205" class="label" style="fill:#2563eb">Bφ</text>
   <path d="M1011 302 L1060 320" class="lead"/><text x="1030" y="344" class="label">LCFS</text>
   <rect x="1065" y="227" width="16" height="32" rx="3" fill="#c83b79"/>
