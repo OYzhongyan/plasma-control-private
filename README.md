@@ -22,17 +22,39 @@ python train/evaluate.py \
   actions.mode=delta
 ```
 
+可以中断训练，使用训练时保存的最新模型：
+```
+RUN_DIR=results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
+
+LATEST_CP=$(find "$RUN_DIR/checkpoints" -maxdepth 1 -type f \
+  -name 'ppo_f2_*_steps.zip' -printf '%f\n' | sort -V | tail -n 1)
+
+if [[ -z "$LATEST_CP" ]]; then
+  echo "没有找到 checkpoint，请检查 $RUN_DIR/checkpoints"
+else
+  CP_NUM="${LATEST_CP#ppo_f2_}"
+  CP_NUM="${CP_NUM%_steps.zip}"
+  echo "使用模型：$RUN_DIR/checkpoints/$LATEST_CP"
+
+  python train/evaluate.py \
+    eval.model_path="$RUN_DIR" \
+    eval.cp_num="$CP_NUM" \
+    target.default_reference_path=configs/xpt_reference_targets.json \
+    'eval.shots="14795_400"' \
+    eval.obs_perturb.enabled=true \
+    actions.mode=delta
+fi
+```
+
 例如
 ```
 python train/evaluate.py \
-  eval.model_path=results/20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action \
+  eval.model_path=results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action \
   target.default_reference_path=configs/xpt_reference_targets.json \
   'eval.shots="14795_400"' \
   eval.obs_perturb.enabled=true \
   actions.mode=delta
 ```
-
-验证指定 checkpoint 时，在上述命令后添加 `eval.cp_num=CHECKPOINT_STEPS`。
 
 ## 3.可视化结果
 
@@ -62,9 +84,9 @@ python train/export_onnx.py \
 例如
 ```
 python train/export_onnx.py \
-  --model results/20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip \
+  --model results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip \
   --out submission/model/policy2.onnx \
-  --vecnormalize results/20261101_092602_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
+  --vecnormalize results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
 ```
 
 导出产物为：
