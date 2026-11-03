@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE = ROOT / "platformtohf-main/platformtohf-main"
+SITE = ROOT / "platformtohf-main"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(SITE))
 

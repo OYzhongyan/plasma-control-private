@@ -1,2 +1,0 @@
-# Scoring runs in browser Pyodide; host Python needs no NumPy for this CLI.
-playwright>=1.48,<2
