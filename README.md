@@ -68,19 +68,38 @@ submission 用于把训练好的模型部署成推理服务，供仿真环境或
 
 ### 4.1.导出模型
 
+训练中断后，可从 `checkpoints/` 中选择训练步数最大的模型导出。将 `YOUR_RUN` 替换为运行目录名；必须使用同一步数对应的归一化文件：
+
+```bash
+RUN_DIR=results/YOUR_RUN
+
+LATEST_CP=$(find "$RUN_DIR/checkpoints" -maxdepth 1 -type f \
+  -name 'ppo_f2_*_steps.zip' -printf '%f\n' | sort -V | tail -n 1)
+
+if [[ -z "$LATEST_CP" ]]; then
+  echo "没有找到 checkpoint，请检查 $RUN_DIR/checkpoints"
+else
+  MODEL_PATH="$RUN_DIR/checkpoints/$LATEST_CP"
+  VECNORMALIZE_PATH="${MODEL_PATH%.zip}_vecnormalize.pkl"
+  if [[ ! -f "$VECNORMALIZE_PATH" ]]; then
+    echo "缺少对应的归一化文件：$VECNORMALIZE_PATH，请检查 checkpoint.save_vecnormalize 配置"
+  else
+    echo "导出模型：$MODEL_PATH"
+    python train/export_onnx.py \
+      --model "$MODEL_PATH" \
+      --out submission/model/policy2.onnx \
+      --vecnormalize "$VECNORMALIZE_PATH"
+  fi
+fi
+```
+
+若训练已正常结束，也可以导出最终模型：
+
 ```bash
 python train/export_onnx.py \
   --model results/YOUR_RUN/ppo_f2_latest.zip \
   --out submission/model/policy2.onnx \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
-```
-
-例如
-```
-python train/export_onnx.py \
-  --model results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/ppo_f2_latest.zip \
-  --out submission/model/policy2.onnx \
-  --vecnormalize results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action/vecnormalize.pkl
 ```
 
 导出产物为：
@@ -100,6 +119,8 @@ submission/model/
 pip install -r submission/requirements.txt
 python submission/service2.py
 ```
+
+重新导出模型后，如果推理服务已启动，需停止并重新运行上述服务命令，才能加载新的模型及归一化统计。
 
 默认端口为 `8001`，可通过环境变量 `SUBMISSION_PORT2` 修改。另开终端检查接口：
 
