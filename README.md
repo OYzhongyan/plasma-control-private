@@ -173,8 +173,7 @@ conda activate competition_env
 先启动 32 个 HFM socket 实例，对应端口 `2223–2254`。每个环境连接一个独立实例：
 
 ```bash
-OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  bash ../hfm-runtime-release-sealed-latest/start_hfm_pool.sh \
+bash ../hfm-runtime-release-sealed-latest/tasksetstart.sh \
   --num 32 --base-port 2223
 ```
 
@@ -185,9 +184,7 @@ python train/train_ppo.py \
   output_dir=YOUR_RUN_NAME \
   reset_perturbation.fix_reset_params=true \
   num_envs=32 \
-  ports=2223 \
-  features.delay_step=1 \
-  actions.mode=delta
+  ports=2223 
 ```
 
 训练产物保存在 `results/` 下的运行目录中。减少环境数时，应同时调整实例数量和 `num_envs`。
@@ -231,8 +228,6 @@ python train/evaluate.py \
   ports=2223 \
   target.default_reference_path=configs/xpt_reference_targets.json \
   'eval.shots="14795_400"' \
-  eval.obs_perturb.enabled=true \
-  actions.mode=delta
 ```
 
 # 7. 可视化结果
@@ -252,7 +247,7 @@ python rollout/visualize_rollout.py --run_name YOUR_RUN
 训练中断后，可从 `checkpoints/` 中选择训练步数最大的模型导出。将 `YOUR_RUN` 替换为运行目录名；必须使用同一步数对应的归一化文件：
 
 ```bash
-RUN_DIR=results/YOUR_RUN
+RUN_DIR=results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
 
 LATEST_CP=$(find "$RUN_DIR/checkpoints" -maxdepth 1 -type f \
   -name 'ppo_f2_*_steps.zip' -printf '%f\n' | sort -V | tail -n 1)
