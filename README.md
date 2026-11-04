@@ -161,8 +161,7 @@ flowchart LR
 复制公共目录中的仿真器压缩包并解压到项目的同级目录，然后激活环境：
 
 ```bash
-cp ../public/inspire_shared/hfm-runtime-release-sealed-latest.tar .
-tar -xf hfm-runtime-release-sealed-latest.tar -C ..
+cp ../public/inspire_shared/hfm-runtime-release-sealed-latest .
 conda activate competition_env
 ```
 
