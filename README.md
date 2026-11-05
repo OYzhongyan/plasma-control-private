@@ -105,8 +105,8 @@ python server_evaluator/run.py \
 从课题的「API / CLI 帮助」获取字符串 `problem_id`，并由平台管理员提供有本题评分权限的助教身份。配置环境变量：
 
 ```bash
-export PLATFORM_USERNAME='YOUR_TEACHER_ACCOUNT'
-export PLATFORM_PROBLEM_ID='YOUR_PLATFORM_STRING_PROBLEM_ID'
+export PLATFORM_USERNAME='autumn26_t02'
+export PLATFORM_PROBLEM_ID='6ae84a300a686d1bbf619417'
 read -rsp '平台助教密码: ' PLATFORM_PASSWORD
 echo
 export PLATFORM_PASSWORD
