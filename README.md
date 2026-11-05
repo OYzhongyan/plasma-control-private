@@ -237,16 +237,18 @@ python train/evaluate.py \
 python rollout/visualize_rollout.py --run_name YOUR_RUN
 ```
 
-# 8. 推理服务与平台提交
+# 8. 模型导出与平台提交
 
-`submission` 将训练好的模型部署成 HTTP 推理服务，供评测程序驱动仿真器，生成最终提交的轨迹 JSON。该服务使用 ONNX 模型，不能直接加载 PPO 的 `.zip` 文件。
+选手运行模型导出命令，程序会自动生成一个 **`results/submission_model.zip`**，然后将它上传比赛平台。评分服务器自动下载、校验并解包，使用 CPU 加载模型，调用本地 HFM 仿真器生成轨迹，按官方目标计算七项贡献分并回传平台，平台更新综合分与排行榜。正式提交无需在选手端启动推理服务或运行本地评测。
 
-## 8.1 导出模型
+## 8.1 导出并打包模型
 
-训练中断后，可从 `checkpoints/` 中选择训练步数最大的模型导出。将 `YOUR_RUN` 替换为运行目录名；必须使用同一步数对应的归一化文件：
+以下两种方式任选其一，均在项目根目录执行。将 `YOUR_RUN` 替换为训练运行目录名。`train/export_onnx.py` 在导出模型、元数据和归一化统计后自动打包，无需另行压缩。终端显示 `Model package ready` 才表示本次模型包已更新，导出或打包报错时不要上传旧文件。
+
+**训练中断后使用最新 checkpoint：**从 `checkpoints/` 中选择训练步数最大的模型，同时使用同一步数对应的归一化文件。
 
 ```bash
-RUN_DIR=results/20261103_021952_f2b_fix_reset_lr_1e-4_obs_delay_1_delta_action
+RUN_DIR=results/YOUR_RUN
 
 LATEST_CP=$(find "$RUN_DIR/checkpoints" -maxdepth 1 -type f \
   -name 'ppo_f2_*_steps.zip' -printf '%f\n' | sort -V | tail -n 1)
@@ -268,7 +270,7 @@ else
 fi
 ```
 
-若训练已正常结束，也可以导出最终模型：
+**训练正常结束后使用最终模型：**
 
 ```bash
 python train/export_onnx.py \
@@ -277,61 +279,23 @@ python train/export_onnx.py \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
-导出产物为：
+默认提交包为项目根目录下的 `results/submission_model.zip`。可通过 `--bundle /path/to/team_model.zip` 指定输出位置；开发调试只需导出 ONNX 时，可添加 `--no-bundle`。
+
+## 8.2 提交文件组成
+
+上述命令把导出的三份文件放入 ZIP 根目录，最终只需提交 **`results/submission_model.zip`**：
 
 ```text
-submission/model/
+submission_model.zip
 ├── policy2.onnx
 ├── policy2.metadata.json
 └── policy2_vecnormalize_stats.npz
 ```
 
-## 8.2 启动推理服务
+`policy2.onnx` 是策略模型，`policy2.metadata.json` 描述历史观测与动作接口，`policy2_vecnormalize_stats.npz` 保存匹配的归一化统计。ZIP 文件名可以自定，但包内三份文件名称固定，且不能再套一层目录或加入其他文件；压缩包上限为 128 MiB。
 
-启动模型推理 HTTP 服务，供评测程序或外部平台调用训练好的模型。
+当前 baseline 的 ONNX 输出 7 维独立动作（CS、5 组配对 PF、VS），评分服务器沿用训练时的动作映射，将其转换成 HFM 接收的 12 维线圈电压。
 
-```bash
-pip install -r submission/requirements.txt
-python submission/service2.py
-```
+## 8.3 上传平台
 
-重新导出模型后，如果推理服务已启动，需停止并重新运行上述服务命令，才能加载新的模型及归一化统计。
-
-默认端口为 `8001`，可通过环境变量 `SUBMISSION_PORT2` 修改。另开终端检查接口：
-
-```bash
-curl http://127.0.0.1:8001/health
-curl -X POST http://127.0.0.1:8001/reset \
-  -H 'Content-Type: application/json' \
-  -d '{"episode_id":"F2b"}'
-```
-
-每个 episode 先调用 `/reset`，再通过 `POST /act` 发送 `{"observation": {...}}`，返回 12 维物理电压。`/health` 会报告模型输入维度和归一化加载情况；模型或必要统计文件缺失、维度不匹配时返回 HTTP 503，推理异常返回 HTTP 500，不再静默返回零动作。可用环境变量 `SUBMISSION_MODEL_DIR` 指定模型目录。
-
-## 8.3 仿真评测与生成提交文件
-
-在项目根目录打开一个终端，启动本地评测默认连接的 HFM socket 服务（端口 `5558`）：
-
-```bash
-LISTEN_PORT=5558 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-  bash ../hfm-runtime-release-sealed-latest/run_hfm_server.sh
-```
-
-保持该终端运行，等待输出 `Waiting for a client to connect...`。准备包含本任务目标数据的官方文件 `evaluation/results/target.json`，保持第 8.2 节的推理服务运行，然后在同一计算节点的另一个终端进入项目根目录执行。`PYTHONPATH` 用于确保 Python 能导入项目中的 `environment` 等模块：
-
-```bash
-PYTHONPATH="$PWD:$PWD/evaluation/eval:${PYTHONPATH:-}" \
-SAISDATA_SHOTS_CONFIG="$PWD/configs/shots.yaml" \
-python eval_files/run_test.py --no-build \
-  --service-url http://127.0.0.1:8001 \
-  --reference-config eval_files/references.yaml \
-  --target-json evaluation/results/target.json \
-  --output results/submission_infer_result.json
-```
-
-
-上述命令生成 **`results/submission_infer_result.json`**，这是最终提交的仿真轨迹文件；`target.json` 是评分参考文件。
-
-## 8.4 上传平台
-
-在 [比赛平台](https://competition.opensii.ai/) 上传 `results/submission_infer_result.json`，由平台评分并更新排行榜。
+在 [比赛平台](https://competition.opensii.ai/) 的对应课题中上传 `results/submission_model.zip`，等待服务器自动解包、测评并回传结果。只上传这个文件，不分别上传其中三份文件，也不上传训练用 PPO checkpoint、`.pkl`、`target.json` 或轨迹 JSON。官方目标和评测环境由服务器统一提供。

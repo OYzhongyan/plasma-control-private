@@ -1,10 +1,12 @@
 # F2b inference service
 
+正式比赛请按[项目 README 第 8 节](../README.md#8-模型导出与平台提交)导出模型并上传单个 `submission_model.zip`。评分服务器统一运行 HFM 与评分；下面的 HTTP 服务和本地联调说明仅用于开发调试，不是选手提交步骤。
+
 `inference2.py` and `service2.py` provide the F2b policy. The service listens on port `8001` by default; override `SUBMISSION_PORT2` if needed. It retains `GET /health`, `POST /reset` and `POST /act`, returning 12-dimensional actions.
 
 Place models in `submission/model/`, or set `SUBMISSION_MODEL_DIR`. The policy prefers `policy2b.onnx`, otherwise `policy2.onnx`. No F2b model is bundled. Metadata and VecNormalize statistics must match the model.
 
-Export a current training run (checkpoint paths are also supported):
+Export a current training run and automatically create `results/submission_model.zip` (checkpoint paths are also supported):
 
 ```bash
 python train/export_onnx.py --model results/YOUR_RUN/ppo_f2_latest.zip \

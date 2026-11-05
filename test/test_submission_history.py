@@ -121,7 +121,8 @@ def exported(tmp_path_factory):
     with (directory / "configs.pkl").open("wb") as stream:
         pickle.dump(config, stream)
     onnx = directory / "policy2.onnx"
-    main(["--model", str(directory / "ppo_f2_latest.zip"), "--out", str(onnx)])
+    main(["--model", str(directory / "ppo_f2_latest.zip"), "--out", str(onnx),
+          "--bundle", str(directory / "submission_model.zip")])
     return directory, model, norm
 
 

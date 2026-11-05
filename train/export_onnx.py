@@ -1,4 +1,4 @@
-"""Export a trained SB3 policy to the submission ONNX layout."""
+"""Export a trained SB3 policy and automatically package one platform upload."""
 
 from __future__ import annotations
 import argparse
@@ -6,6 +6,7 @@ import json
 import pickle
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 import numpy as np
 import torch
@@ -15,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from train.features import FeatureMetadata
 from submission.history import HISTORY_FEATURE_MODE, history_metadata
+from submission.model_bundle import create_bundle
 
 
 class OnnxablePolicy(torch.nn.Module):
@@ -258,6 +260,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional VecNormalize .pkl or stats .npz. If omitted, export searches beside the model for vecnormalize_stats.npz or vecnormalize.pkl.",
     )
+    packaging = parser.add_mutually_exclusive_group()
+    packaging.add_argument(
+        "--bundle", type=Path,
+        help="Upload ZIP destination; defaults to results/submission_model.zip in the project.",
+    )
+    packaging.add_argument(
+        "--no-bundle", action="store_true",
+        help="Only export ONNX and preprocessing files for development, without creating an upload ZIP.",
+    )
     args = parser.parse_args(argv)
     out_path = args.out or default_out_path()
     metadata = load_export_metadata(args.model, args.metadata, args.config)
@@ -274,6 +285,21 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(
                     "VecNormalize statistics do not match the exported observation layout"
                 )
+    if not args.no_bundle:
+        if stats is None:
+            raise ValueError("A model upload requires matching VecNormalize statistics; use --vecnormalize")
+        # Stage only this export's outputs, including custom --out filenames.
+        # Never pick up old files from submission/model when a source is missing.
+        with tempfile.TemporaryDirectory(prefix="plasma-model-export-") as temporary:
+            staging = Path(temporary)
+            for source, name in (
+                (out_path, "policy2.onnx"),
+                (metadata_path_for_onnx(out_path), "policy2.metadata.json"),
+                (stats, "policy2_vecnormalize_stats.npz"),
+            ):
+                shutil.copyfile(source, staging / name)
+            package = create_bundle(staging, args.bundle or ROOT / "results" / "submission_model.zip")
+        print(f"Model package ready: {package.resolve()}")
     return 0
 
 
