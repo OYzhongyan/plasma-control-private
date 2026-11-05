@@ -188,6 +188,8 @@ python train/train_ppo.py \
 
 训练产物保存在 `results/` 下的运行目录中。增减环境数时，应同时调整实例数量和 `num_envs`，注意HFM socket实例端口（port）要能与训练连接端口对应。
 
+> Tensorboard 使用：在启智平台招生营专项空间下的分布式训练按钮中，选择`Tensorboard`，然后点击右侧蓝色按钮`新建Tensorboard`，`Summary文件路径`选择项目根目录下的`runs`文件夹路径。
+
 # 6. 验证模型
 
 验证模型将使用训练好的actor在测试shot上进行完整的500ms控制，得到等离子电流（Ip）、最外层闭合磁通位置（LCFS）等观测量在500ms内的变化序列。
@@ -231,13 +233,15 @@ python train/evaluate.py \
   'eval.shots="14795_400"' \
 ```
 
-# 7. 可视化结果
+# 7. 可视化
 
 验证完成后执行：
 
 ```bash
 python rollout/visualize_rollout.py --run_name YOUR_RUN
 ```
+数据保存在`results/YOUR_RUN/eval/figures/`
+
 
 # 8. 模型导出与平台提交
 
