@@ -1,0 +1,12 @@
+{
+  "target_path": "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/evaluation/results/target.json",
+  "env_config": "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/configs/env_default.yaml",
+  "reference_config": "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/eval_files/references.yaml",
+  "obs_perturb_config": "/inspire/hdd/project/26-nuclear-fusion/czxs25220173/plasma-control/eval_files/obs_perturb.yaml",
+  "hfm_host": "127.0.0.1",
+  "hfm_port": 5558,
+  "socket_timeout": 300.0,
+  "seed": 0,
+  "onnx_threads": 1,
+  "memory_limit_mb": 4096
+}

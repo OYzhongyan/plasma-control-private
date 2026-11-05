@@ -186,9 +186,11 @@ python train/train_ppo.py \
   ports=2223 
 ```
 
-训练产物保存在 `results/` 下的运行目录中。减少环境数时，应同时调整实例数量和 `num_envs`。
+训练产物保存在 `results/` 下的运行目录中。增减环境数时，应同时调整实例数量和 `num_envs`，注意HFM socket实例端口（port）要能与训练连接端口对应。
 
 # 6. 验证模型
+
+验证模型将使用训练好的actor在测试shot上进行完整的500ms控制，得到等离子电流（Ip）、最外层闭合磁通位置（LCFS）等观测量在500ms内的变化序列。
 
 保持端口 `2223` 的 HFM 实例运行并处于空闲状态。将 `YOUR_RUN` 替换为训练生成的运行目录名。
 
@@ -239,13 +241,13 @@ python rollout/visualize_rollout.py --run_name YOUR_RUN
 
 # 8. 模型导出与平台提交
 
-选手运行模型导出命令，程序会自动生成一个 **`results/submission_model.zip`**，然后将它上传比赛平台。评分服务器自动下载、校验并解包，使用 CPU 加载模型，调用本地 HFM 仿真器生成轨迹，按官方目标计算七项贡献分并回传平台，平台更新综合分与排行榜。正式提交无需在选手端启动推理服务或运行本地评测。
+选手运行模型导出命令，程序会自动生成一个 **`results/submission_model.zip`**，然后将它上传比赛平台。评分服务器自动从比赛平台下载、校验并解包，使用 CPU 加载模型，调用服务器自带的 HFM 仿真器生成轨迹，按官方目标计算七项贡献分并回传平台，平台更新综合分与排行榜。正式提交无需在选手端启动推理服务或运行本地评测。
 
 ## 8.1 导出并打包模型
 
 以下两种方式任选其一，均在项目根目录执行。将 `YOUR_RUN` 替换为训练运行目录名。`train/export_onnx.py` 在导出模型、元数据和归一化统计后自动打包，无需另行压缩。终端显示 `Model package ready` 才表示本次模型包已更新，导出或打包报错时不要上传旧文件。
 
-**训练中断后使用最新 checkpoint：**从 `checkpoints/` 中选择训练步数最大的模型，同时使用同一步数对应的归一化文件。
+**训练中断后使用最新 checkpoint**：从 `checkpoints/` 中选择训练步数最大的模型，同时使用同一步数对应的归一化文件。
 
 ```bash
 RUN_DIR=results/YOUR_RUN
@@ -279,7 +281,7 @@ python train/export_onnx.py \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
-默认提交包为项目根目录下的 `results/submission_model.zip`。可通过 `--bundle /path/to/team_model.zip` 指定输出位置；开发调试只需导出 ONNX 时，可添加 `--no-bundle`。
+默认提交包为项目根目录下的 `results/submission_model.zip`。可通过 `--bundle /path/to/team_model.zip` 指定输出位置。
 
 ## 8.2 提交文件组成
 
@@ -298,4 +300,6 @@ submission_model.zip
 
 ## 8.3 上传平台
 
-在 [比赛平台](https://competition.opensii.ai/) 的对应课题中上传 `results/submission_model.zip`，等待服务器自动解包、测评并回传结果。只上传这个文件，不分别上传其中三份文件，也不上传训练用 PPO checkpoint、`.pkl`、`target.json` 或轨迹 JSON。官方目标和评测环境由服务器统一提供。
+在 [比赛平台](https://competition.opensii.ai/) 的对应课题中上传 `results/submission_model.zip`，等待服务器自动解包、测评并回传结果。只上传这个文件，不分别上传其中三份文件，也不上传训练用 PPO checkpoint、`.pkl`、`target.json` 或轨迹 JSON。官方目标和评测环境由服务器统一提供。无队列堆积时，单个文件测评结果将在几分钟内提交给比赛平台。
+
+> 注意，比赛分数会以最高分为准，**建议用git做好代码版本保存，实训课题结束时切回最高分代码版本**，方便助教复现您提交的最高分结果
