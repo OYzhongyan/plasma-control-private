@@ -265,7 +265,7 @@ def test_cli_check_config_is_offline(tmp_path, sample):
     assert json.loads(proc.stdout)["metric_names"] == list(METRIC_MAXIMA)
 
 
-def test_cli_once_full_protocol(tmp_path, sample, platform):
+def test_cli_once_rejects_legacy_json_and_reports_once(tmp_path, sample, platform):
     import os
     import subprocess
     _, target = sample
@@ -280,7 +280,8 @@ def test_cli_once_full_protocol(tmp_path, sample, platform):
         assert proc.returncode == 0, proc.stderr
         assert "test-password" not in proc.stderr
     assert platform["downloads"] == 2
-    assert len(platform["batches"]) == 1
+    assert len(platform["batches"]) == 2
+    assert all(record["status"] == "failed" for record in platform["records"].values())
 
 
 def test_oversized_numeric_and_deep_json_are_invalid_submissions(tmp_path, sample):

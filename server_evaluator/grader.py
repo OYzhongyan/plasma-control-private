@@ -13,6 +13,10 @@ class InvalidSubmission(ValueError):
     pass
 
 
+class GradingUnavailable(RuntimeError):
+    """Organizer infrastructure is unavailable; keep the submission pending."""
+
+
 def decode_json(raw):
     def reject(value):
         raise InvalidSubmission(f"Nonstandard JSON number: {value}")
@@ -79,6 +83,14 @@ class Grader:
             if name in traj: numeric(traj[name], name, 3, (2,))
         for name in ("psiX_main", "psiX_sec"):
             if name in traj: numeric(traj[name], name, 2)
+        return self.grade_data(data)
+
+    def grade_data(self, data):
+        """Score a trusted, server-generated trajectory, including missing geometry.
+
+        The official scorer treats non-finite geometric errors as zero credit.
+        Uploaded trajectory documents must still use grade_bytes validation.
+        """
         try:
             result = evaluate(data, self.target)
         except (TypeError, ValueError, IndexError, AssertionError) as exc:

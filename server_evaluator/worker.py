@@ -4,17 +4,18 @@ import hashlib
 import logging
 from pathlib import Path
 from .client import DownloadError, FileTooLarge, PlatformError
-from .grader import InvalidSubmission
+from .grader import GradingUnavailable, InvalidSubmission
 
 LOG = logging.getLogger(__name__)
 
 
 class Worker:
-    def __init__(self, client, store, grader, downloads, *, sources=("offline", "manual"), limit=100, max_bytes=128*1024*1024, download_retries=3):
+    def __init__(self, client, store, grader, downloads, *, sources=("offline", "manual"), limit=100, max_bytes=128*1024*1024, download_retries=3, stop_event=None):
         self.client, self.store, self.grader = client, store, grader
         self.downloads = Path(downloads)
         self.sources, self.limit, self.max_bytes = sources, limit, max_bytes
         self.download_retries = download_retries
+        self.stop_event = stop_event
 
     def eligible(self, task, pending=True):
         return (isinstance(task, dict) and isinstance(task.get("id"), str) and bool(task["id"])
@@ -26,16 +27,25 @@ class Worker:
         pending = self.client.pending(self.sources, self.limit)
         seen = set()
         for task in pending:
+            if self.stop_event is not None and self.stop_event.is_set():
+                break
             if not self.eligible(task) or task["id"] in seen:
                 continue
             sid = task["id"]; seen.add(sid)
             self.store.register(task)
             cached = self.store.get(sid)
             if cached["result"] is not None or cached["reported"]: continue
-            destination = self.downloads / (hashlib.sha256(sid.encode()).hexdigest() + ".json")
+            destination = self.downloads / (hashlib.sha256(sid.encode()).hexdigest() + getattr(self.grader, "download_suffix", ".json"))
             try:
                 self.client.download(task.get("file_url", ""), destination, self.max_bytes)
-                result = self.grader.grade_bytes(destination.read_bytes())
+                if hasattr(self.grader, "grade_file"):
+                    result = self.grader.grade_file(destination)
+                else:
+                    result = self.grader.grade_bytes(destination.read_bytes())
+            except GradingUnavailable as exc:
+                self.store.note_error(sid, str(exc)[:1500])
+                LOG.warning("submission=%s evaluation deferred: %s", sid, exc)
+                break  # Avoid failing or repeatedly probing a broken simulator for every team.
             except DownloadError as exc:
                 self.store.attempt(sid, str(exc))
                 attempts = self.store.get(sid)["attempts"]
@@ -47,6 +57,8 @@ class Worker:
                 result = {"metrics_scores": {}, "status": "failed", "evaluator_message": str(exc)[:1500]}
             self.store.save_result(sid, result)
             LOG.info("submission=%s scored status=%s", sid, result["status"])
+            if hasattr(self.grader, "grade_file"):
+                self.flush_results({task["id"]: task})
         self.flush_results({task["id"]: task for task in pending if self.eligible(task)})
         return self.store.outstanding_count()
 

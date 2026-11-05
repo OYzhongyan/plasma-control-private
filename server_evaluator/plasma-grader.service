@@ -1,19 +1,33 @@
 [Unit]
-Description=Plasma F2b competition offline grader (section 4.5)
+Description=Plasma model simulation grader (section 4.5)
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=simple
-# Replace account, checkout, Python and real platform problem id before installing.
+# Start HFM separately on 127.0.0.1:5558 before starting this service.
+# Replace account, checkout and Python paths before installing.
 User=plasma-grader
 WorkingDirectory=/opt/plasma-control-server
 EnvironmentFile=/etc/plasma-grader.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server/server_evaluator/run.py --target /opt/plasma-control-server/evaluation/results/target.json --data-dir /var/lib/plasma-grader
+Environment=OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+Environment=SAISDATA_SHOTS_CONFIG=/opt/plasma-control-server/configs/shots.yaml
+ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server/server_evaluator/run.py \
+    --target /opt/plasma-control-server/evaluation/results/target.json \
+    --env-config /opt/plasma-control-server/configs/env_default.yaml \
+    --reference-config /opt/plasma-control-server/eval_files/references.yaml \
+    --obs-perturb-config /opt/plasma-control-server/eval_files/obs_perturb.yaml \
+    --hfm-host 127.0.0.1 --hfm-port 5558 \
+    --socket-timeout 300 --evaluation-timeout 1800 \
+    --inference-timeout 1 \
+    --seed 0 --onnx-threads 1 \
+    --memory-limit-mb 4096 \
+    --data-dir /var/lib/plasma-grader/models-v1
 Restart=on-failure
 RestartSec=15
-TimeoutStopSec=180
+KillMode=mixed
+TimeoutStopSec=40
 UMask=0077
 NoNewPrivileges=true
 

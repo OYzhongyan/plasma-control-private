@@ -410,9 +410,10 @@ def apply_obs_normalization(
 class BaseOnnxPolicy:
     """ONNX-backed policy; invalid artifacts are reported instead of zero actions."""
 
-    def __init__(self, *, model_dir: str | Path, preferred_name: str):
+    def __init__(self, *, model_dir: str | Path, preferred_name: str, session_options=None):
         self.model_dir = Path(model_dir)
         self.preferred_name = preferred_name
+        self.session_options = session_options
         self.session = None
         self.input_name = None
         self.output_name = None
@@ -463,9 +464,10 @@ class BaseOnnxPolicy:
                     "Matching VecNormalize observation statistics are required"
                 )
 
-            self.session = ort.InferenceSession(
-                str(model_path), providers=["CPUExecutionProvider"]
-            )
+            session_kwargs = {"providers": ["CPUExecutionProvider"]}
+            if self.session_options is not None:
+                session_kwargs["sess_options"] = self.session_options
+            self.session = ort.InferenceSession(str(model_path), **session_kwargs)
             self.input_name = self.session.get_inputs()[0].name
             self.output_name = self.session.get_outputs()[0].name
             input_dim = self.session.get_inputs()[0].shape[-1]
