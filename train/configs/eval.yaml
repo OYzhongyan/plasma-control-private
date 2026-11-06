@@ -1,0 +1,46 @@
+# F2b evaluation configuration.
+defaults:
+- base
+- _self_
+target:
+  reference_mode: trajectory
+  reference_variants_enabled: false
+  default_reference_path: configs/xpt_reference_targets.json
+reset_perturbation:
+  enabled: false
+  apply_mode: all
+  fix_reset_params: false
+  signeo_scale_range:
+  - 0.9
+  - 1.1
+  bp_scale_range:
+  - 0.9
+  - 1.1
+  q0_scale_range:
+  - 0.9
+  - 1.1
+eval:
+  model_path: null
+  cp_num: null
+  shots: null
+  episodes_per_shot: 1
+  seed: 0
+  deterministic: true
+  policy_mode: model
+  score: true
+  obs_perturb:
+    enabled: false
+    delay_steps: 1
+    noise_std:
+      Ip: 2300
+      R: 0.008
+      Z: 0.0
+      I_PF: 0.0
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: results/eval/${now:%Y%m%d_%H%M%S}
+  sweep:
+    dir: results/eval/multirun/${now:%Y%m%d_%H%M%S}
+    subdir: ${hydra.job.num}
