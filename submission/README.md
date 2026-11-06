@@ -14,7 +14,7 @@ python train/export_onnx.py --model results/YOUR_RUN/ppo_f2_latest.zip \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
-The exporter automatically reads `f2_features.metadata.json` or `configs.pkl` from the run directory. For a relocated model, supply `--config /path/to/configs.pkl`. The historical adapter reuses `train/wrappers.py` for observation history and absolute/delta actions, preserving zero padding, first-step action repetition, accumulation and physical voltage ordering. A 4-step delta policy has 812 input features. VecNormalize runs after history construction, using the frozen training statistics. Delays/noise supplied by the evaluator are not applied a second time.
+The exporter reads `f2_features.metadata.json` or `configs.pkl` from the run directory. For a relocated model, supply `--config /path/to/configs.pkl`. The supported interface is `reference_only_v1`: Actor and Critic both receive the current 90 target values in this order: `reference_Ip` (1), `reference_lX` (1), `reference_lcfs_points` (64), `reference_rX` (4), `reference_zX` (4), `reference_strike_r` (8), `reference_strike_z` (8). Neither measured state nor observation/action history is included. VecNormalize uses matching frozen 90D statistics. Absolute/delta action conversion still reuses `train/wrappers.py`, including delta accumulation. Old historical models are not supported; retrain and export a new model with its corresponding statistics.
 
 Call `/reset` before each episode. `/health` returns 200 only when the model and required preprocessing artifacts load successfully, and reports feature mode, dimension and normalization readiness. Missing/mismatched artifacts return 503. `/act` failures return 500 instead of zero-action fallback.
 

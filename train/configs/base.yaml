@@ -18,7 +18,8 @@ target:
   reference_variants_path: null
 env_config: configs/env_default.yaml
 features:
-  history_steps: 4
+  observation_mode: reference_only_v1
+  history_steps: 0  # Retained for CLI compatibility; no history is appended.
   noise: false
   delay_step: 0
   delay_noise_std: {}

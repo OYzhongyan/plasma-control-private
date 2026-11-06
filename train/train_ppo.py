@@ -27,7 +27,7 @@ from train.references import build_reference, default_reference_path
 from train.rewards import CompetitionReward
 from train.wrappers import *
 from train.utils import warmup_cosine_schedule
-from submission.history import history_metadata
+from submission.history import reference_metadata
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -422,8 +422,7 @@ def run_training(cfg: DictConfig) -> int:
         pickle.dump(cfg, f)
     (save_dir / "f2_features.metadata.json").write_text(
         json.dumps(
-            history_metadata(
-                history_steps=int(cfg.features.history_steps),
+            reference_metadata(
                 action_mode=str(cfg.actions.mode),
                 norm_obs=bool(cfg.vecnormalize.enabled and cfg.vecnormalize.norm_obs),
             ),
@@ -458,7 +457,7 @@ def run_training(cfg: DictConfig) -> int:
         else SubprocVecEnv(env_fns, start_method="spawn")
     )
     print(
-        f"env observation_space: {vec_env.observation_space.shape}, action_space: {vec_env.action_space.shape} (history_steps={cfg.features.history_steps}, include_xpt=True, action_mode={cfg.actions.mode})"
+        f"env observation_space: {vec_env.observation_space.shape}, action_space: {vec_env.action_space.shape} (reference_only_v1, no history, action_mode={cfg.actions.mode})"
     )
     vec_env = VecMonitor(vec_env, filename=str(save_dir / "monitor.csv"))
     vecnormalize_cfg = cfg.vecnormalize

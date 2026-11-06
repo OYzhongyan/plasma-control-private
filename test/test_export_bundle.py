@@ -16,21 +16,21 @@ sys.path.insert(0, str(ROOT))
 def trained_model(tmp_path_factory):
     sb3 = pytest.importorskip("stable_baselines3")
     pytest.importorskip("onnx")
-    from submission.history import history_metadata
+    from submission.history import reference_metadata
 
     directory = tmp_path_factory.mktemp("bundle_source")
-    metadata = history_metadata(4, "delta")
+    metadata = reference_metadata("delta")
 
     class Flat(gym.Env):
-        observation_space = gym.spaces.Box(-np.inf, np.inf, (812,), dtype=np.float32)
+        observation_space = gym.spaces.Box(-np.inf, np.inf, (90,), dtype=np.float32)
         action_space = gym.spaces.Box(-1, 1, (7,), dtype=np.float32)
 
     model = sb3.PPO("MlpPolicy", Flat(), n_steps=2, batch_size=2,
                     policy_kwargs={"net_arch": [8, 8]}, device="cpu", seed=7)
     model.save(directory / "model.zip")
     (directory / "f2_features.metadata.json").write_text(json.dumps(metadata))
-    np.savez(directory / "vecnormalize_stats.npz", obs_mean=np.zeros(812),
-             obs_var=np.ones(812), epsilon=1e-8, clip_obs=10.)
+    np.savez(directory / "vecnormalize_stats.npz", obs_mean=np.zeros(90),
+             obs_var=np.ones(90), epsilon=1e-8, clip_obs=10.)
     return directory
 
 

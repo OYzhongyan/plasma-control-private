@@ -626,6 +626,28 @@ def resolve_model_paths(
     return (model_file, vecnormalize_path)
 
 
+def configure_model_interface(cfg: DictConfig, model: Any, model_file: Path) -> dict[str, Any]:
+    from train.export_onnx import load_export_metadata
+    from submission.history import validate_reference_metadata
+
+    metadata = load_export_metadata(model_file)
+    validate_reference_metadata(metadata)
+    if model.observation_space.shape != (90,) or model.action_space.shape != (7,):
+        raise ValueError("Evaluation requires a newly trained 90D reference-only model with 7 actions")
+    cfg.features.observation_mode = metadata["feature_mode"]
+    cfg.features.history_steps = 0
+    cfg.actions.mode = metadata["action_mode"]
+    return metadata
+
+
+def resolve_evaluation_normalization(metadata: dict[str, Any], path: Path | None) -> Path | None:
+    if not metadata["observation_normalization"]:
+        return None
+    if path is None or not path.is_file():
+        raise FileNotFoundError("Matching 90D VecNormalize statistics are required for this model")
+    return path
+
+
 @hydra.main(version_base=None, config_path="configs", config_name="eval")
 def main(cfg: DictConfig) -> int:
     cfg, references, reset_perturbation, base_config, _ = build_training_context(cfg)
@@ -649,6 +671,9 @@ def main(cfg: DictConfig) -> int:
         from stable_baselines3 import PPO
 
         model = PPO.load(str(model_file), device=str(cfg.ppo.device))
+        metadata = configure_model_interface(cfg, model, model_file)
+        vecnormalize_path = resolve_evaluation_normalization(metadata, vecnormalize_path)
+        cfg.vecnormalize.norm_obs = metadata["observation_normalization"]
     score_enabled = (
         bool(eval_cfg.score) and references is not None and (len(references) > 0)
     )

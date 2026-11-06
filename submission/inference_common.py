@@ -417,15 +417,10 @@ class BaseOnnxPolicy:
         self.input_name = None
         self.output_name = None
         self.load_error: str | None = None
-        self.history_adapter = None
+        self.reference_adapter = None
         self.metadata = default_metadata()
         self.obs_normalization: dict[str, Any] | None = None
-        self._last_observation: dict[str, Any] | None = None
-        self._last_action7: np.ndarray | None = None
-        self._episode_initial_rz: tuple[float, float] | None = None
-        self._history: dict[str, np.ndarray] = {}
         self._try_load_model()
-        self._reset_history()
 
     def _resolve_model_path(self) -> Path | None:
         preferred = self.model_dir / self.preferred_name
@@ -449,10 +444,11 @@ class BaseOnnxPolicy:
         try:
             import onnxruntime as ort
 
-            if self.metadata.get("feature_mode") == "historical_observation_v1":
-                from submission.history import HistoricalPolicyAdapter
+            if self.metadata.get("feature_mode") != "reference_only_v1":
+                raise ValueError("Policy requires reference_only_v1 metadata and a newly trained 90D model")
+            from submission.history import ReferencePolicyAdapter
 
-                self.history_adapter = HistoricalPolicyAdapter(self.metadata)
+            self.reference_adapter = ReferencePolicyAdapter(self.metadata)
             if self.metadata.get("observation_normalization") is False:
                 self.obs_normalization = None
             if (
@@ -500,145 +496,15 @@ class BaseOnnxPolicy:
             "error": self.load_error,
         }
 
-    def _reset_history(self) -> None:
-        steps = max(0, int(self.metadata.get("history_steps", 0)))
-        self._history = {
-            "history_action_7d": np.zeros((steps, 7), dtype=np.float32),
-            "history_delta_ip": np.zeros((steps, 1), dtype=np.float32),
-            "history_delta_rz": np.zeros((steps, 2), dtype=np.float32),
-            "history_delta_i_pf": np.zeros((steps, 12), dtype=np.float32),
-        }
-        self._last_observation = None
-        self._last_action7 = None
-        self._episode_initial_rz = None
-
-    def _sanitize_reference_rz(self, observation: dict[str, Any]) -> dict[str, Any]:
-        if self.metadata.get("feature_mode") not in {
-            "physical_v1",
-            "physical_f2_xpt_v1",
-            "physical_f2_xpt_no_ref_rz_v1",
-        }:
-            return observation
-        r = _scalar(observation, "R")
-        z = _scalar(observation, "Z")
-        if self._episode_initial_rz is None and np.isfinite(r) and np.isfinite(z):
-            self._episode_initial_rz = (float(r), float(z))
-        if self._episode_initial_rz is None:
-            return observation
-        out = dict(observation)
-        missing_reference_rz = (
-            "reference_R" not in observation or "reference_Z" not in observation
-        )
-        ref_r = _scalar(observation, "reference_R", 0.0)
-        ref_z = _scalar(observation, "reference_Z", 0.0)
-        ref_invalid = (
-            missing_reference_rz
-            or abs(float(ref_r)) <= 1e-06
-            or (not np.isfinite(ref_r))
-            or (not np.isfinite(ref_z))
-        )
-        if ref_invalid:
-            init_r, init_z = self._episode_initial_rz
-            out["reference_R"] = np.asarray([init_r], dtype=np.float32)
-            out["reference_Z"] = np.asarray([init_z], dtype=np.float32)
-        task_default_lx = 1.0
-        ref_lx = _scalar(observation, "reference_lX", task_default_lx)
-        if "reference_lX" not in observation or not np.isfinite(ref_lx):
-            out["reference_lX"] = np.asarray([task_default_lx], dtype=np.float32)
-        return out
-
-    @staticmethod
-    def _push_history(buffer: np.ndarray, value: np.ndarray) -> np.ndarray:
-        if buffer.shape[0] == 0:
-            return buffer
-        out = np.roll(buffer, shift=-1, axis=0)
-        out[-1] = np.nan_to_num(value, nan=0.0, posinf=0.0, neginf=0.0)
-        return out
-
-    def _update_physical_history(self, observation: dict[str, Any]) -> None:
-        if self.metadata.get("feature_mode") not in {
-            "physical_v1",
-            "physical_f2_xpt_v1",
-            "physical_f2_xpt_no_ref_rz_v1",
-        }:
-            return
-        if self._last_observation is None or self._last_action7 is None:
-            return
-        prev = self._last_observation
-        delta_ip = np.array(
-            [(_scalar(observation, "Ip") - _scalar(prev, "Ip")) / 50000.0],
-            dtype=np.float32,
-        )
-        delta_rz = np.array(
-            [
-                (_scalar(observation, "R") - _scalar(prev, "R")) / 0.03,
-                (_scalar(observation, "Z") - _scalar(prev, "Z")) / 0.03,
-            ],
-            dtype=np.float32,
-        )
-        delta_i_pf = (
-            _array(observation, "I_PF", [12]) - _array(prev, "I_PF", [12])
-        ) / COIL_LIMITS_A
-        action_norm = self._last_action7
-        self._history["history_action_7d"] = self._push_history(
-            self._history["history_action_7d"], action_norm
-        )
-        self._history["history_delta_ip"] = self._push_history(
-            self._history["history_delta_ip"], delta_ip
-        )
-        self._history["history_delta_rz"] = self._push_history(
-            self._history["history_delta_rz"], delta_rz
-        )
-        self._history["history_delta_i_pf"] = self._push_history(
-            self._history["history_delta_i_pf"], delta_i_pf
-        )
-
-    def _action7_from_output(self, action: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        if action.size == ACTION_DIM_7:
-            if self.metadata.get("action_units") == "normalized":
-                return normalized_action_7d_to_12d(action)
-            action7 = np.clip(action.astype(np.float32), ACTION_LOW_7D, ACTION_HIGH_7D)
-            return (
-                action_7d_to_12d(action7),
-                np.clip(action7 / ACTION_HIGH_7D, -1.0, 1.0),
-            )
-        if action.size == ACTION_DIM:
-            action12 = np.clip(
-                action.astype(np.float32), ACTION_LOW_12D, ACTION_HIGH_12D
-            )
-            return (
-                action12,
-                np.clip(action12[ACTION_7D_FROM_12D_INDEX] / ACTION_HIGH_7D, -1.0, 1.0),
-            )
-        raise ValueError(f"Policy must return 12D or 7D action, got size {action.size}")
-
     def reset(self) -> None:
-        self._reset_history()
-        if self.history_adapter is not None:
-            self.history_adapter.reset()
+        if self.reference_adapter is not None:
+            self.reference_adapter.reset()
         return None
 
     def act(self, observation: dict[str, Any]) -> np.ndarray:
         if not self.ready:
             raise RuntimeError(self.load_error or "ONNX model is not ready")
-        if self.history_adapter is not None:
-            features = self.history_adapter.encode(observation)
-            obs = apply_obs_normalization(features, self.obs_normalization).reshape(
-                1, -1
-            )
-            action = self.session.run([self.output_name], {self.input_name: obs})[0]
-            return self.history_adapter.decode(action)
-        observation = self._sanitize_reference_rz(observation)
-        self._update_physical_history(observation)
-        obs = flatten_observation(observation, self.metadata, self._history)
-        obs = apply_obs_normalization(obs, self.obs_normalization).reshape(1, -1)
-        try:
-            action = self.session.run([self.output_name], {self.input_name: obs})[0]
-        except Exception as exc:
-            raise RuntimeError(f"ONNX inference failed: {exc}") from exc
-        action = np.asarray(action, dtype=np.float32).reshape(-1)
-        action = np.nan_to_num(action, nan=0.0, posinf=0.0, neginf=0.0)
-        action12, action7 = self._action7_from_output(action)
-        self._last_observation = observation
-        self._last_action7 = action7
-        return action12.astype(np.float32)
+        features = self.reference_adapter.encode(observation)
+        obs = apply_obs_normalization(features, self.obs_normalization).reshape(1, -1)
+        action = self.session.run([self.output_name], {self.input_name: obs})[0]
+        return self.reference_adapter.decode(action)

@@ -135,14 +135,14 @@ $L_p$ 、 $R_p$ 是等离子体等效电感、电阻， $I_{\rm ni}$ 为非感�
 
 ## 3.2 Actor–Critic 控制
 
-本项目用 **PPO** 训练 Actor–Critic 网络：Actor 根据历史观测输出控制动作；Critic 估计当前状态的后续回报，帮助 PPO 计算优势并更新策略。两者各使用两层 256 单元的 Tanh 网络；部署推理时使用 Actor。
+本项目用 **PPO** 训练 Actor–Critic 网络：Actor 根据当前时刻的目标特征输出控制动作；Critic 基于相同目标输入估计后续回报，帮助 PPO 计算优势并更新策略。两者各使用两层 256 单元的 Tanh 网络；部署推理时使用 Actor。
 
 ```mermaid
 flowchart LR
-    E[HFM 仿真器] --> O[历史观测与归一化]
+    R[当前目标 reference] --> O[90 维目标特征与归一化]
     O --> A[Actor 策略]
     A --> U[7 维动作 → 配对映射与电源模型]
-    U -->|12 维电压| E
+    U -->|12 维电压| E[HFM 仿真器]
     O --> C[Critic 价值估计]
     E -->|评分增量奖励| P[PPO 更新]
     C --> P
@@ -150,7 +150,21 @@ flowchart LR
     P -.训练更新.-> C
 ```
 
-下面命令使用 `actions.mode=delta`：7 维归一化动作先裁剪到 `[-1,1]`，转换为电压增量并累加，再经配对映射与电源响应后送入仿真器。在本文配置下，4 帧观测与 5 帧动作历史组成 **812 维输入**。每步奖励按比赛评分增量计算；使用相同目标、轨迹和耗时数据时，未归一化、未折扣的整段奖励之和对应比赛得分，PPO 内部仍可对奖励归一化并使用折扣回报。
+`reference_only_v1` 接口只使用当前时刻的 **90 维目标值**，输入顺序如下，不拼接实际状态、历史观测或动作历史：
+
+| 字段 | 维度 |
+| --- | ---: |
+| `reference_Ip` | 1 |
+| `reference_lX` | 1 |
+| `reference_lcfs_points` | 64 |
+| `reference_rX` | 4 |
+| `reference_zX` | 4 |
+| `reference_strike_r` | 8 |
+| `reference_strike_z` | 8 |
+
+已有历史观测模型及归一化统计不适用于此接口，需要新建训练运行并重新生成模型。传感器延迟和噪声不会改变当前目标输入。
+
+使用 `actions.mode=delta` 时，7 维归一化动作先裁剪到 `[-1,1]`，转换为电压增量并累加，再经配对映射与电源响应后送入仿真器。每步奖励按比赛评分增量计算；使用相同目标、轨迹和耗时数据时，未归一化、未折扣的整段奖励之和对应比赛得分，PPO 内部仍可对奖励归一化并使用折扣回报。
 
 # 4. 准备工作
 
@@ -292,7 +306,7 @@ submission_model.zip
 └── policy2_vecnormalize_stats.npz
 ```
 
-`policy2.onnx` 是策略模型，`policy2.metadata.json` 描述历史观测与动作接口，`policy2_vecnormalize_stats.npz` 保存匹配的归一化统计。ZIP 文件名可以自定，但包内三份文件名称固定，且不能再套一层目录或加入其他文件；压缩包上限为 128 MiB。
+`policy2.onnx` 是策略模型，`policy2.metadata.json` 描述 90 维当前目标输入与动作接口，`policy2_vecnormalize_stats.npz` 保存匹配的 90 维归一化统计。ZIP 文件名可以自定，但包内三份文件名称固定，且不能再套一层目录或加入其他文件；压缩包上限为 128 MiB。
 
 当前 baseline 的 ONNX 输出 7 维独立动作（CS、5 组配对 PF、VS），评分服务器沿用训练时的动作映射，将其转换成 HFM 接收的 12 维线圈电压。
 

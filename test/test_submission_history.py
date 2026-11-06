@@ -14,7 +14,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from submission.history import HistoricalPolicyAdapter, history_metadata
+from submission.history import ReferencePolicyAdapter, reference_metadata
 from train.references import build_reference, default_reference_path
 from train.wrappers import HistoricalOBservationWrapper, NormalizedAction7DTo12DWrapper
 
@@ -64,7 +64,7 @@ def test_received_observations_match_training_wrappers_and_reset(mode, steps):
     teacher = HistoricalOBservationWrapper(
         action_wrapper, steps, include_xpt=True, action_mode=mode
     )
-    adapter = HistoricalPolicyAdapter(history_metadata(steps, mode))
+    adapter = ReferencePolicyAdapter(reference_metadata(mode))
     expected, _ = teacher.reset()
     for i in range(10):
         np.testing.assert_array_equal(adapter.encode(observation(i)), expected)
@@ -89,7 +89,7 @@ def exported(tmp_path_factory):
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
     directory = tmp_path_factory.mktemp("history_export")
-    metadata = history_metadata(4, "delta")
+    metadata = reference_metadata("delta")
 
     class Flat(gym.Env):
         observation_space = gym.spaces.Box(
@@ -109,12 +109,12 @@ def exported(tmp_path_factory):
     model.save(directory / "ppo_f2_latest.zip")
     norm = VecNormalize(DummyVecEnv([Flat]), norm_obs=True)
     norm.obs_rms.mean = (
-        HistoricalPolicyAdapter(metadata).encode(observation()).astype(np.float64) + 0.1
+        ReferencePolicyAdapter(metadata).encode(observation()).astype(np.float64) + 0.1
     )
     norm.obs_rms.var = np.linspace(0.1, 5.0, metadata["obs_dim"])
     norm.save(str(directory / "vecnormalize.pkl"))
     config = {
-        "features": {"history_steps": 4},
+        "features": {"observation_mode": "reference_only_v1", "history_steps": 0},
         "actions": {"mode": "delta"},
         "vecnormalize": {"enabled": True, "norm_obs": True},
     }
@@ -133,7 +133,7 @@ def test_exported_policy_matches_sb3_over_multiple_steps_and_episodes(exported):
     directory, model, norm = exported
     policy = Policy(directory)
     assert policy.ready, policy.load_error
-    assert policy.metadata["obs_dim"] == 812
+    assert policy.metadata["obs_dim"] == 90
     assert policy.obs_normalization is not None
     env = Replay()
     actions = NormalizedAction7DTo12DWrapper(env, action_mode="delta")
@@ -167,7 +167,7 @@ def test_http_health_act_and_invalid_input(exported):
     client = create_app(directory).test_client()
     health = client.get("/health")
     assert health.status_code == 200
-    assert health.json["obs_dim"] == 812
+    assert health.json["obs_dim"] == 90
     assert client.post("/reset", json={"episode_id": "F2b"}).status_code == 200
     response = client.post(
         "/act",
@@ -201,7 +201,7 @@ def test_export_rejects_incorrect_metadata(exported, tmp_path):
     directory, _, _ = exported
     with pytest.raises(ValueError, match="does not match metadata"):
         export_onnx(
-            directory / "ppo_f2_latest.zip", tmp_path / "wrong.onnx", {"obs_dim": 216}
+            directory / "ppo_f2_latest.zip", tmp_path / "wrong.onnx", {**reference_metadata("delta"), "obs_dim": 216}
         )
     assert not (tmp_path / "wrong.onnx").exists()
 
