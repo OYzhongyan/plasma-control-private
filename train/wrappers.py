@@ -194,8 +194,8 @@ class RewardInfoWrapper(gym.Wrapper):
         return observation, reward, terminated, truncated, info
 
 
-class HistoricalOBservationWrapper(gym.Wrapper):
-    """Expose only the current 90D reference; the historical name is retained."""
+class ReferenceObservationWrapper(gym.Wrapper):
+    """Convert the current reference dictionary to the 90D policy input."""
 
     REFERENCE_SHAPES = {
         "reference_Ip": (1,),

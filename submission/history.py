@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 
 from train.wrappers import (
-    HistoricalOBservationWrapper,
+    ReferenceObservationWrapper,
     NormalizedAction7DTo12DWrapper,
 )
 
@@ -26,8 +26,8 @@ def reference_metadata(action_mode: str, *, norm_obs: bool = True) -> dict[str, 
         "include_xpt": True,
         "action_history_steps": 0,
         "action_history_dim": 0,
-        "reference_keys": list(HistoricalOBservationWrapper.REFERENCE_SHAPES),
-        "reference_shapes": {key: list(shape) for key, shape in HistoricalOBservationWrapper.REFERENCE_SHAPES.items()},
+        "reference_keys": list(ReferenceObservationWrapper.REFERENCE_SHAPES),
+        "reference_shapes": {key: list(shape) for key, shape in ReferenceObservationWrapper.REFERENCE_SHAPES.items()},
         "obs_dim": 90,
         "action_dim": 7,
         "action_mode": action_mode,
@@ -69,7 +69,7 @@ class ReferencePolicyAdapter:
         validate_reference_metadata(metadata)
         sink = _ActionSink()
         self.actions = NormalizedAction7DTo12DWrapper(sink, action_mode=metadata["action_mode"])
-        self.observations = HistoricalOBservationWrapper(sink, action_mode=metadata["action_mode"])
+        self.observations = ReferenceObservationWrapper(sink, action_mode=metadata["action_mode"])
         self.reset()
 
     def encode(self, observation: dict[str, Any]) -> np.ndarray:

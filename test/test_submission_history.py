@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from submission.history import ReferencePolicyAdapter, reference_metadata
 from train.references import build_reference, default_reference_path
-from train.wrappers import HistoricalOBservationWrapper, NormalizedAction7DTo12DWrapper
+from train.wrappers import ReferenceObservationWrapper, NormalizedAction7DTo12DWrapper
 
 
 def observation(index=0):
@@ -61,7 +61,7 @@ class Replay(gym.Env):
 def test_received_observations_match_training_wrappers_and_reset(mode, steps):
     env = Replay()
     action_wrapper = NormalizedAction7DTo12DWrapper(env, action_mode=mode)
-    teacher = HistoricalOBservationWrapper(
+    teacher = ReferenceObservationWrapper(
         action_wrapper, steps, include_xpt=True, action_mode=mode
     )
     adapter = ReferencePolicyAdapter(reference_metadata(mode))
@@ -137,7 +137,7 @@ def test_exported_policy_matches_sb3_over_multiple_steps_and_episodes(exported):
     assert policy.obs_normalization is not None
     env = Replay()
     actions = NormalizedAction7DTo12DWrapper(env, action_mode="delta")
-    teacher = HistoricalOBservationWrapper(
+    teacher = ReferenceObservationWrapper(
         actions, 4, include_xpt=True, action_mode="delta"
     )
     for _ in range(2):

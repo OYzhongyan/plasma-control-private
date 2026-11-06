@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from train.wrappers import HistoricalOBservationWrapper
+from train.wrappers import ReferenceObservationWrapper
 
 
 def target(offset=0.):
@@ -43,7 +43,7 @@ class ReferenceEnv(gym.Env):
 @pytest.mark.parametrize("history_steps", [0, 1, 4])
 @pytest.mark.parametrize("action_mode", ["absolute", "delta"])
 def test_reference_only_reset_and_step_use_exact_current_90_features(history_steps, action_mode):
-    env = HistoricalOBservationWrapper(ReferenceEnv(), history_steps,
+    env = ReferenceObservationWrapper(ReferenceEnv(), history_steps,
                                        include_xpt=True, action_mode=action_mode)
     assert env.observation_space.shape == (90,)
     obs, info = env.reset()
@@ -58,7 +58,7 @@ def test_reference_only_reset_and_step_use_exact_current_90_features(history_ste
 
 
 def test_measured_state_other_reference_fields_and_action_history_cannot_leak_into_input():
-    env = HistoricalOBservationWrapper(ReferenceEnv(), 4, include_xpt=False)
+    env = ReferenceObservationWrapper(ReferenceEnv(), 4, include_xpt=False)
     observation = target()
     observation.update(Ip=np.array([np.nan]), lcfs_points=np.full((32, 2), np.nan),
                        I_PF=np.full(12, np.inf), reference_R=np.array([99.]),
@@ -80,7 +80,7 @@ def test_sensor_delay_and_noise_keep_the_current_reference():
 
     delayed = ObservationDelayNoiseWrapper(SensorEnv(), delay_steps=1,
                                            noise_std={"reference_Ip": 10000.}, seed=7)
-    env = HistoricalOBservationWrapper(delayed)
+    env = ReferenceObservationWrapper(delayed)
     obs, _ = env.reset()
     np.testing.assert_array_equal(obs, np.arange(90, dtype=np.float32))
     obs, *_ = env.step(np.zeros(7))
@@ -94,7 +94,7 @@ def test_sensor_delay_and_noise_keep_the_current_reference():
     ("reference_Ip", np.array([np.nan])),
 ])
 def test_invalid_reference_fails_with_field_name(key, value):
-    env = HistoricalOBservationWrapper(ReferenceEnv(), 0)
+    env = ReferenceObservationWrapper(ReferenceEnv(), 0)
     observation = target()
     observation[key] = value
     with pytest.raises(ValueError, match=key):
@@ -144,7 +144,7 @@ def reference_export(tmp_path_factory):
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
     directory = tmp_path_factory.mktemp("reference_export")
     env = VecNormalize(DummyVecEnv([
-        lambda: HistoricalOBservationWrapper(ReferenceEnv(), 4, include_xpt=True)]))
+        lambda: ReferenceObservationWrapper(ReferenceEnv(), 4, include_xpt=True)]))
     model = sb3.PPO("MlpPolicy", env, n_steps=8, batch_size=4, n_epochs=2,
                     policy_kwargs={"net_arch": [8, 8]}, seed=2, device="cpu")
     import torch

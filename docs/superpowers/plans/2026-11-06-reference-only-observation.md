@@ -4,7 +4,7 @@
 
 **Contract selected by the user:** `reference_Ip` (1), `reference_lX` (1), `reference_lcfs_points` (32×2), `reference_rX` (4), `reference_zX` (4), `reference_strike_r` (8), `reference_strike_z` (8), in that order. Other reference fields, validity masks and counts are outside this selected 90-dimensional contract.
 
-**Architecture:** The existing `HistoricalOBservationWrapper` name becomes the current-reference wrapper. New training metadata uses `reference_only_v1`; inference and the server accept this contract only. Per the user's subsequent correction, remove the former historical wrapper/metadata/adapter instead of retaining old-checkpoint support. Action scaling and delta accumulation remain unchanged.
+**Architecture:** The current-reference wrapper is named `ReferenceObservationWrapper`. New training metadata uses `reference_only_v1`; inference and the server accept this contract only. Per the user's subsequent correction, remove the former historical wrapper/metadata/adapter instead of retaining old-checkpoint support. Action scaling and delta accumulation remain unchanged.
 
 **Execution:** Apply the training-side change on `main` in the project root, per the user's correction. Do not create linked worktrees, modify server branch history, commit, or push. Preserve main's competition reward, configured training duration, and automatic ZIP packaging.
 

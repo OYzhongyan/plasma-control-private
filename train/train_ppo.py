@@ -179,7 +179,7 @@ def make_env(
                 noise_std=delay_noise_std,
                 seed=seed + 20000,
             )
-        env = HistoricalOBservationWrapper(
+        env = ReferenceObservationWrapper(
             env,
             obs_history_step=obs_history_step,
             include_xpt=True,

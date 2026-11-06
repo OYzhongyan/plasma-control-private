@@ -49,7 +49,7 @@ from train.wrappers import (
     COIL_LIMITS_A,
     EpisodeResetWrapper,
     HoldInitialResetWrapper,
-    HistoricalOBservationWrapper,
+    ReferenceObservationWrapper,
     NormalizedAction7DTo12DWrapper,
     ObservationDelayNoiseWrapper,
     RewardInfoWrapper,
@@ -142,7 +142,7 @@ def make_eval_env(
                 noise_std=dict(perturb_cfg.get("noise_std") or {}),
                 seed=seed + 10000,
             )
-        env = HistoricalOBservationWrapper(
+        env = ReferenceObservationWrapper(
             env,
             obs_history_step=int(cfg.features.history_steps),
             include_xpt=True,
