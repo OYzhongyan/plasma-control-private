@@ -208,7 +208,6 @@ class ReferenceObservationWrapper(gym.Wrapper):
     }
     PER_STEP_DIM = 66
     XPT_PER_STEP_DIM = 24
-    MAX_ACTION_DELAY_STEP = 0
 
     def __init__(self, env: gym.Env, obs_history_step: int = 0,
                  dtype=np.float32, include_xpt: bool = True,
@@ -257,83 +256,13 @@ class ReferenceObservationWrapper(gym.Wrapper):
         return self.convert_obs_dict_to_vector(observation), reward, terminated, truncated, info
 
 
-class ObservationDelayNoiseWrapper(gym.Wrapper):
-    """对观测施加 k 步延迟 + 可选高斯噪声，模拟赛题推理侧的 obs 污染。
-
-    放在 DictObservationCaptureWrapper 之后、观测向量 wrapper 之前，
-    使得真值观测先被 capture（用于评分），而模型看到的 obs 经延迟+加噪。
-    逻辑与 saisdata/inference/obs_perturb.py 对齐。
-    """
-
-    def __init__(
-        self,
-        env: gym.Env,
-        *,
-        delay_steps: int = 0,
-        noise_std: dict[str, float] | None = None,
-        seed: int = 0,
-    ):
-        super().__init__(env)
-        self.delay_steps = max(0, int(delay_steps))
-        self.noise_std = dict(noise_std or {})
-        self.rng = np.random.default_rng(int(seed))
-        self.enabled = self.delay_steps > 0 or any(
-            float(v) > 0.0 for v in self.noise_std.values()
-        )
-        self._obs_hist: list[dict[str, np.ndarray]] = []
-        self._step_count = 0
-
-    def _snapshot(self, obs: dict[str, Any]) -> dict[str, np.ndarray]:
-        return {k: np.asarray(v, dtype=np.float64).copy() for k, v in obs.items()}
-
-    def _delayed_noised(self, step_index: int) -> dict[str, Any]:
-        
-        di = step_index - self.delay_steps
-        src = self._obs_hist[max(0, di)]
-        out: dict[str, Any] = {}
-        for k, v in src.items():
-            arr = np.asarray(v, dtype=np.float64)
-            out[k] = arr.copy()
-        # References are current commands, not delayed/noisy sensor measurements.
-        for key, value in self._obs_hist[step_index].items():
-            if key.startswith("reference_"):
-                out[key] = value.copy()
-        for key, std in self.noise_std.items():
-            if key not in out or key.startswith("reference_"):
-                continue
-            std_value = float(std)
-            if std_value <= 0.0:
-                continue
-            out[key] = np.asarray(out[key], dtype=np.float64) + self.rng.normal(
-                0.0, std_value, size=np.asarray(out[key]).shape
-            )
-        return out
-
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
-        observation, info = self.env.reset(seed=seed, options=options)
-        if self.enabled:
-            self._obs_hist = [self._snapshot(observation)]
-            self._step_count = 0
-            return self._delayed_noised(0), info
-        return observation, info
-
-    def step(self, action):
-        observation, reward, terminated, truncated, info = self.env.step(action)
-        if self.enabled:
-            self._obs_hist.append(self._snapshot(observation))
-            self._step_count += 1
-            delayed = self._delayed_noised(self._step_count)
-            return delayed, reward, terminated, truncated, info
-        return observation, reward, terminated, truncated, info
-
-
 class NormalizedAction7DTo12DWrapper(gym.ActionWrapper):
     """Map normalized [-1, 1]^7 policy actions to physical 12D voltages."""
 
     def __init__(self, env: gym.Env, action_mode: str = "absolute"):
         super().__init__(env)
         # self.scale_7d = np.array([1499, 230, 172, 172, 348, 348, 270], dtype=np.float32)
-        self.scale_7d = np.array([1499, 172, 348, 270, 348, 270, 230], dtype=np.float32)
+        self.scale_7d = np.array([1499, 230, 172, 172, 348, 348, 270], dtype=np.float32)
         self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(7,), dtype=np.float32)
         self.current_abs_action = None
         self.action_mode = action_mode

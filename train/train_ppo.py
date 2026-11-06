@@ -172,13 +172,6 @@ def make_env(
             )
         env = NormalizedAction7DTo12DWrapper(env, action_mode=action_mode)
         env = RewardInfoWrapper(env)
-        if delay_step > 0 or delay_noise_std:
-            env = ObservationDelayNoiseWrapper(
-                env,
-                delay_steps=delay_step,
-                noise_std=delay_noise_std,
-                seed=seed + 20000,
-            )
         env = ReferenceObservationWrapper(
             env,
             obs_history_step=obs_history_step,

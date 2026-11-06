@@ -79,11 +79,11 @@ XPT_REFERENCE_SPECS: dict[str, tuple[int, ...]] = {
 
 def _default_action_bounds() -> tuple[np.ndarray, np.ndarray]:
     low = np.array(
-        [-1499, -230, -172, -172, -348, -348, -270, -270, -348, -348, -270, -270],
+        [-1499, -230, -230, -172, -172, -172, -172, -348, -348, -348, -348, -270],
         dtype=np.float32,
     )
     high = np.array(
-        [1499, 230, 172, 172, 348, 348, 270, 270, 348, 348, 270, 270],
+        [1499, 230, 230, 172, 172, 172, 172, 348, 348, 348, 348, 270],
         dtype=np.float32,
     )
     return low, high

@@ -59,7 +59,6 @@ class CompetitionReward:
     previous credit in the current reward, which can therefore be negative.
     """
     reward_weights: Any = None
-    score_lower_bound: bool = True
     target: dict[str, Any] | None = None
     last_components: dict[str, float] = field(default_factory=dict, init=False)
 
