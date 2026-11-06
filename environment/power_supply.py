@@ -36,11 +36,8 @@ PSM_INTERCEPTS = np.array(
 _MAX_CHANGE_7D = np.array([1499, 175, 175, 175, 175, 175, 80], dtype=np.float64) * 0.16
 MAX_CHANGE_PER_STEP = _MAX_CHANGE_7D[np.asarray(ACTION_7D_TO_12D_INDEX, dtype=int)]
 
-# DELAY_RANGE_PF = (0.002, 0.005)  # channels 0-10, ms-scale latency
-# DELAY_RANGE_VS = (0.0, 0.001)  # channel 11 (VS), <= 1 ms
-
-DELAY_RANGE_PF = (0.000, 0.000)  # channels 0-10, ms-scale latency
-DELAY_RANGE_VS = (0.0, 0.0)  # channel 11 (VS), <= 1 ms
+DELAY_RANGE_PF = (0.002, 0.005)  # channels 0-10, ms-scale latency
+DELAY_RANGE_VS = (0.0, 0.001)  # channel 11 (VS), <= 1 ms
 
 
 def _as_12d(name: str, values: np.ndarray | list[float] | None, default: np.ndarray) -> np.ndarray:
