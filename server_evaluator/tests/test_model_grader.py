@@ -21,32 +21,26 @@ def make_bundle(tmp_path):
     from submission.model_bundle import create_bundle
     directory = tmp_path / "model"
     directory.mkdir()
-    (directory / "controller.onnx").write_bytes(b"validated by child")
-    from submission.controller_contract import make_manifest
-    (directory / "controller.json").write_text(json.dumps(make_manifest(["Ip"])))
+    (directory / "policy2.onnx").write_bytes(b"validated by child")
+    (directory / "policy2.metadata.json").write_text('{"obs_dim": 2}')
+    np.savez(directory / "policy2_vecnormalize_stats.npz", obs_mean=np.zeros(2), obs_var=np.ones(2))
     return create_bundle(directory, tmp_path / "model.zip")
 
 
 def test_grading_audit_declares_reference_interface_and_physical_delays(tmp_path, sample):
     grader = make_grader(tmp_path, sample)
     assert grader.config["model_interface"] == {
-        "interface": "hfm_controller_v1", "observations": "requested_simulator_fields", "action_dim": 12}
+        "feature_mode": "reference_only_v1", "obs_dim": 90, "action_dim": 7}
     assert grader.config["power_supply"] == {
         "dt_s": .001, "pf_delay_range_s": [.002, .005],
         "vs_delay_range_s": [0., .001], "delay_sampling": "each_step"}
-
-
-def test_grader_does_not_depend_on_training_source_files(tmp_path, sample):
-    grader = make_grader(tmp_path, sample)
-    assert not any("train" in path.relative_to(Path(__file__).resolve().parents[2]).parts
-                   for path in grader._snapshots if path.is_relative_to(Path(__file__).resolve().parents[2]))
 
 
 def test_model_grader_unpacks_and_preserves_seven_scores(tmp_path, sample, monkeypatch):
     grader = make_grader(tmp_path, sample)
     result = {"metrics_scores": METRIC_MAXIMA, "status": "completed", "evaluator_message": "F2b score=30"}
     def child(model_dir, job_dir, config_path):
-        assert (model_dir / "controller.onnx").is_file()
+        assert (model_dir / "policy2.onnx").is_file()
         config = json.loads(config_path.read_text())
         assert config["target_path"] == str((tmp_path / "target.json").resolve())
         assert config["onnx_threads"] == 1

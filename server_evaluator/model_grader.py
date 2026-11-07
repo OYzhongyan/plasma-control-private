@@ -56,7 +56,7 @@ class ModelGrader:
             "hfm_host": hfm_host, "hfm_port": int(hfm_port),
             "socket_timeout": float(socket_timeout), "seed": int(seed), "onnx_threads": int(onnx_threads),
             "memory_limit_mb": int(memory_limit_mb),
-            "model_interface": {"interface": "hfm_controller_v1", "observations": "requested_simulator_fields", "action_dim": 12},
+            "model_interface": {"feature_mode": "reference_only_v1", "obs_dim": 90, "action_dim": 7},
             "power_supply": {"dt_s": DT, "pf_delay_range_s": list(DELAY_RANGE_PF),
                              "vs_delay_range_s": list(DELAY_RANGE_VS), "delay_sampling": "each_step"},
         }
@@ -82,7 +82,8 @@ class ModelGrader:
         files.add(self.shots_config)
         for folder in ("server_evaluator", "submission", "environment", "evaluation/eval/score"):
             files.update((ROOT / folder).glob("*.py"))
-        for name in ("eval_files/trajectory_utils.py", "eval_files/obs_perturb.py"):
+        for name in ("eval_files/trajectory_utils.py", "eval_files/obs_perturb.py",
+                     "train/wrappers.py", "train/features.py", "train/references.py"):
             files.add(ROOT / name)
         self._snapshots = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(files)}
         versions = {}
@@ -92,7 +93,7 @@ class ModelGrader:
             except metadata.PackageNotFoundError:
                 versions[name] = "missing"
         self.fingerprint = hashlib.sha256(json.dumps({
-            "format": "onnx-controller-zip-v1", "rules": scorer.fingerprint,
+            "format": "onnx-model-zip-v1", "rules": scorer.fingerprint,
             "config": self.config, "evaluation_timeout": self.evaluation_timeout,
             "inference_timeout": self.inference_timeout,
             "files": {str(p): digest for p, digest in self._snapshots.items()},
@@ -225,7 +226,6 @@ class ModelGrader:
                 LOG.warning("Cannot clean model staging directory %s: %s", model_dir, exc)
 
     def _grade_staged(self, model_dir, job_dir):
-        (job_dir / "controller.json").write_bytes((model_dir / "controller.json").read_bytes())
         config_path = job_dir / "config.json"
         config_path.write_text(json.dumps(self.config, indent=2), encoding="utf-8")
         envelope = self._run_child(model_dir, job_dir, config_path)

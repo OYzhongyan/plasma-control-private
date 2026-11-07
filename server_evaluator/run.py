@@ -27,7 +27,7 @@ def build_parser():
     parser.add_argument("--problem-id", default=os.environ.get("PLATFORM_PROBLEM_ID"), help="Platform string problem id, from the teacher API help")
     parser.add_argument("--platform-url", default=os.environ.get("PLATFORM_BASE_URL", "https://competition.opensii.ai"))
     parser.add_argument("--target", type=Path, default=ROOT / "evaluation/results/target.json")
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "server_evaluator/runtime-controller-v1")
+    parser.add_argument("--data-dir", type=Path, default=ROOT / "server_evaluator/runtime-reference-v1")
     parser.add_argument("--env-config", type=Path, default=ROOT / "configs/env_default.yaml")
     parser.add_argument("--reference-config", type=Path, default=ROOT / "eval_files/references.yaml")
     parser.add_argument("--obs-perturb-config", type=Path, default=ROOT / "eval_files/obs_perturb.yaml")
@@ -79,7 +79,7 @@ def main(argv=None):
         if args.check_config:
             print(json.dumps({"ok": True, "problem_id": args.problem_id, "sources": sources, "target": str(args.target.resolve()),
                               "metric_names": grader.metric_names, "max_score": 30, "rules_fingerprint": grader.fingerprint,
-                              "submission_format": "onnx-controller-zip-v1", "evaluation": grader.config}, ensure_ascii=False))
+                              "submission_format": "onnx-model-zip-v1", "evaluation": grader.config}, ensure_ascii=False))
             return 0
         signal.signal(signal.SIGINT, request_stop)
         signal.signal(signal.SIGTERM, request_stop)

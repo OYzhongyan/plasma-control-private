@@ -26,9 +26,8 @@ from train.callbacks import (
 from train.references import build_reference, default_reference_path
 from train.rewards import SemifinalDenseReward
 from train.wrappers import *
-from train.sensor_perturbation import ObservationDelayNoiseWrapper
 from train.utils import warmup_cosine_schedule
-from train.model_metadata import reference_metadata
+from submission.history import reference_metadata
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

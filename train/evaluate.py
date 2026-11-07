@@ -45,13 +45,13 @@ from environment.xpt_utils import extract_xpt_observation_pack
 from score.evaluate_core import evaluate
 from trajectory_utils import extract_semifinal_trajectory_from_obs_list, to_jsonable
 from train.rewards import SemifinalDenseReward
-from train.sensor_perturbation import ObservationDelayNoiseWrapper
 from train.wrappers import (
     COIL_LIMITS_A,
     EpisodeResetWrapper,
     HoldInitialResetWrapper,
     ReferenceObservationWrapper,
     NormalizedAction7DTo12DWrapper,
+    ObservationDelayNoiseWrapper,
     RewardInfoWrapper,
 )
 from train.train_ppo import (
@@ -631,7 +631,7 @@ def resolve_model_paths(
 
 def configure_model_interface(cfg: DictConfig, model: Any, model_file: Path) -> dict[str, Any]:
     from train.export_onnx import load_export_metadata
-    from train.model_metadata import validate_reference_metadata
+    from submission.history import validate_reference_metadata
 
     metadata = load_export_metadata(model_file)
     validate_reference_metadata(metadata)

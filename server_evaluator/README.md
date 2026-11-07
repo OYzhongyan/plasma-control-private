@@ -21,24 +21,52 @@ python -m pip install -r server_evaluator/requirements.txt
 
 也可在已有 Conda 环境中安装上述依赖。Python 依赖不包含 HFM 的 MATLAB 运行包，请单独准备完整的 `hfm-runtime-release-sealed-latest`。
 
-选手按 `main` 分支 README 运行 `train/export_onnx.py`，导出成功后会自动生成 `results/submission_model.zip`，上传这一个文件即可。服务器下载后由 `ModelGrader.grade_file()` 自动调用 `unpack_bundle()` 校验并解包，再启动模型测评，无需管理员手动解压。ZIP 根目录必须包含同一次导出的两个文件：
+选手按 `main` 分支 README 运行 `train/export_onnx.py`，导出成功后会自动生成 `results/submission_model.zip`，上传这一个文件即可。服务器下载后由 `ModelGrader.grade_file()` 自动调用 `unpack_bundle()` 校验并解包，再启动模型测评，无需管理员手动解压。ZIP 根目录必须包含同一次导出的三个文件：
 
 ```text
 submission_model.zip
-├── controller.onnx
-└── controller.json
+├── policy2.onnx
+├── policy2.metadata.json
+└── policy2_vecnormalize_stats.npz
 ```
 
-不要在 ZIP 中再套一层目录。服务器运行主办方的通用推理、仿真和评分代码；选手的特征处理封装在 ONNX 图内，不提交 Python 脚本、PPO checkpoint、pickle、目标文件或自报成绩的轨迹 JSON。
+不要在 ZIP 中再套一层目录。服务器使用自己的推理、特征处理、仿真和评分代码；选手不提交 Python 脚本、PPO checkpoint、pickle、目标文件或自报成绩的轨迹 JSON。
 
-服务器自动校验、解包并加载这两个文件。上传上限默认 **128 MiB**，包内文件名固定。当前接口为 `hfm_controller_v1`：`controller.json` 声明需要的原始仿真观测字段及可选状态，ONNX 内完成全部特征处理、归一化、网络计算和动作转换，直接输出 **12 维物理电压设定值（V）**。
+本版本仅接受与 `main` 一致的 `reference_only_v1` 接口，元数据版本为 `3`。输入是当前目标的 **90 维 reference 特征**，没有实际状态、历史观测或动作历史；`history_steps`、`action_history_steps`、`action_history_dim` 均为 `0`。
 
-服务器只按字段名提供原始观测、增加 batch 轴并转换 float32，不依赖选手内部特征维数或 `train` 代码。归一化统计量已在 ONNX 内。若声明状态，服务器每回合清零并在推理成功后保存 `next_state`，供下一步使用；无状态模型不需要状态张量。详细接口及选手导出方法见 [submission/README.md](../submission/README.md)。
+| 输入顺序 | 字段 | 维数 |
+| --- | --- | ---: |
+| 1 | `reference_Ip` | 1 |
+| 2 | `reference_lX` | 1 |
+| 3 | `reference_lcfs_points`（32×2，按行展开） | 64 |
+| 4 | `reference_rX` | 4 |
+| 5 | `reference_zX` | 4 |
+| 6 | `reference_strike_r` | 8 |
+| 7 | `reference_strike_z` | 8 |
 
-当前 baseline 的网络仍为 90 维 reference 输入和 7 维动作，相关排列、裁剪、缩放、delta 累加和 7→12 维映射均在导出图内，测评端不再重建 wrapper。选手可以导出使用其他公开观测字段或内部状态的控制器；ZIP 内不允许 Python、pickle 或其他文件。旧的三文件 `policy2` 包须用新版导出器重新导出。
+服务器与 main 使用相同的 `ReferenceObservationWrapper`、`reference_metadata()` 和 `ReferencePolicyAdapter`。严格校验字段顺序、形状、动作模式和归一化标志；需要归一化时使用同次训练导出的 90 维冻结统计量。旧的 `historical_observation_v1`／812 维模型不兼容，须重新训练和导出，不能只改元数据。
 
-训练与测评统一使用 `environment/power_supply.py`：电源传输延迟在每步重新采样，通道 0–10（CS/PF）为 **2–5 ms**，通道 11（VS）为 **0–1 ms**；仿真步长为 **1 ms**，延迟步数取 `round(delay_s / 0.001)`。处理顺序为传输延迟 → 电压变化率限制 → PSM 标定 → HFM。服务器为每份模型重建电源并固定 `--seed`（默认 `0`），启动日志和审计配置均记录这套设置。电源模型由主办方执行，不封装进选手 ONNX。电源延迟独立于观测延迟，当前测评不支持非零观测延迟配置。
+ONNX 输出 7 维归一化动作，先裁剪到 `[-1, 1]`，然后按元数据的 `action_mode` 转换：
 
+- `absolute`：乘以 `[1499, 230, 172, 172, 348, 348, 270]` V。
+- `delta`：乘以 `0.16 × [1499, 175, 175, 175, 175, 175, 80]` V，并累加到上一设定值；回合重置时清零。
+
+两种模式都按索引 `[0,1,1,2,2,3,3,4,4,5,5,6]` 展开为 12 维电压设定值，再经过电源模型送入 HFM。测评端保留 ONNX Runtime CPU 单线程限制，模型包中的权重、元数据和统计量必须来自同次导出。
+
+### 电源延迟与观测扰动
+
+训练与测评统一采用 `environment/power_supply.py` 中的设置：
+
+| 设置 | 值 |
+| --- | --- |
+| 仿真步长 | 1 ms |
+| 通道 0–10（CS/PF）传输延迟 | 每步均匀采样 2–5 ms |
+| 通道 11（VS）传输延迟 | 每步均匀采样 0–1 ms |
+| 离散延迟步数 | `round(delay_s / 0.001)` |
+| 电源处理顺序 | 传输延迟 → 电压变化率限制 → PSM 标定 → HFM |
+| 正式评测随机种子 | `--seed 0`，每份模型重建电源 RNG |
+
+这是物理电源传输延迟，与 `features.delay_step`／`eval.obs_perturb.delay_steps` 的观测延迟不同。关闭观测扰动不会关闭电源延迟。当前测评不支持非零观测延迟，遇到该配置会报告基础设施配置错误；当前目标 reference 特征不使用测量状态历史。启动日志、`--check-config` 输出和每次评测的 `config.json` 记录接口、电源延迟与种子。
 
 出题组准备以下文件，所有选手使用同一套配置：
 
@@ -139,7 +167,7 @@ export PLATFORM_PASSWORD
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-controller-v1 \
+  --data-dir server_evaluator/runtime-reference-v1 \
   --once
 ```
 
@@ -148,7 +176,7 @@ python server_evaluator/run.py \
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-controller-v1 \
+  --data-dir server_evaluator/runtime-reference-v1 \
   --poll-interval 15
 ```
 
@@ -169,7 +197,7 @@ python server_evaluator/run.py \
 | `--seed` | `0`，固定评测随机种子 |
 | `--onnx-threads` | `1`，CPU 推理线程数 |
 | `--memory-limit-mb` | `4096`，Linux 评测子进程地址空间上限（MiB，至少 256）；不限制独立运行的 HFM 进程 |
-| `--data-dir` | 项目根目录下 `server_evaluator/runtime-controller-v1` |
+| `--data-dir` | 项目根目录下 `server_evaluator/runtime-reference-v1` |
 | `--sources` | `offline,manual`；可只设 `offline` |
 | `--limit` | 每种来源每轮最多 100 条，可设 1～500 |
 | `--http-timeout` | 平台/下载 HTTP 读取超时 30 秒，连接超时 10 秒 |
@@ -196,7 +224,7 @@ python server_evaluator/run.py \
 将 `--data-dir` 放在可持久保存的磁盘。默认目录结构为：
 
 ```text
-server_evaluator/runtime-controller-v1/
+server_evaluator/runtime-reference-v1/
 ├── tasks.sqlite3
 ├── worker.lock
 ├── downloads/                 # 按提交 ID 哈希命名的模型 ZIP
@@ -207,7 +235,6 @@ server_evaluator/runtime-controller-v1/
             ├── result.json
             ├── evaluation.log
             ├── config.json
-            ├── controller.json # 该模型实际使用的接口说明
             └── phase.json     # 当前／最后运行阶段
 ```
 
@@ -221,13 +248,13 @@ server_evaluator/runtime-controller-v1/
 - 同一数据目录有单实例锁，不同目录或机器不会共享锁；同一课题只运行一套评分服务。
 - 目标、模型包契约、可信推理/仿真/评分逻辑或有效评测配置改变时，指纹会变化，程序拒绝复用旧缓存。先停止旧服务、保留旧目录，再选择新的 `--data-dir`；尚未回传的旧结果应先核对。
 
-**从旧模型包或轨迹 JSON 评分升级时，先停止旧评分器，再使用新的 `runtime-controller-v1` 目录，不要复用 `runtime-models-v1` 或 `runtime-reference-v1`。** 旧缓存不会自动迁移。平台已完成或失败的历史提交不会自动重评。旧的三文件包须重新导出；需要重评时，由管理员安排重新提交模型或将平台任务重置为待评，仅重启评分器不会重评已回传的失败记录。
+**从旧历史观测模型或轨迹 JSON 评分升级时，先停止旧评分器，再使用新的 `runtime-reference-v1` 目录，不要复用 `runtime-models-v1`。** 旧缓存不会自动迁移。平台已完成或失败的历史提交不会自动重评，旧轨迹 JSON 不能作为模型包继续评测。需要重评时，由管理员安排重新提交模型或将平台任务重置为待评；仅重启评分器不会重评已回传的失败记录。
 
 ## 6. systemd 常驻部署
 
 先保证完整 HFM 已在同机 `127.0.0.1:5558` 启动并可用，再部署评分服务。模板只管理 Python 评分器，**不会管理或启动 HFM**；HFM 退出或服务器重启后，需要恢复 HFM 服务。
 
-按实际情况修改 [plasma-grader.service](plasma-grader.service) 中的账号、仓库和 Python 路径。模板使用 `/opt/plasma-control-server`、其 `.venv`，以及新数据目录 `/var/lib/plasma-grader/controller-v1`。
+按实际情况修改 [plasma-grader.service](plasma-grader.service) 中的账号、仓库和 Python 路径。模板使用 `/opt/plasma-control-server`、其 `.venv`，以及新数据目录 `/var/lib/plasma-grader/reference-v1`。
 
 创建 `/etc/plasma-grader.env`，填写管理员提供的助教身份与课题 ID：
 
@@ -242,7 +269,7 @@ PLATFORM_PROBLEM_ID=YOUR_PLATFORM_STRING_PROBLEM_ID
 ```bash
 sudo chmod 600 /etc/plasma-grader.env
 sudo useradd --system --home /var/lib/plasma-grader --create-home plasma-grader
-sudo install -d -o plasma-grader -g plasma-grader /var/lib/plasma-grader/controller-v1
+sudo install -d -o plasma-grader -g plasma-grader /var/lib/plasma-grader/reference-v1
 sudo cp server_evaluator/plasma-grader.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now plasma-grader

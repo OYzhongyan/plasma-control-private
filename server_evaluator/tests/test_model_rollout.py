@@ -21,13 +21,6 @@ def reference_metadata(mode):
                 observation_normalization=True, requires_vecnormalize=True)
 
 
-
-def controller_manifest():
-    return dict(version=1, interface="hfm_controller_v1",
-                observations=[{"name":"reference_Ip", "shape":[1]}],
-                state_dim=12, state_dtype="float32", action_dim=12,
-                action_units="voltage_setpoint", reset_state="zeros")
-
 def _write_json(path, value):
     path.write_text(json.dumps(value), encoding="utf-8")
 
@@ -39,20 +32,19 @@ def artifacts(tmp_path):
 
     model_dir = tmp_path / "model"
     model_dir.mkdir()
-    _write_json(model_dir / "controller.json", controller_manifest())
-    step = helper.make_tensor("increment", TensorProto.FLOAT, [1, 12],
-                              [23.984] + [2.8] * 10 + [1.28])
-    graph = helper.make_graph([
-        helper.make_node("Constant", [], ["increment"], value=step),
-        helper.make_node("Add", ["state", "increment"], ["next_state"]),
-        helper.make_node("Identity", ["next_state"], ["action"])], "test",
-        [helper.make_tensor_value_info("reference_Ip", TensorProto.FLOAT, [1, 1]),
-         helper.make_tensor_value_info("state", TensorProto.FLOAT, [1, 12])],
-        [helper.make_tensor_value_info("action", TensorProto.FLOAT, [1, 12]),
-         helper.make_tensor_value_info("next_state", TensorProto.FLOAT, [1, 12])])
-    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    metadata = reference_metadata("delta")
+    _write_json(model_dir / "policy2.metadata.json", metadata)
+    np.savez(model_dir / "policy2_vecnormalize_stats.npz",
+             obs_mean=np.zeros(90), obs_var=np.ones(90),
+             clip_obs=np.array(10.), epsilon=np.array(1e-8))
+    output = helper.make_tensor("constant", TensorProto.FLOAT, [1, 7], [.1] * 7)
+    graph = helper.make_graph(
+        [helper.make_node("Constant", [], ["action"], value=output)], "test",
+        [helper.make_tensor_value_info("observation", TensorProto.FLOAT, [1, 90])],
+        [helper.make_tensor_value_info("action", TensorProto.FLOAT, [1, 7])])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
     model.ir_version = 8
-    onnx.save_model(model, model_dir / "controller.onnx")
+    onnx.save_model(model, model_dir / "policy2.onnx")
     theta = np.arange(32) * 2 * np.pi / 32
     contour = np.stack([.6 + .1 * np.cos(theta), .2 * np.sin(theta)], axis=1).tolist()
     target = {"F2b": {"lcfs_points": contour,
@@ -128,30 +120,43 @@ def fake_hfm(monkeypatch):
     return Simulator
 
 
-def test_controller_state_and_requested_fields_are_accepted(artifacts):
+@pytest.mark.parametrize("mode", ["absolute", "delta"])
+def test_main_metadata_encoding_and_actions_are_accepted(artifacts, mode):
     from server_evaluator.model_rollout import _load_policy
     model_dir, config, _ = artifacts
+    _write_json(model_dir / "policy2.metadata.json", reference_metadata(mode))
     policy = _load_policy(model_dir, config)
-    np.testing.assert_array_equal(policy.state, np.zeros((1, 12)))
-    assert policy.act({"reference_Ip": [123.]})[0] == pytest.approx(23.984)
-    assert policy.act({"reference_Ip": [123.]})[0] == pytest.approx(47.968)
+    shapes = reference_metadata(mode)["reference_shapes"]
+    observation, offset = {}, 0
+    for key, shape in shapes.items():
+        count = int(np.prod(shape))
+        observation[key] = np.arange(offset, offset + count).reshape(shape)
+        offset += count
+    observation["Ip"] = np.array([np.nan])
+    np.testing.assert_array_equal(policy.reference_adapter.encode(observation), np.arange(90))
+    scale = np.array([1499, 230, 172, 172, 348, 348, 270]) if mode == "absolute" else (
+        np.array([1499, 175, 175, 175, 175, 175, 80]) * .16)
+    expected = (.1 * scale)[[0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6]]
+    np.testing.assert_allclose(policy.act(observation), expected, rtol=1e-6)
+    np.testing.assert_allclose(policy.act(observation), expected * (2 if mode == "delta" else 1), rtol=1e-6)
     policy.reset()
-    assert policy.act({"reference_Ip": [123.]})[0] == pytest.approx(23.984)
+    np.testing.assert_allclose(policy.act(observation), expected, rtol=1e-6)
     assert policy.session.get_session_options().intra_op_num_threads == 1
 
 
 @pytest.mark.parametrize("field,value", [
-    ("interface", "reference_only_v1"), ("version", True),
-    ("observations", [{"name":"unknown", "shape":[1]}]),
-    ("state_dim", -1), ("action_dim", 7), ("action_units", "normalized"),
+    ("feature_mode", "historical_observation_v1"), ("history_steps", 4),
+    ("obs_dim", 812), ("version", 2), ("action_units", "physical_voltage"),
+    ("requires_vecnormalize", False), ("observation_normalization", 1),
+    ("reference_keys", []), ("reference_shapes", {}), ("action_history_dim", 12),
 ])
-def test_metadata_rejects_mismatched_controller_contract(artifacts, field, value):
+def test_metadata_rejects_mismatched_main_contract(artifacts, field, value):
     from server_evaluator.model_rollout import _validate_metadata
     from server_evaluator.grader import InvalidSubmission
     model_dir, _, _ = artifacts
-    metadata = controller_manifest()
+    metadata = reference_metadata("delta")
     metadata[field] = value
-    _write_json(model_dir / "controller.json", metadata)
+    _write_json(model_dir / "policy2.metadata.json", metadata)
     with pytest.raises(InvalidSubmission, match=field):
         _validate_metadata(model_dir)
 
@@ -177,7 +182,7 @@ def test_real_main_export_bundle_loads_and_drives_scoring(artifacts, fake_hfm, t
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
     from train.export_onnx import main as export
     from submission.model_bundle import unpack_bundle
-    from train.wrappers import ReferenceObservationWrapper, NormalizedAction7DTo12DWrapper
+    from submission.history import ReferencePolicyAdapter
     from server_evaluator.model_rollout import _load_policy, run_model
 
     class Flat(gym.Env):
@@ -196,7 +201,7 @@ def test_real_main_export_bundle_loads_and_drives_scoring(artifacts, fake_hfm, t
     model.save(directory / "model.zip")
     normalization.save(str(directory / "vecnormalize.pkl"))
     _write_json(directory / "f2_features.metadata.json", reference_metadata("absolute"))
-    export(["--model", str(directory / "model.zip"), "--out", str(directory / "controller.onnx"),
+    export(["--model", str(directory / "model.zip"), "--out", str(directory / "policy2.onnx"),
             "--bundle", str(directory / "submission_model.zip")])
     model_dir = unpack_bundle(directory / "submission_model.zip", tmp_path / "unpacked")
     _, config, _ = artifacts
@@ -207,12 +212,10 @@ def test_real_main_export_bundle_loads_and_drives_scoring(artifacts, fake_hfm, t
     actual = fake_hfm.instances[-1]
     actual.steps = 0
     observation = actual.observation()
-    class Sink(gym.Env):
-        observation_space = gym.spaces.Dict({})
-        action_space = gym.spaces.Box(-np.inf, np.inf, (12,), dtype=np.float32)
-    vector = ReferenceObservationWrapper(Sink()).convert_obs_dict_to_vector(observation).reshape(1, -1)
+    adapter = ReferencePolicyAdapter(policy.metadata)
+    vector = adapter.encode(observation).reshape(1, -1)
     action, _ = model.predict(normalization.normalize_obs(vector), deterministic=True)
-    expected = NormalizedAction7DTo12DWrapper(Sink()).action(action[0])
+    expected = adapter.decode(action)
     np.testing.assert_allclose(actual.actions[0], expected, rtol=1e-5, atol=1e-4)
     np.testing.assert_allclose(policy.act(observation), expected, rtol=1e-5, atol=1e-4)
 
@@ -240,24 +243,6 @@ def test_direct_rollout_scores_real_post_step_observations_and_overrides_target(
     assert actual.actions[0].shape == (12,)
     assert actual.actions[0][0] == pytest.approx(23.984)
     assert actual.actions[1][0] == pytest.approx(47.968)
-
-
-def test_entire_grading_rollout_runs_with_train_imports_prohibited(artifacts, fake_hfm, tmp_path, monkeypatch):
-    import importlib.abc
-    import sys
-    from server_evaluator.model_rollout import run_model
-    class BlockTraining(importlib.abc.MetaPathFinder):
-        def find_spec(self, fullname, *args):
-            if fullname == "train" or fullname.startswith("train."):
-                raise AssertionError("Grading imported training code: " + fullname)
-    for name in list(sys.modules):
-        if name == "train" or name.startswith("train."):
-            monkeypatch.delitem(sys.modules, name)
-    monkeypatch.setattr(sys, "meta_path", [BlockTraining(), *sys.meta_path])
-    model_dir, config, _ = artifacts
-    result = run_model(model_dir, config, tmp_path / "without_train.json")
-    assert result["status"] == "completed"
-    assert result["metrics_scores"]["Ip"] == pytest.approx(.024)
 
 
 def test_terminal_missing_geometry_keeps_original_score_and_audit_null(artifacts, fake_hfm, tmp_path):
@@ -332,12 +317,12 @@ def test_hfm_failure_is_unavailable_and_closes_environment(artifacts, fake_hfm, 
     assert fake_hfm.instances and all(env.closed for env in fake_hfm.instances)
 
 
-@pytest.mark.parametrize("field,value", [("interface", "raw"), ("state_dim", -1), ("action_dim", 7)])
+@pytest.mark.parametrize("field,value", [("feature_mode", "raw"), ("obs_dim", 216), ("action_dim", 12)])
 def test_invalid_metadata_rejected_before_simulation(artifacts, fake_hfm, tmp_path, field, value):
     from server_evaluator.model_rollout import run_model
     from server_evaluator.grader import InvalidSubmission
     model_dir, config, _ = artifacts
-    path = model_dir / "controller.json"
+    path = model_dir / "policy2.metadata.json"
     metadata = json.loads(path.read_text())
     metadata[field] = value
     _write_json(path, metadata)
@@ -346,7 +331,19 @@ def test_invalid_metadata_rejected_before_simulation(artifacts, fake_hfm, tmp_pa
     assert not fake_hfm.instances
 
 
-
+@pytest.mark.parametrize("kind", ["nan", "negative_variance", "object"])
+def test_bad_normalization_stats_rejected_without_pickle(artifacts, fake_hfm, tmp_path, kind):
+    from server_evaluator.model_rollout import run_model
+    from server_evaluator.grader import InvalidSubmission
+    model_dir, config, _ = artifacts
+    mean, var = np.zeros(90), np.ones(90)
+    if kind == "nan": mean[0] = np.nan
+    if kind == "negative_variance": var[0] = -1
+    if kind == "object": mean = np.array([{"bad": 1}] * 90, dtype=object)
+    np.savez(model_dir / "policy2_vecnormalize_stats.npz", obs_mean=mean, obs_var=var)
+    with pytest.raises(InvalidSubmission):
+        run_model(model_dir, config, tmp_path / "trajectory.json")
+    assert not fake_hfm.instances
 
 
 def test_external_tensor_in_nested_graph_rejected_before_runtime(artifacts, fake_hfm, tmp_path):
@@ -355,14 +352,14 @@ def test_external_tensor_in_nested_graph_rejected_before_runtime(artifacts, fake
     from server_evaluator.model_rollout import run_model
     from server_evaluator.grader import InvalidSubmission
     model_dir, config, _ = artifacts
-    model = onnx.load_model(model_dir / "controller.onnx")
+    model = onnx.load_model(model_dir / "policy2.onnx")
     tensor = TensorProto(name="bad", data_type=TensorProto.FLOAT, dims=[1])
     tensor.data_location = TensorProto.EXTERNAL
     tensor.external_data.add(key="location", value="../../secret")
     child = helper.make_graph([helper.make_node("Constant", [], ["x"], value=tensor)],
                               "nested", [], [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1])])
     model.graph.node.append(helper.make_node("If", ["condition"], ["nested"], then_branch=child, else_branch=child))
-    (model_dir / "controller.onnx").write_bytes(model.SerializeToString())
+    (model_dir / "policy2.onnx").write_bytes(model.SerializeToString())
     with pytest.raises(InvalidSubmission, match="external"):
         run_model(model_dir, config, tmp_path / "trajectory.json")
     assert not fake_hfm.instances
@@ -373,9 +370,9 @@ def test_model_nan_output_is_rejected_before_simulation(artifacts, fake_hfm, tmp
     from server_evaluator.model_rollout import run_model
     from server_evaluator.grader import InvalidSubmission
     model_dir, config, _ = artifacts
-    model = onnx.load_model(model_dir / "controller.onnx")
+    model = onnx.load_model(model_dir / "policy2.onnx")
     model.graph.node[0].attribute[0].t.float_data[0] = float("nan")
-    (model_dir / "controller.onnx").write_bytes(model.SerializeToString())
+    (model_dir / "policy2.onnx").write_bytes(model.SerializeToString())
     with pytest.raises(InvalidSubmission, match="finite"):
         run_model(model_dir, config, tmp_path / "trajectory.json")
     assert not fake_hfm.instances
@@ -385,12 +382,12 @@ def test_torch_dynamic_output_dimension_is_probed_without_accumulating_actions(a
     import onnx
     from server_evaluator.model_rollout import _load_policy
     model_dir, config, _ = artifacts
-    model = onnx.load_model(model_dir / "controller.onnx")
+    model = onnx.load_model(model_dir / "policy2.onnx")
     model.graph.output[0].type.tensor_type.shape.dim[1].dim_param = "Reshapeaction_dim_1"
-    (model_dir / "controller.onnx").write_bytes(model.SerializeToString())
+    (model_dir / "policy2.onnx").write_bytes(model.SerializeToString())
     policy = _load_policy(model_dir, config)
     assert policy.ready
-    np.testing.assert_array_equal(policy.state, np.zeros((1, 12)))
+    np.testing.assert_array_equal(policy.reference_adapter.actions.current_abs_action, np.zeros(7))
 
 
 @pytest.mark.parametrize("dynamic", [False, True])
@@ -400,14 +397,14 @@ def test_eight_action_model_rejected_even_with_dynamic_declaration(artifacts, dy
     from server_evaluator.model_rollout import _load_policy
     from server_evaluator.grader import InvalidSubmission
     model_dir, config, _ = artifacts
-    model = onnx.load_model(model_dir / "controller.onnx")
+    model = onnx.load_model(model_dir / "policy2.onnx")
     model.graph.node[0].attribute[0].t.CopyFrom(helper.make_tensor("constant", TensorProto.FLOAT, [1, 8], [.1] * 8))
     dimension = model.graph.output[0].type.tensor_type.shape.dim[1]
     if dynamic:
         dimension.dim_param = "unknown_actions"
     else:
         dimension.dim_value = 8
-    (model_dir / "controller.onnx").write_bytes(model.SerializeToString())
+    (model_dir / "policy2.onnx").write_bytes(model.SerializeToString())
     with pytest.raises(InvalidSubmission):
         _load_policy(model_dir, config)
 
@@ -428,13 +425,15 @@ def test_model_act_error_closes_both_environments(artifacts, fake_hfm, tmp_path,
 
 def test_existing_project_export_passes_preflight_if_available():
     from server_evaluator.model_rollout import _load_policy
-    model_dir = Path(__file__).resolve().parents[2] / "submission/model"
-    if not (model_dir / "controller.onnx").is_file():
-        pytest.skip("complete controller export not present")
+    model_dir = Path(__file__).resolve().parents[2] / "submission" / "model"
+    if not (model_dir / "policy2.onnx").is_file():
+        pytest.skip("project model export not present")
+    metadata = json.loads((model_dir / "policy2.metadata.json").read_text())
+    if metadata.get("feature_mode") != "reference_only_v1":
+        pytest.skip("project export predates the current reference-only interface")
     policy = _load_policy(model_dir, {"onnx_threads": 1})
     assert policy.ready
-    if policy.state is not None:
-        assert np.all(policy.state == 0)
+    np.testing.assert_array_equal(policy.reference_adapter.actions.current_abs_action, np.zeros(7))
 
 
 def test_missing_onnx_runtime_is_server_failure(artifacts, fake_hfm, tmp_path, monkeypatch):
@@ -468,17 +467,29 @@ def test_cli_writes_readable_failure_envelope_atomically(tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*.tmp"))
 
 
-@pytest.mark.parametrize("artifact", ["controller.json", "controller.onnx"])
+@pytest.mark.parametrize("artifact", ["metadata", "stats", "onnx"])
 def test_artifact_io_failure_is_server_failure(artifacts, artifact, monkeypatch):
     from server_evaluator import model_rollout
     from server_evaluator.grader import GradingUnavailable
     model_dir, config, _ = artifacts
-    original = Path.read_bytes
-    def denied(path, *args, **kwargs):
-        if path.name == artifact:
+    if artifact == "metadata":
+        original = Path.read_text
+        def denied(path, *args, **kwargs):
+            if path.name == "policy2.metadata.json":
+                raise PermissionError("artifact access denied")
+            return original(path, *args, **kwargs)
+        monkeypatch.setattr(Path, "read_text", denied)
+    elif artifact == "onnx":
+        original = Path.read_bytes
+        def denied(path, *args, **kwargs):
+            if path.name == "policy2.onnx":
+                raise PermissionError("artifact access denied")
+            return original(path, *args, **kwargs)
+        monkeypatch.setattr(Path, "read_bytes", denied)
+    else:
+        def denied(*args, **kwargs):
             raise PermissionError("artifact access denied")
-        return original(path, *args, **kwargs)
-    monkeypatch.setattr(Path, "read_bytes", denied)
+        monkeypatch.setattr(model_rollout.np, "load", denied)
     with pytest.raises(GradingUnavailable, match="access denied"):
         model_rollout._load_policy(model_dir, config)
 

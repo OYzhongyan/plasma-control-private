@@ -23,7 +23,7 @@ ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server
     --inference-timeout 1 \
     --seed 0 --onnx-threads 1 \
     --memory-limit-mb 4096 \
-    --data-dir /var/lib/plasma-grader/controller-v1
+    --data-dir /var/lib/plasma-grader/reference-v1
 Restart=on-failure
 RestartSec=15
 KillMode=mixed
