@@ -17,6 +17,8 @@ if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
 from server_evaluator.client import PlatformClient, PlatformError
 from server_evaluator.model_grader import ModelGrader
 from server_evaluator.remote_grader import RemoteGrader
+from server_evaluator.shared_grader import SharedGrader
+from submission.shared_channel import DEFAULT_SHARED_ROOT
 from server_evaluator.store import Store, instance_lock
 from server_evaluator.worker import Worker
 
@@ -29,9 +31,11 @@ def build_parser():
     parser.add_argument("--platform-url", default=os.environ.get("PLATFORM_BASE_URL", "https://competition.opensii.ai"))
     parser.add_argument("--target", type=Path, default=ROOT / "evaluation/results/target.json")
     parser.add_argument("--data-dir", type=Path, default=None)
-    parser.add_argument("--submission-mode", choices=("remote", "onnx"), default="remote")
-    parser.add_argument("--agent-timeout", type=float, default=15., help="Socket timeout to A in seconds")
-    parser.add_argument("--agent-retries", type=int, default=2, help="Retries of lost connections only (0..5)")
+    parser.add_argument("--submission-mode", choices=("remote", "http", "onnx"), default="remote", help="remote uses shared files; http and onnx are legacy modes")
+    parser.add_argument('--shared-root', type=Path, default=Path(os.environ.get('SHARED_AGENT_ROOT', DEFAULT_SHARED_ROOT)))
+    parser.add_argument('--agent-poll-interval', type=float, default=.05, help='Shared-file polling interval in seconds')
+    parser.add_argument("--agent-timeout", type=float, default=15., help="Response wait timeout to A in seconds")
+    parser.add_argument("--agent-retries", type=int, default=2, help="Shared request republishes or legacy HTTP transport retries (0..5)")
     parser.add_argument("--allow-agent-origin", action="append", default=[], help="Exact HTTP(S) origin allowed to resolve to private IPs; repeatable")
     parser.add_argument("--hfm-runtime-dir", type=Path, help="Optionally start C's local Linux HFM runtime")
     parser.add_argument("--hfm-startup-timeout", type=float, default=180.)
@@ -65,10 +69,11 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.model_file:
         args.submission_mode = "onnx"
-    if args.endpoint_file and args.submission_mode != "remote":
-        parser.error("--endpoint-file requires --submission-mode remote")
-    remote = args.submission_mode == "remote"
-    args.data_dir = args.data_dir or ROOT / ("server_evaluator/runtime-remote-v1" if remote else "server_evaluator/runtime-reference-v1")
+    if args.endpoint_file and args.submission_mode == "onnx":
+        parser.error("--endpoint-file requires --submission-mode remote or http")
+    remote = args.submission_mode != "onnx"
+    cache = {'remote': 'runtime-shared-v1', 'http': 'runtime-remote-v1', 'onnx': 'runtime-reference-v1'}[args.submission_mode]
+    args.data_dir = args.data_dir or ROOT / 'server_evaluator' / cache
     args.max_file_mb = args.max_file_mb if args.max_file_mb is not None else (0.0625 if remote else 128.)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     sources = tuple(dict.fromkeys(s.strip() for s in args.sources.split(",") if s.strip()))
@@ -90,7 +95,11 @@ def main(argv=None):
                              evaluation_timeout=args.evaluation_timeout, seed=args.seed,
                              onnx_threads=args.onnx_threads, memory_limit_mb=args.memory_limit_mb,
                              stop_event=stop)
-        if remote:
+        if args.submission_mode == 'remote':
+            grader = SharedGrader(args.target, args.data_dir, shared_root=args.shared_root,
+                agent_timeout=args.agent_timeout, agent_retries=args.agent_retries,
+                agent_poll_interval=args.agent_poll_interval, **options)
+        elif remote:
             grader = RemoteGrader(args.target, args.data_dir, agent_timeout=args.agent_timeout,
                 agent_retries=args.agent_retries, allowed_origins=args.allow_agent_origin, **options)
         else:
@@ -100,7 +109,8 @@ def main(argv=None):
         if args.check_config:
             print(json.dumps({"ok": True, "problem_id": args.problem_id, "sources": sources, "target": str(args.target.resolve()),
                               "metric_names": grader.metric_names, "max_score": 30, "rules_fingerprint": grader.fingerprint,
-                              "submission_format": "remote-agent-endpoint-v1" if remote else "onnx-model-zip-v1", "evaluation": grader.config}, ensure_ascii=False))
+                              "submission_format": ("shared-agent-endpoint-v1" if args.submission_mode == 'remote'
+                                                    else "remote-agent-endpoint-v1" if remote else "onnx-model-zip-v1"), "evaluation": grader.config}, ensure_ascii=False))
             return 0
         signal.signal(signal.SIGINT, request_stop)
         signal.signal(signal.SIGTERM, request_stop)

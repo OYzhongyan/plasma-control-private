@@ -12,6 +12,7 @@ from .model_grader import ModelGrader
 
 class RemoteGrader(ModelGrader):
     download_suffix = ".json"
+    read_submission = staticmethod(read_endpoint)
 
     def __init__(self, target_path, data_dir, *, agent_timeout=15., agent_retries=2,
                  allowed_origins=(), **kwargs):
@@ -35,7 +36,7 @@ class RemoteGrader(ModelGrader):
         self._check_configuration()
         path = Path(path).resolve()
         try:
-            read_endpoint(path)
+            self.read_submission(path)
         except (ValueError, KeyError, TypeError, RecursionError) as exc:
             raise InvalidSubmission('Invalid remote endpoint JSON; regenerate endpoint.json on A') from exc
         except OSError as exc:

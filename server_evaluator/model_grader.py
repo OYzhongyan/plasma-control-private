@@ -63,7 +63,8 @@ class ModelGrader:
         }
         if _remote_config is not None:
             self.config["remote_agent"] = _remote_config
-            self.config["model_interface"] = {"protocol": "hfm-remote-policy-v1", "action_dim": 12,
+            protocol = "hfm-shared-policy-v1" if _remote_config.get('transport') == 'shared_directory' else "hfm-remote-policy-v1"
+            self.config["model_interface"] = {"protocol": protocol, "action_dim": 12,
                                                "action_units": "physical_voltage"}
         if not hfm_host or not 1 <= self.config["hfm_port"] <= 65535:
             raise ValueError("HFM host/port is invalid")
@@ -90,6 +91,8 @@ class ModelGrader:
             folders.append("submission")
         else:
             files.add(ROOT / "submission/remote_protocol.py")
+            if _remote_config.get('transport') == 'shared_directory':
+                files.update(ROOT / name for name in ('submission/shared_channel.py', 'submission/shared_files.py'))
         for folder in folders:
             files.update((ROOT / folder).glob("*.py"))
         names = ["eval_files/trajectory_utils.py", "eval_files/obs_perturb.py"]
@@ -105,7 +108,8 @@ class ModelGrader:
             except metadata.PackageNotFoundError:
                 versions[name] = "missing"
         self.fingerprint = hashlib.sha256(json.dumps({
-            "format": "remote-agent-endpoint-v1" if _remote_config is not None else "onnx-model-zip-v1", "rules": scorer.fingerprint,
+            "format": ("shared-agent-endpoint-v1" if _remote_config and _remote_config.get('transport') == 'shared_directory'
+                       else "remote-agent-endpoint-v1" if _remote_config is not None else "onnx-model-zip-v1"), "rules": scorer.fingerprint,
             "config": self.config, "evaluation_timeout": self.evaluation_timeout,
             "inference_timeout": self.inference_timeout,
             "files": {str(p): digest for p, digest in self._snapshots.items()},
@@ -183,6 +187,8 @@ class ModelGrader:
                         last_phase, phase_started = phase, now
                     if phase[0] == "inference" and now - phase_started >= self.inference_timeout:
                         raise InvalidSubmission(f"Model inference exceeded its {self.inference_timeout:g}s time limit at step {phase[1]}")
+                    if phase[0] == 'shared_io' and now - phase_started >= self.inference_timeout:
+                        raise GradingUnavailable('Shared storage operation exceeded its time limit; check mount and retry')
                     if now >= deadline:
                         message = f"Evaluation exceeded the {self.evaluation_timeout:g}s time limit; inspect {log_path}"
                         if phase[0] == "model_load":

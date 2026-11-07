@@ -27,7 +27,7 @@ def run_remote(endpoint_file, config, trajectory_path):
         raise
 
 
-def main(argv=None):
+def main(argv=None, *, runner=run_remote):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--endpoint-file', required=True, type=Path)
     parser.add_argument('--config', required=True, type=Path)
@@ -38,7 +38,7 @@ def main(argv=None):
         config = _read_json(args.config)
         config['_progress_path'] = str(args.result.parent / 'phase.json')
         _apply_memory_limit(config)
-        result = run_remote(args.endpoint_file, config, args.trajectory)
+        result = runner(args.endpoint_file, config, args.trajectory)
         envelope = dict(kind='completed', result=result)
     except InvalidSubmission as exc:
         envelope = dict(kind='invalid', error=str(exc))

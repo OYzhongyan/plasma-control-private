@@ -396,7 +396,7 @@ def _run_model(model_dir: Path | None, config: dict, trajectory_path: Path, *, p
                 "audit": {"seed": seed, "inference_time_ms": inference_ms}}
         if hasattr(policy, "audit"):
             data["audit"]["remote_agent"] = {**policy.audit, "model_id": policy.model_id,
-                                              "protocol": "hfm-remote-policy-v1"}
+                                              "protocol": getattr(policy, 'protocol', "hfm-remote-policy-v1")}
         # Timing is audit-only, matching run_test: no new 0.5 ms scoring penalty.
         result = grader.grade_data(data)
         _atomic_json(Path(trajectory_path), _audit_jsonable(data))

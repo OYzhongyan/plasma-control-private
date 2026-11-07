@@ -1,87 +1,70 @@
-# 1. 主办方远程推理测评（手册 4.5）
+# 1. 主办方共享目录测评（手册 4.5）
 
-此分支 `server/offline-grading` 部署在测评服务器 **C**；选手使用 `main` 分支在自己的服务器 **A** 运行 checkpoint 模型，并在平台 **B** 上传一个 `endpoint.json`。C 主动拉取该文件，在 C 启动 HFM，通过 HTTP 逐步向 A 发送观测、接收 **12 维物理电压设定值**，最后由 C 计算七项分数并回传 B。队名、提交历史和排行榜由 B 管理。
+此分支 `server/offline-grading` 部署在测评服务器 **C**。选手使用 `main` 分支，在服务器 **A** 加载自己的 checkpoint、冻结归一化和 wrapper，在比赛平台 **B** 上传一个自动生成的 `endpoint.json`。C 主动拉取提交，在 C 运行 HFM，通过共享文件向 A 发送观测，读取 A 返回的 **12 维物理电压**，计算七项分数并回传 B。平台管理队伍、历史提交和排行榜。
 
-C 不下载或执行选手的模型、Python 代码或 wrapper，不接收选手自报的轨迹／分数。模型及其特征编码、冻结归一化和动作处理均在 A 执行。C 保存正式 shot、初始化文件和目标文件；A 能看到控制所需观测及 reference，但不会收到 shot 文件或其路径。
+正式流程不需要 ONNX、HTTP 推理端口或选手选择 IP。C 不下载模型或执行选手代码，不接收选手自报轨迹或分数。官方 shot、初始化文件、目标文件、平台凭据和评分逻辑留在 C；公共目录只交换控制所需观测（含 reference）和动作。所有命令在 C 的 **Linux Bash、项目根目录**执行。
 
-**正式远程流程不需要 ONNX。** 各方使用的文件和职责如下，与 `main` 的提交说明一致：
-
-| 位置 | 保存的文件 | 负责的操作 |
-| --- | --- | --- |
-| A：选手服务器 | PPO checkpoint `.zip`、匹配的 `VecNormalize.pkl`、训练代码和 wrapper | 加载模型，处理观测，返回电压 |
-| B：比赛平台 | 选手上传的 `endpoint.json`、提交记录和成绩 | 管理队伍、提交与排行榜 |
-| C：测评服务器 | 官方目标、shot、HFM、可信评分代码及评测记录 | 拉取连接文件，运行仿真并回传分数 |
-
-A 的 baseline 网络输出 7 维动作，经 A 的动作 wrapper 转为 **12 维物理电压设定值**（CS、PF1–PF10、VS）。C 接收这 12 维电压，再施加统一电源模型；C 不依赖 A 内部的观测维数或动作编码。
-
-以下命令在 C 的 **Linux / WSL Bash、项目根目录**执行。
-
-# 2. 安装与准备
+# 2. 准备共享目录和依赖
 
 ```bash
 git switch server/offline-grading
 pip install -r server_evaluator/requirements.txt
 ```
 
-主办方准备完整的 `hfm-runtime-release-sealed-latest`、官方 `evaluation/results/target.json`、`configs/env_default.yaml`、`configs/shots.yaml`、`eval_files/references.yaml` 和 `eval_files/obs_perturb.yaml`。正式 shot 由 C 的 `eval_files/references.yaml` 中 `shot_id` 决定，选手提交不能覆盖它。
+A、C 默认使用：
 
-先只检查配置（不登录平台、不连接 A 或 HFM）：
+```text
+/inspire/hdd/project/26-nuclear-fusion/public/plasma-agents/
+└── <自动生成的服务编号>/
+    ├── requests/       # C 发布观测请求
+    └── responses/      # A 返回电压
+```
+
+管理员先确认两台机器看到同一个目录，且 A、C 的运行账户对每个邮箱有进入、读写权限。通常为共享项目组设置目录组继承（setgid）或 ACL；仅能列出 `/public` 不代表跨账户写入已可用。代码为新目录使用 2770、消息使用 0660，实际项目组和 ACL 由管理员核实。共享文件系统必须支持跨机器文件锁和原子重命名；时钟需同步。C 的私有 `--data-dir` 正式部署应放在可靠的本地持久磁盘，避免共享挂载故障同时阻塞监督日志。不要通过关闭签名验证来解决权限问题。
+
+主办方准备 `evaluation/results/target.json`、`configs/env_default.yaml`、`configs/shots.yaml`、`eval_files/references.yaml`、`eval_files/obs_perturb.yaml` 及完整 HFM 运行包。正式 shot 由 C 的 `eval_files/references.yaml` 中 `shot_id` 决定，选手提交不能覆盖。
 
 ```bash
 python server_evaluator/run.py --target evaluation/results/target.json --check-config
 ```
 
+该命令只检查可信本地评分配置，不连接平台或启动 HFM，也不能代替跨机器共享目录权限测试。
+
 # 3. 启动 C 的 HFM
 
-单独开一个终端，假设运行包位于项目同级目录：
+若运行包位于项目同级目录，单独开一个终端：
 
 ```bash
 LISTEN_PORT=5558 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
   bash ../hfm-runtime-release-sealed-latest/run_hfm_server.sh
 ```
 
-等待 `Waiting for a client to connect...`，保持运行。该端口只能由本评分器使用，不要让训练占用。也可以在评分命令添加 `--hfm-runtime-dir ../hfm-runtime-release-sealed-latest`，由评分进程启动并在退出时关闭 C 的 HFM；这时不要再手动启动同端口服务。自动启动日志保存为数据目录中的 `hfm-runtime.log`。
+等待 `Waiting for a client to connect...`，保持运行。这个 **5558 端口仅用于 C 与 HFM**，A 不需要连接它。也可在评分命令添加 `--hfm-runtime-dir ../hfm-runtime-release-sealed-latest` 自动管理 HFM，退出时自动关闭；这时不要再手动启动同端口实例。
 
 # 4. A 与 C 联调
 
-选手启动 A 并生成连接文件的方法见 [submission/README.md](submission/README.md)。管理员将测试用连接文件放在 C，例如 `results/endpoint.json`，执行：
+选手在 A 执行：
+
+```bash
+python submission/shared_service.py --model results/YOUR_RUN/checkpoints
+```
+
+程序自动创建服务编号、邮箱和本地 `results/endpoint.json`，看到 `Shared agent ready` 后保持运行。完整选手说明见 [submission/README.md](submission/README.md)。管理员将一份测试连接文件**私下传到 C**，不能把含密钥的文件放在 public：
 
 ```bash
 python server_evaluator/run.py \
   --endpoint-file results/endpoint.json \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-remote-v1
+  --data-dir server_evaluator/runtime-shared-v1
 ```
 
-该步骤在 C 完成最多 500 步仿真和评分，不回传平台。连接文件只允许 `version`、`protocol`、`service_url` 和可选 `access_token`；不能指定目标、shot、步数或 HFM 地址。文件上限 **64 KiB**。
+C 会执行最多 500 步仿真并打印七项分数，不登录或回传平台。若管理员指定其他共享根目录，A 和 C 均添加相同的 `--shared-root /path/to/shared/plasma-agents`。提交文件只允许版本、协议 `hfm-shared-policy-v1`、`transport=shared_directory`、服务编号和密钥，不允许指定任意目录、shot、目标或 HFM 地址，上限 64 KiB。
 
-选手通过生成器得到的文件形式如下；`service_url` 必须是 **C 能访问的 A 服务根地址**：
+# 5. 配置平台与评分
 
-```json
-{
-  "version": 1,
-  "protocol": "hfm-remote-policy-v1",
-  "service_url": "http://10.0.0.12:8001",
-  "access_token": "YOUR_AGENT_TOKEN"
-}
-```
+平台课题允许上传 JSON。选手只上传自动生成的 `endpoint.json`，并保持 A 进程运行到测评完成。文件包含访问密钥，应限制下载权限，不公开或提交 Git。C 验证消息的 HMAC 签名、请求摘要、回合／步编号和有效期；公共邮箱中不保存密钥。观测在公共目录中不具备保密性，签名也不能阻止有目录权限的人读取或删除文件。
 
-`8001` 是 A 的推理 HTTP 端口，`5558` 是 C 的 HFM socket 端口，两者分别配置。C 调用 A 的 `GET /health`、`POST /reset` 和 `POST /act`；reset 使用 C 生成的回合编号，act 从第 0 步开始交换观测和电压。重复请求由 A 缓存去重，正式测评期间不要从其他程序手动 reset。
-
-默认允许公网服务。若 A 使用私网地址，**由 C 管理员**添加精确允许项：
-
-```bash
-python server_evaluator/run.py \
-  --endpoint-file results/endpoint.json \
-  --target evaluation/results/target.json \
-  --allow-agent-origin http://10.0.0.12:8001
-```
-
-`--allow-agent-origin` 可重复，必须与连接文件中的协议、主机、端口一致。它只是允许 C 连接该私网服务，不提供网络隧道；仍需开放防火墙并保证路由可达。`127.0.0.1` 在 C 上指 C 自己，不能指向另一台选手机器。链路本地、组播和未指定地址始终禁止。公网通信建议用 HTTPS 反向代理保护 A 的专用令牌。
-
-# 5. 配置平台及评分
-
-平台课题允许上传 **JSON**，选手上传 `endpoint.json`，而非模型 ZIP 或轨迹 JSON。设置七个 Metric，名称区分大小写，平台权重均为 **1**：
+平台创建以下七个 Metric，名称区分大小写，**平台权重全部为 1**：
 
 | Metric | 贡献分上限 |
 | --- | ---: |
@@ -93,15 +76,15 @@ python server_evaluator/run.py \
 | X2 | 3 |
 | psiX2 | 4 |
 
-平台综合分公式：
+综合分公式：
 
 ```text
 [0:Ip]+[0:LCFS]+[0:X]+[0:strike]+[0:psiX]+[0:X2]+[0:psiX2]
 ```
 
-回传值已经包含各项权重、500 步时间平均及正式约束惩罚，直接相加，满分 **30**，按分数降序排名。提前终止的剩余步贡献为零。网络往返时间只作审计，不套用 0.5 ms 模型耗时扣分。
+回传值已包含权重、500 步平均和正式约束惩罚，直接相加，满分 30，降序排名。提前终止后的剩余步记零。文件往返时间只用于审计，不作为 0.5 ms 推理惩罚。电源模型保持 1 ms 步长，CS/PF 每步传输延迟 2–5 ms、VS 为 0–1 ms，再执行变化率限制与 PSM；A 只返回设定电压，不重复电源处理。
 
-在 C 设置助教凭据，从平台 API / CLI 帮助核实课题 ID：
+在 C 设置助教凭据，并核实当前课题 ID：
 
 ```bash
 export PLATFORM_USERNAME='YOUR_TEACHER_ACCOUNT'
@@ -111,48 +94,36 @@ echo
 export PLATFORM_PASSWORD
 ```
 
-也可设置有效 `PLATFORM_TOKEN`。平台默认 `https://competition.opensii.ai`，通过 `PLATFORM_BASE_URL` 覆盖。A 的访问令牌与平台凭据完全独立；不要互相混用。
+也可设置有效 `PLATFORM_TOKEN`。平台默认 `https://competition.opensii.ai`，通过 `PLATFORM_BASE_URL` 覆盖；平台拉取／回传仍使用平台 API，只有 A/C 通信改为共享文件。
 
 # 6. 拉取、测评、回传
 
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-remote-v1 \
+  --data-dir server_evaluator/runtime-shared-v1 \
   --once
 ```
 
-确认后常驻运行：
+确认后常驻运行，可同时托管 C 的 HFM：
 
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-remote-v1 \
-  --poll-interval 15
-```
-
-内网 A 的允许项也要加到正式常驻命令。程序串行处理 `offline,manual` 待评提交，每份结果先落盘再回传；回传失败不会重新仿真。A 应持续运行服务，一个服务只支持一个活动回合，不要在测评中手动 reset。提交后 A 连接失败、鉴权失败、非法电压或推理超时记该提交 `failed`；C 的 HFM 故障保留待评，修复后重试。
-
-例如，由 C 自动管理 HFM，并允许同一内网中的 A，可使用：
-
-```bash
-python server_evaluator/run.py \
-  --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-remote-v1 \
+  --data-dir server_evaluator/runtime-shared-v1 \
   --hfm-runtime-dir ../hfm-runtime-release-sealed-latest \
-  --allow-agent-origin http://10.0.0.12:8001 \
   --agent-timeout 15 --agent-retries 2 \
   --poll-interval 15
 ```
 
-该命令与手动启动 HFM 的方式二选一。将 A 的地址替换为实际值；若使用公网 A，可省略允许项。A 服务最多保存 4096 个已结束回合编号，达到容量后需在无活动测评时重启 A，之后重新提交或由管理员恢复待评任务。
+如果 HFM 已单独启动，省略 `--hfm-runtime-dir`。程序串行处理 `offline,manual` 待评任务；每份结果先落盘再回传，回传失败不会重新仿真。同一课题只运行一套评分器，一个 A 邮箱同时只允许一个 C 客户端。
 
-评分电源固定使用 C 的 `environment/power_supply.py`：1 ms 步长，CS/PF 传输延迟每步采样 2–5 ms，VS 为 0–1 ms，再执行变化率限制、PSM 和 HFM。每份提交重建电源并使用相同 `--seed`（默认 0）；A 只返回电压设定值，不重复处理电源。
+A 邮箱不存在、未运行、响应超时、模型中途重启或返回非法动作时，该提交失败；共享存储 I/O、缺失挂载或 C 的 HFM 故障保留待评，修复后重试。切勿在活动测评中手动 reset 或更换 A 模型。消息写完后原子发布，重复请求不会重复推理；完成消息删除，过期孤立消息由 A 清理。
 
-# 7. 日志与部署
+# 7. 审计、迁移和部署
 
-`server_evaluator/runtime-remote-v1/` 保存任务数据库、下载的连接文件，以及 `evaluations/*/attempt-*/` 中的 `trajectory.json`、`result.json`、`evaluation.log`、`phase.json` 和可信配置。连接文件含 A 的令牌，限制数据目录访问权限，勿公开或提交 Git；临时连接副本在评测后删除。
+默认数据目录为 `server_evaluator/runtime-shared-v1`，保存任务数据库、原始私有连接文件和 `evaluations/*/attempt-*/` 中的可信配置、阶段、日志、真实轨迹与结果。临时 endpoint 副本在评测后删除。限制整个目录访问权限；轨迹审计不包含密钥。
 
-更换接口、目标或可信评测配置时停止旧服务并使用新的数据目录；不要复用旧 `runtime-models-v1` 或 `runtime-reference-v1`。已回传 `failed` 的提交需选手重新提交，或由平台管理员重置为待评。
+升级时停止旧评分进程，使用新缓存目录，不复用 `runtime-remote-v1`。A 启动共享服务时会把合法旧 HTTP endpoint 自动换成共享协议文件；选手需重新上传新文件。平台已回传的失败记录不会自动重评，需重交或管理员重置。A 保存 4096 个旧回合编号，达到容量后应在空闲时重启；service_id 能检测中途重启，model_id 不能保证选手模型不可更改。
 
-参数、重试与 systemd 配置见 [server_evaluator/README.md](server_evaluator/README.md)。本分支保留显式 `--submission-mode onnx` 兼容旧 ZIP 流程，正式默认使用远程连接文件。
+参数、文件锁、故障说明和 systemd 配置见 [server_evaluator/README.md](server_evaluator/README.md)。保留显式 `--submission-mode http` 与 `onnx` 供旧版开发联调，默认 `remote` 已改为共享目录。
