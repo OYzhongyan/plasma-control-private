@@ -156,6 +156,17 @@ def test_failed_new_reset_invalidates_previous_episode():
     assert policy.calls == 1
 
 
+def test_delayed_old_reset_does_not_revive_retired_episode():
+    policy = CounterPolicy()
+    client = make_app(policy).test_client()
+    assert client.post('/reset', json=reset('old')).status_code == 200
+    assert client.post('/reset', json=reset('new')).status_code == 200
+    assert client.post('/reset', json=reset('old')).status_code == 409
+    assert client.post('/act', json=step(episode='old')).status_code == 409
+    assert client.post('/act', json=step(episode='new')).status_code == 200
+    assert policy.resets == 2
+
+
 def test_concurrent_duplicate_steps_only_call_policy_once():
     from concurrent.futures import ThreadPoolExecutor
     import time

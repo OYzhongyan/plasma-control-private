@@ -5,6 +5,8 @@ from threading import RLock
 
 from submission.remote_protocol import PROTOCOL, checked_action, valid_envelope
 
+MAX_RETIRED_EPISODES = 4096
+
 
 class SessionConflict(ValueError):
     pass
@@ -18,6 +20,7 @@ class AgentSession:
         self.failed = False
         self.next_step = 0
         self.last_response = None
+        self.retired = set()
 
     @staticmethod
     def digest(payload):
@@ -32,8 +35,14 @@ class AgentSession:
                 if digest != self.reset_digest:
                     raise SessionConflict("Conflicting reset for the same episode")
                 return self.reset_response
+            if episode in self.retired:
+                raise SessionConflict("Episode has retired; old reset requests cannot reactivate it")
+            if self.episode is not None and len(self.retired) >= MAX_RETIRED_EPISODES:
+                raise SessionConflict("Episode history is full; restart A service before a new evaluation")
             self.failed = True
             self.policy.reset(episode_id=episode, options=payload.get("options"))
+            if self.episode is not None:
+                self.retired.add(self.episode)
             self.episode, self.reset_digest = episode, digest
             self.failed, self.next_step, self.last_response = False, 0, None
             self.reset_response = dict(ok=True, protocol=PROTOCOL, episode_id=episode,
