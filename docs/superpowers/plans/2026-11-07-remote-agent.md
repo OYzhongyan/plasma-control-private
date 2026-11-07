@@ -15,7 +15,7 @@
 - [x] T3: Update main participant README/requirements, generate endpoint.json, run focused tests and save a scoped local commit.
 - [x] T4: Transfer common files to server branch. Add destination-pinned bounded HTTP client and tests for retries, redirects, address policy, auth, output validation and secret redaction.
 - [x] T5: Add remote grader/rollout integration, optional C HFM startup, CLI/default cache, platform loopback tests and operator docs. Preserve official scoring and infrastructure retry semantics.
-- [ ] T6: Independent final review, fix important findings through regression tests, verify both branches/shared files and save local commits; no pushes or live platform requests.
+- [x] T6: Independent final review, fix important findings through regression tests, verify both branches/shared files and save local commits; no pushes or live platform requests.
 
 ## Global constraints
 
@@ -45,3 +45,4 @@ Checkpoint normalization pairing; adapter history/reset parity; retry after lost
 - Ruling: production HFM/reconnection, platform deployment and HTTPS remain deployment checks; local fake-boundary tests cannot prove those environments. Cost: operator must perform documented real deployment smoke test.
 - Ruling: arbitrary wrapper APIs require A's custom adapter factory; remote model_id is diagnostic, not immutability attestation. Cost: custom interfaces need participant adapter work and no remote model freeze guarantee.
 - Final fixes verified: truncated body retry, retired reset replay and progress callback reset/act tests all RED then GREEN; combined server suite 161 passed, 1 skipped, 30 warnings in 48.60s.
+- T6 complete: main final targeted suite 63 passed, 25 warnings in 23.14s; selected shared participant sources show no diff against server/offline-grading. Local branch commits only, no worktrees, no push. Server implementation commit 7b9a4cf. Finish choice: keep branches as requested; return root checkout to server/offline-grading.
