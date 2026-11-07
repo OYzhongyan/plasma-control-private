@@ -131,7 +131,7 @@ def test_exported_policy_matches_sb3_over_multiple_steps_and_episodes(exported):
     from submission.inference_common import apply_obs_normalization
 
     directory, model, norm = exported
-    policy = Policy(directory)
+    policy = Policy(directory, backend="onnx")
     assert policy.ready, policy.load_error
     assert policy.metadata["obs_dim"] == 90
     assert policy.obs_normalization is not None
@@ -164,7 +164,7 @@ def test_http_health_act_and_invalid_input(exported):
     from submission.service2 import create_app
 
     directory, _, _ = exported
-    client = create_app(directory).test_client()
+    client = create_app(directory, backend="onnx", allow_legacy=True).test_client()
     health = client.get("/health")
     assert health.status_code == 200
     assert health.json["obs_dim"] == 90
@@ -188,11 +188,11 @@ def test_invalid_artifacts_fail_readiness_instead_of_zero_actions(tmp_path):
     from submission.inference2 import Policy
     from submission.service2 import create_app
 
-    policy = Policy(tmp_path)
+    policy = Policy(tmp_path, backend="onnx")
     assert not policy.ready
     with pytest.raises(RuntimeError, match="No ONNX"):
         policy.act(observation())
-    assert create_app(tmp_path).test_client().get("/health").status_code == 503
+    assert create_app(tmp_path, backend="onnx", allow_legacy=True).test_client().get("/health").status_code == 503
 
 
 def test_export_rejects_incorrect_metadata(exported, tmp_path):
@@ -215,11 +215,11 @@ def test_missing_normalization_and_wrong_dimension_are_not_ready(exported, tmp_p
     metadata_path = tmp_path / "policy2.metadata.json"
     metadata = json.loads((directory / "policy2.metadata.json").read_text())
     metadata_path.write_text(json.dumps(metadata))
-    policy = Policy(tmp_path)
+    policy = Policy(tmp_path, backend="onnx")
     assert not policy.ready
     assert "VecNormalize" in policy.load_error
     metadata.update(obs_dim=216, requires_vecnormalize=False)
     metadata_path.write_text(json.dumps(metadata))
-    policy = Policy(tmp_path)
+    policy = Policy(tmp_path, backend="onnx")
     assert not policy.ready
     assert "layout" in policy.load_error

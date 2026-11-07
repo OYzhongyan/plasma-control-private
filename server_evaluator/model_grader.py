@@ -30,7 +30,8 @@ class ModelGrader:
     def __init__(self, target_path, data_dir, *, env_config=None, reference_config=None,
                  obs_perturb_config=None, hfm_host="127.0.0.1", hfm_port=5558,
                  socket_timeout=300.0, evaluation_timeout=1800.0, seed=0,
-                 onnx_threads=1, memory_limit_mb=4096, inference_timeout=1.0, stop_event=None):
+                 onnx_threads=1, memory_limit_mb=4096, inference_timeout=1.0, stop_event=None,
+                 _remote_config=None):
         self.shots_config = ROOT / "configs/shots.yaml"
         # Importing environment also loads its shot catalogue. Pin that import
         # to the same trusted file as the child, without changing the caller's
@@ -60,6 +61,10 @@ class ModelGrader:
             "power_supply": {"dt_s": DT, "pf_delay_range_s": list(DELAY_RANGE_PF),
                              "vs_delay_range_s": list(DELAY_RANGE_VS), "delay_sampling": "each_step"},
         }
+        if _remote_config is not None:
+            self.config["remote_agent"] = _remote_config
+            self.config["model_interface"] = {"protocol": "hfm-remote-policy-v1", "action_dim": 12,
+                                               "action_units": "physical_voltage"}
         if not hfm_host or not 1 <= self.config["hfm_port"] <= 65535:
             raise ValueError("HFM host/port is invalid")
         if self.config["onnx_threads"] < 1 or self.config["seed"] < 0:
@@ -80,10 +85,17 @@ class ModelGrader:
         # Pin the shot catalogue instead of inheriting a shell's unrelated override.
         files = {Path(self.config[k]) for k in ("target_path", "env_config", "reference_config", "obs_perturb_config") if self.config[k]}
         files.add(self.shots_config)
-        for folder in ("server_evaluator", "submission", "environment", "evaluation/eval/score"):
+        folders = ["server_evaluator", "environment", "evaluation/eval/score"]
+        if _remote_config is None:
+            folders.append("submission")
+        else:
+            files.add(ROOT / "submission/remote_protocol.py")
+        for folder in folders:
             files.update((ROOT / folder).glob("*.py"))
-        for name in ("eval_files/trajectory_utils.py", "eval_files/obs_perturb.py",
-                     "train/wrappers.py", "train/features.py", "train/references.py"):
+        names = ["eval_files/trajectory_utils.py", "eval_files/obs_perturb.py"]
+        if _remote_config is None:
+            names.extend(["train/wrappers.py", "train/features.py", "train/references.py"])
+        for name in names:
             files.add(ROOT / name)
         self._snapshots = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(files)}
         versions = {}
@@ -93,7 +105,7 @@ class ModelGrader:
             except metadata.PackageNotFoundError:
                 versions[name] = "missing"
         self.fingerprint = hashlib.sha256(json.dumps({
-            "format": "onnx-model-zip-v1", "rules": scorer.fingerprint,
+            "format": "remote-agent-endpoint-v1" if _remote_config is not None else "onnx-model-zip-v1", "rules": scorer.fingerprint,
             "config": self.config, "evaluation_timeout": self.evaluation_timeout,
             "inference_timeout": self.inference_timeout,
             "files": {str(p): digest for p, digest in self._snapshots.items()},

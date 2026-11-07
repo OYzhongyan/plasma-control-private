@@ -99,6 +99,8 @@ class PlatformClient:
                     raise DownloadError(f"File download returned HTTP {response.status_code}")
                 total = 0
                 with temporary.open("wb") as handle:
+                    # Remote endpoint descriptors may contain A's bearer token.
+                    temporary.chmod(0o600)
                     for chunk in response.iter_content(65536):
                         total += len(chunk)
                         if total > max_bytes: raise FileTooLarge("Submission file exceeds configured size limit")

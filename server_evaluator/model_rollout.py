@@ -307,10 +307,11 @@ def _memory_failure(exc: BaseException) -> bool:
     return False
 
 
-def _run_model(model_dir: Path, config: dict, trajectory_path: Path) -> dict:
+def _run_model(model_dir: Path | None, config: dict, trajectory_path: Path, *, policy=None) -> dict:
     """Validate artifacts, run one deterministic episode, then score its trajectory."""
-    _phase(config, "model_load")
-    policy = _load_policy(Path(model_dir), config)
+    if policy is None:
+        _phase(config, "model_load")
+        policy = _load_policy(Path(model_dir), config)
     utils = _dependency("eval_files.trajectory_utils")
     perturb = _dependency("eval_files.obs_perturb")
     score_config = _dependency("evaluation.eval.score.config")
@@ -352,7 +353,12 @@ def _run_model(model_dir: Path, config: dict, trajectory_path: Path) -> dict:
     _phase(config, "hfm_reset")
     with _environment(env_config, seed) as env:
         obs = _reset(env, seed, options)
-        policy.reset()
+        try:
+            policy.reset()
+        except GradingUnavailable:
+            raise
+        except Exception as exc:
+            raise InvalidSubmission(f"Policy reset failed: {exc}") from exc
         for step in range(500):
             try:
                 if perturb_config.get("enabled", False):
@@ -368,6 +374,8 @@ def _run_model(model_dir: Path, config: dict, trajectory_path: Path) -> dict:
                 elapsed = (time.perf_counter() - started) * 1000.
                 if action.shape != (12,) or not np.all(np.isfinite(action)):
                     raise ValueError("policy must return 12 finite physical voltages")
+            except GradingUnavailable:
+                raise
             except Exception as exc:
                 raise InvalidSubmission(f"Model inference failed at step {step + 1}: {exc}") from exc
             _phase(config, "hfm_step", step + 1)
@@ -386,6 +394,9 @@ def _run_model(model_dir: Path, config: dict, trajectory_path: Path) -> dict:
         data = {"F2b": {"trajectory": utils.to_jsonable(trajectory),
                          "f_surv": len(observations) / 500., "timeout": False},
                 "audit": {"seed": seed, "inference_time_ms": inference_ms}}
+        if hasattr(policy, "audit"):
+            data["audit"]["remote_agent"] = {**policy.audit, "model_id": policy.model_id,
+                                              "protocol": "hfm-remote-policy-v1"}
         # Timing is audit-only, matching run_test: no new 0.5 ms scoring penalty.
         result = grader.grade_data(data)
         _atomic_json(Path(trajectory_path), _audit_jsonable(data))

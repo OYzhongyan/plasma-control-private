@@ -84,3 +84,67 @@ class ReferencePolicyAdapter:
             raise ValueError("The policy must produce 7 finite actions")
         # SB3 predict() clips Box actions; ONNX emits the raw actor output.
         return self.actions.action(np.clip(action, -1., 1.)).astype(np.float32)
+
+
+class _RemoteObservation(gym.Env):
+    """A buffer for C's observations; it does not run a simulator on A."""
+    observation_space = gym.spaces.Dict({})
+    action_space = gym.spaces.Box(-np.inf, np.inf, shape=(12,), dtype=np.float32)
+
+    def __init__(self):
+        self.observation = {}
+        self.physical_action = np.zeros(12, dtype=np.float32)
+
+    def reset(self, **kwargs):
+        return self.observation, {}
+
+    def step(self, action):
+        return self.observation, 0., False, False, {"physical_action": self.physical_action.copy()}
+
+
+class CheckpointPolicyAdapter:
+    """Use the real training wrappers on A, including their reset/step state."""
+
+    def __init__(self, model, metadata, config):
+        # Import actual participant classes at construction, not a second copy
+        # of their feature/action implementation or an ONNX-specific encoder.
+        from train import wrappers
+        self.buffer = _RemoteObservation()
+        mode = metadata.get("action_mode", config.get("actions", {}).get("mode", "absolute"))
+        self.actions = wrappers.NormalizedAction7DTo12DWrapper(self.buffer, action_mode=mode)
+        self.observations = wrappers.ReferenceObservationWrapper(
+            self.buffer, obs_history_step=int(config.get("features", {}).get("history_steps", 0)),
+            include_xpt=True, action_mode=mode)
+        if self.observations.observation_space != model.observation_space:
+            raise ValueError("Actual observation wrapper does not match checkpoint observation space")
+        if self.actions.action_space != model.action_space:
+            raise ValueError("Actual action wrapper does not match checkpoint action space")
+        self.reset()
+
+    def reset(self):
+        self.started = False
+        self.pending_action = None
+        self.buffer.physical_action = np.zeros(12, np.float32)
+        self.actions.reset()
+
+    def encode(self, observation):
+        self.buffer.observation = observation
+        if not self.started:
+            vector, _ = self.observations.reset()
+            self.started = True
+        else:
+            if self.pending_action is None:
+                raise RuntimeError("Missing previous action; start a new remote episode")
+            vector, _, _, _, _ = self.observations.step(self.pending_action)
+        self.pending_action = None
+        return vector
+
+    def decode(self, action):
+        physical = np.asarray(self.actions.action(action), dtype=np.float32)
+        self.pending_action = np.asarray(action).copy()
+        self.buffer.physical_action = physical.copy()
+        return physical
+
+
+def build_checkpoint_adapter(model, metadata, config):
+    return CheckpointPolicyAdapter(model, metadata, config)

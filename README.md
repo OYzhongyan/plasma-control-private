@@ -1,173 +1,121 @@
-# 1. 服务器模型评测
+# 1. 主办方远程推理测评（手册 4.5）
 
-`server/offline-grading` 是主办方部署的测评分支，按助教操作手册 **4.5** 主动从比赛平台拉取任务。选手使用 `main` 分支训练、导出并上传模型，平台负责队伍、提交历史和排行榜，测评服务器负责运行模型、仿真和回传成绩。
+此分支 `server/offline-grading` 部署在测评服务器 **C**；选手使用 `main` 分支在自己的服务器 **A** 运行 checkpoint 模型，并在平台 **B** 上传一个 `endpoint.json`。C 主动拉取该文件，在 C 启动 HFM，通过 HTTP 逐步向 A 发送观测、接收 **12 维物理电压设定值**，最后由 C 计算七项分数并回传 B。队名、提交历史和排行榜由 B 管理。
 
-```text
-选手上传模型 ZIP → 平台保存提交 → 服务器下载并自动解包
-→ CPU 推理控制 HFM → 计算七项贡献分 → 回传平台 → 更新排行榜
-```
+C 不下载或执行选手的模型、Python 代码或 wrapper，不接收选手自报的轨迹／分数。模型及其特征编码、冻结归一化和动作处理均在 A 执行。C 保存正式 shot、初始化文件和目标文件；A 能看到控制所需观测及 reference，但不会收到 shot 文件或其路径。
 
-以下命令在测评服务器的 **Linux Bash、项目根目录**执行。部署需要完整的 HFM 运行包、CPU 和可访问比赛平台的网络；推理使用 ONNX Runtime CPU。
+以下命令在 C 的 **Linux / WSL Bash、项目根目录**执行。
 
-# 2. 安装依赖与准备数据
+# 2. 安装与准备
 
 ```bash
 git switch server/offline-grading
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r server_evaluator/requirements.txt
+pip install -r server_evaluator/requirements.txt
 ```
 
-已有 Conda 环境时，可直接在该环境中安装依赖。另行准备完整的 `hfm-runtime-release-sealed-latest`，后续假设位于项目同级目录。
+主办方准备完整的 `hfm-runtime-release-sealed-latest`、官方 `evaluation/results/target.json`、`configs/env_default.yaml`、`configs/shots.yaml`、`eval_files/references.yaml` 和 `eval_files/obs_perturb.yaml`。正式 shot 由 C 的 `eval_files/references.yaml` 中 `shot_id` 决定，选手提交不能覆盖它。
 
-主办方统一提供下列文件：
+先只检查配置（不登录平台、不连接 A 或 HFM）：
 
-| 文件 | 用途 |
-| --- | --- |
-| `evaluation/results/target.json` | 官方目标，构造参考轨迹并计算评分 |
-| `configs/env_default.yaml` | HFM 环境配置 |
-| `eval_files/references.yaml` | 初始 shot 与评测参考配置 |
-| `eval_files/obs_perturb.yaml` | 观测扰动配置 |
-| `configs/shots.yaml` | shot 初始化配置 |
-
-官方目标顶层应包含 `F2b`，其目标几何包括 `lcfs_points`、`Xpt_main`、`Xpt_sec` 和 `strike`。所有选手使用服务器上的同一套目标、配置和随机种子。
-
-平台接收选手导出的单个模型 ZIP，默认文件名为 `submission_model.zip`，包内根目录包含：
-
-```text
-submission_model.zip
-├── policy2.onnx
-├── policy2.metadata.json
-└── policy2_vecnormalize_stats.npz
+```bash
+python server_evaluator/run.py --target evaluation/results/target.json --check-config
 ```
 
-服务器自动校验、解包并加载这三份文件。上传上限默认 **128 MiB**，包内文件名固定。当前仅支持与 `main` 一致的 `reference_only_v1` 接口：模型输入为当前目标的 **90 维 reference 特征**，不包含实际状态或观测／动作历史；元数据版本为 `3`，`history_steps=0`、`action_history_steps=0`。
+# 3. 启动 C 的 HFM
 
-输入顺序固定为 `reference_Ip`（1）、`reference_lX`（1）、`reference_lcfs_points`（32×2，按行展开）、`reference_rX`（4）、`reference_zX`（4）、`reference_strike_r`（8）、`reference_strike_z`（8）。归一化使用同一次训练导出的冻结统计量。旧的 812 维历史模型不能通过修改元数据变成新模型，须重新训练和导出。
-
-ONNX 输出 **7 维归一化动作**，先裁剪到 `[-1, 1]`，再根据元数据中的 `action_mode` 转换：`absolute` 乘以 `[1499, 230, 172, 172, 348, 348, 270]` V；`delta` 乘以 `0.16 × [1499, 175, 175, 175, 175, 175, 80]` V 并逐步累加，每回合从零开始。随后按索引 `[0,1,1,2,2,3,3,4,4,5,5,6]` 展开为 HFM 接收的 12 维电压设定值。
-
-训练与测评统一使用 `environment/power_supply.py`：电源传输延迟在每步重新采样，通道 0–10（CS/PF）为 **2–5 ms**，通道 11（VS）为 **0–1 ms**；仿真步长为 **1 ms**，延迟步数取 `round(delay_s / 0.001)`。处理顺序为传输延迟 → 电压变化率限制 → PSM 标定 → HFM。服务器为每份模型重建电源并固定 `--seed`（默认 `0`），启动日志和审计配置均记录这套设置。电源延迟独立于观测延迟；当前 reference 编码不引入历史观测，测评端不支持非零观测延迟配置。
-
-# 3. 启动 HFM socket 服务
-
-在一个终端启动独立 HFM 实例，端口为 `5558`：
+单独开一个终端，假设运行包位于项目同级目录：
 
 ```bash
 LISTEN_PORT=5558 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
   bash ../hfm-runtime-release-sealed-latest/run_hfm_server.sh
 ```
 
-等待输出 `Waiting for a client to connect...`，保持此终端运行。测评期间，该实例应由评分程序独占。Python 评分器和后面的 systemd 模板只管理评分流程，HFM 服务需单独启动和维护。
+等待 `Waiting for a client to connect...`，保持运行。该端口只能由本评分器使用，不要让训练占用。也可以在评分命令添加 `--hfm-runtime-dir ../hfm-runtime-release-sealed-latest`，由评分进程启动并在退出时关闭 C 的 HFM；这时不要再手动启动同端口服务。自动启动日志保存为数据目录中的 `hfm-runtime.log`。
 
-# 4. 在服务器核验模型包
+# 4. A 与 C 联调
 
-另开终端，激活 Python 环境并进入项目根目录。先检查目标文件和评测配置：
-
-```bash
-python server_evaluator/run.py \
-  --target evaluation/results/target.json \
-  --check-config
-```
-
-此命令只检查本地配置。再将一份导出的模型包放在 `results/submission_model.zip`，运行完整仿真核验：
+选手启动 A 并生成连接文件的方法见 [submission/README.md](submission/README.md)。管理员将测试用连接文件放在 C，例如 `results/endpoint.json`，执行：
 
 ```bash
 python server_evaluator/run.py \
-  --model-file results/submission_model.zip \
+  --endpoint-file results/endpoint.json \
   --target evaluation/results/target.json \
-  --hfm-host 127.0.0.1 \
-  --hfm-port 5558 \
-  --seed 0 \
-  --onnx-threads 1
+  --data-dir server_evaluator/runtime-remote-v1
 ```
 
-`--model-file` 会自动解包、运行最多 500 步 HFM 仿真并打印七项得分。该步骤供服务器管理员联调，无需平台账号，也不回传成绩。等离子体提前终止时，按实际完成的轨迹评分，剩余步记零贡献。
+该步骤在 C 完成最多 500 步仿真和评分，不回传平台。连接文件只允许 `version`、`protocol`、`service_url` 和可选 `access_token`；不能指定目标、shot、步数或 HFM 地址。文件上限 **64 KiB**。
 
-# 5. 配置比赛平台
+默认允许公网服务。若 A 使用私网地址，**由 C 管理员**添加精确允许项：
 
-在平台课题中允许上传 ZIP，并将文件大小上限与服务器的 **128 MiB** 保持一致。创建以下七个 Metric，名称区分大小写，**平台权重均为 1**：
+```bash
+python server_evaluator/run.py \
+  --endpoint-file results/endpoint.json \
+  --target evaluation/results/target.json \
+  --allow-agent-origin http://10.0.0.12:8001
+```
+
+`--allow-agent-origin` 可重复，必须与连接文件中的协议、主机、端口一致。它只是允许 C 连接该私网服务，不提供网络隧道；仍需开放防火墙并保证路由可达。`127.0.0.1` 在 C 上指 C 自己，不能指向另一台选手机器。链路本地、组播和未指定地址始终禁止。公网通信建议用 HTTPS 反向代理保护 A 的专用令牌。
+
+# 5. 配置平台及评分
+
+平台课题允许上传 **JSON**，选手上传 `endpoint.json`，而非模型 ZIP 或轨迹 JSON。设置七个 Metric，名称区分大小写，平台权重均为 **1**：
 
 | Metric | 贡献分上限 |
 | --- | ---: |
-| `Ip` | 6 |
-| `LCFS` | 6 |
-| `X` | 4 |
-| `strike` | 3 |
-| `psiX` | 4 |
-| `X2` | 3 |
-| `psiX2` | 4 |
+| Ip | 6 |
+| LCFS | 6 |
+| X | 4 |
+| strike | 3 |
+| psiX | 4 |
+| X2 | 3 |
+| psiX2 | 4 |
 
-平台综合分公式设置为：
+平台综合分公式：
 
 ```text
 [0:Ip]+[0:LCFS]+[0:X]+[0:strike]+[0:psiX]+[0:X2]+[0:psiX2]
 ```
 
-七项回传值已包含各自的评分权重、500 步时间平均和约束惩罚，直接求和，**满分 30 分、降序排名**。平台只需这七个 Metric，避免额外创建 `得分` 指标或重复加权。
+回传值已经包含各项权重、500 步时间平均及正式约束惩罚，直接相加，满分 **30**，按分数降序排名。提前终止的剩余步贡献为零。网络往返时间只作审计，不套用 0.5 ms 模型耗时扣分。
 
-当前测评沿用正式轨迹评分规则，推理耗时仅记录审计，不启用每步 0.5 ms 的整段扣分规则；单次推理运行上限由 `--inference-timeout` 控制，默认 1 秒。
-
-从课题的「API / CLI 帮助」获取字符串 `problem_id`，并由平台管理员提供有本题评分权限的助教身份。配置环境变量：
+在 C 设置助教凭据，从平台 API / CLI 帮助核实课题 ID：
 
 ```bash
-export PLATFORM_USERNAME='autumn26_t02'
+export PLATFORM_USERNAME='YOUR_TEACHER_ACCOUNT'
 export PLATFORM_PROBLEM_ID='6ae84a300a686d1bbf619417'
 read -rsp '平台助教密码: ' PLATFORM_PASSWORD
 echo
 export PLATFORM_PASSWORD
 ```
 
-也可设置有效的 `PLATFORM_TOKEN`。平台默认地址为 `https://competition.opensii.ai`，需要修改时设置 `PLATFORM_BASE_URL`。凭据只在服务器配置，不写入代码仓库。
+也可设置有效 `PLATFORM_TOKEN`。平台默认 `https://competition.opensii.ai`，通过 `PLATFORM_BASE_URL` 覆盖。A 的访问令牌与平台凭据完全独立；不要互相混用。
 
-# 6. 拉取任务、测评并回传
-
-在平台使用测试队伍上传一份模型 ZIP，先执行一轮拉取、测评和回传：
+# 6. 拉取、测评、回传
 
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-reference-v1 \
+  --data-dir server_evaluator/runtime-remote-v1 \
   --once
 ```
 
-确认平台的提交状态、七项分数和排名后，常驻运行：
+确认后常驻运行：
 
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-reference-v1 \
+  --data-dir server_evaluator/runtime-remote-v1 \
   --poll-interval 15
 ```
 
-程序串行处理本题 `offline`、`manual` 两类待评任务，每轮结束后等待 15 秒再查询。每份结果先持久化，再回传平台。`--once` 在仍有未完成或未确认任务时返回退出码 1。
+内网 A 的允许项也要加到正式常驻命令。程序串行处理 `offline,manual` 待评提交，每份结果先落盘再回传；回传失败不会重新仿真。A 应持续运行服务，一个服务只支持一个活动回合，不要在测评中手动 reset。提交后 A 连接失败、鉴权失败、非法电压或推理超时记该提交 `failed`；C 的 HFM 故障保留待评，修复后重试。
 
-| 测评情况 | 处理方式 |
-| --- | --- |
-| 模型正常运行，含合法提前终止或零分 | 回传 `completed` 和七项贡献分 |
-| 模型包无效、接口不符或超过模型运行限制 | 回传 `failed` 和原因 |
-| HFM 不可达等基础设施故障 | 保留待评，修复后重试 |
-| 成绩回传失败 | 保存已有结果，下轮重传 |
+评分电源固定使用 C 的 `environment/power_supply.py`：1 ms 步长，CS/PF 传输延迟每步采样 2–5 ms，VS 为 0–1 ms，再执行变化率限制、PSM 和 HFM。每份提交重建电源并使用相同 `--seed`（默认 0）；A 只返回电压设定值，不重复处理电源。
 
-服务器通过平台助教 API 主动拉取和回传任务；本流程无需部署面向平台的 `/submit` 或 `/retrieve` HTTP 服务。同一课题只运行一套评分服务，使用同一持久化数据目录。
+# 7. 日志与部署
 
-# 7. 日志、数据与常驻部署
+`server_evaluator/runtime-remote-v1/` 保存任务数据库、下载的连接文件，以及 `evaluations/*/attempt-*/` 中的 `trajectory.json`、`result.json`、`evaluation.log`、`phase.json` 和可信配置。连接文件含 A 的令牌，限制数据目录访问权限，勿公开或提交 Git；临时连接副本在评测后删除。
 
-默认工作数据保存在 `server_evaluator/runtime-reference-v1/`：
+更换接口、目标或可信评测配置时停止旧服务并使用新的数据目录；不要复用旧 `runtime-models-v1` 或 `runtime-reference-v1`。已回传 `failed` 的提交需选手重新提交，或由平台管理员重置为待评。
 
-| 路径 | 内容 |
-| --- | --- |
-| `tasks.sqlite3` | 任务状态与待回传成绩 |
-| `downloads/` | 原始模型 ZIP |
-| `evaluations/*/attempt-*/trajectory.json` | 服务器生成的实际仿真轨迹 |
-| `evaluations/*/attempt-*/result.json` | 本次评测结果或失败原因 |
-| `evaluations/*/attempt-*/evaluation.log` | 模型评测日志 |
-| `evaluations/*/attempt-*/phase.json` | 当前或最后运行阶段 |
-
-解包后的模型文件在本次评测结束后自动清理，原始 ZIP 与审计结果保留。重启时程序复用已保存结果，尚未完成的任务重新评测。更改官方目标或评分配置前停止服务，并使用新的 `--data-dir`，保留旧目录以核对历史成绩。
-
-从旧历史观测测评端升级时，先停止旧进程，再使用新的 `runtime-reference-v1` 目录，不要复用 `runtime-models-v1`。平台已回传为 `failed` 的提交不会自动重评：需重新提交当前 main 导出的模型包，或由平台管理员将原任务重置为待评。
-
-Linux 常驻部署可使用 [plasma-grader.service](server_evaluator/plasma-grader.service)，按实际环境配置运行账号、代码路径、Python 环境、凭据文件和数据目录；完整安装步骤见 [服务器测评说明](server_evaluator/README.md#6-systemd-常驻部署)。
-
-全部命令参数、超时与内存限制、故障重试、缓存升级和联调说明见 [server_evaluator/README.md](server_evaluator/README.md)。
+参数、重试与 systemd 配置见 [server_evaluator/README.md](server_evaluator/README.md)。本分支保留显式 `--submission-mode onnx` 兼容旧 ZIP 流程，正式默认使用远程连接文件。

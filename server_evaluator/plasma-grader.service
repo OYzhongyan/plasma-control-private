@@ -1,5 +1,5 @@
 [Unit]
-Description=Plasma model simulation grader (section 4.5)
+Description=Plasma remote policy simulation grader (section 4.5)
 Wants=network-online.target
 After=network-online.target
 
@@ -20,10 +20,10 @@ ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server
     --obs-perturb-config /opt/plasma-control-server/eval_files/obs_perturb.yaml \
     --hfm-host 127.0.0.1 --hfm-port 5558 \
     --socket-timeout 300 --evaluation-timeout 1800 \
-    --inference-timeout 1 \
+    --submission-mode remote --agent-timeout 15 --agent-retries 2 \
     --seed 0 --onnx-threads 1 \
     --memory-limit-mb 4096 \
-    --data-dir /var/lib/plasma-grader/reference-v1
+    --data-dir /var/lib/plasma-grader/remote-v1
 Restart=on-failure
 RestartSec=15
 KillMode=mixed
