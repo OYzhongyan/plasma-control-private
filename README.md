@@ -90,7 +90,7 @@ S=\frac{\Gamma}{500}\sum_{k=1}^{K}\eta_k\mu_k\rho_k
 
 榜单中的七项贡献分已经包含权重、时间平均及惩罚，直接相加即为综合分，不再重复加权。
 
-第 8 节的远程正式测评由 C 记录 HTTP 往返耗时作为审计信息，不将其作为模型内核推理耗时，因此不触发上述 0.5 ms 耗时惩罚；C 另有通信超时和整场评测超时限制。
+第 8 节的远程正式测评由 C 记录 文件交换往返耗时作为审计信息，不将其作为模型内核推理耗时，因此不触发上述 0.5 ms 耗时惩罚；C 另有通信超时和整场评测超时限制。
 
 # 3. 仿真器与控制架构
 
@@ -263,100 +263,74 @@ python rollout/visualize_rollout.py --run_name YOUR_RUN
 数据保存在`results/YOUR_RUN/eval/figures/`
 
 
-# 8. 启动远程推理服务并提交平台
+# 8. 启动共享目录推理服务并提交平台
 
-本项目采用 A/B/C 流程：**A 为选手服务器，B 为比赛平台，C 为主办方测评服务器**。A 在本地加载 checkpoint、归一化和自己的训练 wrapper；B 保存连接配置；C 运行 HFM、选择官方测评 shot，逐步发送观测并接收 A 返回的 12 维电压，最后由 C 评分并更新 B 的排行榜。
+采用 **A（选手服务器）→ B（比赛平台）→ C（测评服务器）** 流程：A 加载自己的 checkpoint 和 wrapper；B 接收一个 `endpoint.json`；C 运行 HFM，通过共享目录把观测发给 A，读取 A 返回的 **12 维物理电压**，计算七项分数并更新排行榜。无需 ONNX，无需选择 IP、监听地址或端口。
 
-**正式提交不需要导出 ONNX。** 选手上传一个 `endpoint.json`，模型及训练代码保留在 A。训练和日常本地验证仍可使用选手自己的 HFM，正式评分由 C 完成。
+## 8.1 一条命令启动
 
-| 位置 | 保存的文件 | 负责的操作 |
-| --- | --- | --- |
-| A：选手服务器 | PPO checkpoint `.zip`、匹配的 `VecNormalize.pkl`、训练代码和 wrapper | 加载模型，处理观测，返回电压 |
-| B：比赛平台 | 选手上传的 `endpoint.json`、提交记录和成绩 | 管理队伍、提交与排行榜 |
-| C：测评服务器 | 官方目标、shot、HFM、可信评分代码及评测记录 | 拉取连接文件，运行仿真并回传分数 |
-
-C 发送当前仿真观测字典（包括 reference），A 根据自己的 wrapper 选取输入。baseline 网络输出 7 维动作，由 A 转为 **12 维物理电压设定值**（CS、PF1–PF10、VS）后返回；C 再施加统一电源模型。测评 shot 文件和初始化路径不发送给 A；C 不加载 A 的 checkpoint 或训练代码。
-
-## 8.1 安装推理依赖
-
-以下命令在 A 的项目根目录执行：
+在 A 的项目根目录及已有训练环境中执行：
 
 ```bash
 pip install -r submission/requirements.txt
+python submission/shared_service.py --model results/YOUR_RUN/checkpoints
 ```
 
-已有训练环境通常已具备 Torch 和 Stable-Baselines3。实际训练 wrapper 由 A 本机代码提供，C 不导入选手的 `train`。
-
-## 8.2 生成提交文件并启动服务
-
-将 `YOUR_SERVER_IP` 替换为 C 可以访问的 A 地址。`0.0.0.0` 是监听地址，`127.0.0.1` 只代表请求方本机，都不能作为 A 提交给远程 C 的服务地址。公网部署建议通过 HTTPS 反向代理访问。
-
-在同一终端设置 A 专用访问令牌、生成连接文件，再启动推理服务：
+程序自动选择 `checkpoints/` 中训练步数最大的模型，加载同一步数的 `_vecnormalize.pkl`，生成随机服务编号和密钥，并在本地生成 **`results/endpoint.json`**。看到 `Shared agent ready` 后保持进程运行；不需要另外启动 HTTP 服务。也可使用：
 
 ```bash
-read -rsp '设置 A 推理服务访问令牌: ' SUBMISSION_ACCESS_TOKEN
-echo
-export SUBMISSION_ACCESS_TOKEN
-
-python submission/export_endpoint.py \
-  --service-url http://YOUR_SERVER_IP:8001 \
-  --output results/endpoint.json
-
-python submission/service2.py \
-  --model results/YOUR_RUN/ppo_f2_latest.zip \
-  --vecnormalize results/YOUR_RUN/vecnormalize.pkl \
-  --host 0.0.0.0 --port 8001
+bash submission/run.sh --model results/YOUR_RUN/checkpoints
 ```
 
-也可使用 `bash submission/run.sh --model ... --vecnormalize ...`，它只启动 A 的推理服务，不启动 HFM 或评分程序。令牌只用于 A/C 通信，不要使用 B 的平台登录 token。`endpoint.json` 含访问凭据，应仅上传给平台，不公开或提交 Git。
-
-**训练中断后使用最新 checkpoint**：改用以下启动命令，程序按训练步数选择该目录中的最新权重，并寻找同一步数的 `_vecnormalize.pkl`：
+正常结束训练后的模型可用运行目录加载（优先最终模型，缺少最终模型时选择最新 checkpoint）：
 
 ```bash
-python submission/service2.py \
+python submission/shared_service.py --model results/YOUR_RUN
+```
+
+请保留运行目录内的 `f2_features.metadata.json`、`configs.pkl` 和配套归一化文件，以恢复动作模式等设置。模型与 wrapper 只在启动时加载；修改后应在无活动测评时重启 A。默认复用已有 `results/endpoint.json` 的服务编号；同时启动多个模型时，为每个进程指定不同的 `--output` 文件。
+
+## 8.2 共享目录与提交文件
+
+A、C 默认使用：
+
+```text
+/inspire/hdd/project/26-nuclear-fusion/public/plasma-agents/
+└── <自动生成的服务编号>/
+    ├── requests/       # C 写观测请求
+    └── responses/      # A 写动作响应
+```
+
+如果主办方指定其他共享目录，A 和 C 都使用相同 `--shared-root`；无需修改提交文件：
+
+```bash
+python submission/shared_service.py \
   --model results/YOUR_RUN/checkpoints \
-  --host 0.0.0.0 --port 8001
+  --shared-root /path/to/shared/plasma-agents
 ```
 
-缺少匹配归一化文件时不会静默使用其它步数或原始观测。请保持服务进程运行，确保防火墙／端口映射允许 C 访问。同一个服务地址一次只处理一个测评回合，不要在正式测评中手动 reset。
+主办方需确认 A、C 的运行账户对邮箱目录都有读写／进入权限，通常使用项目组或 ACL。仅能看到 `/public` 并不代表双方都能写入对方创建的文件；部署时先完成管理员联调。正式运行使用支持原子重命名和跨机器文件锁的 Linux 共享文件系统。
 
-请保留完整训练运行目录及其中的 `f2_features.metadata.json`、`configs.pkl`，让服务读取训练使用的动作模式等配置。仅复制 checkpoint 到其他位置可能丢失这些设置。启动时只加载一次模型；切换权重或修改 wrapper 后，应在无活动测评时重启服务，再提交测评。
+选手在比赛平台对应课题上传 **`results/endpoint.json`**，大小不超过 **64 KiB**。这是唯一提交文件，包含协议、自动生成的服务编号和密钥；不包含模型、代码、shot、分数或可任意指定的服务器文件路径。该文件保存在本地私有目录，**不要复制到 public 或提交 Git**。共享邮箱中只有带签名的消息，不保存密钥。
 
-提交前，可另开一个终端，输入与启动服务时相同的 A 访问令牌，检查 A 本机的服务状态：
+C 拉取提交后自动进行 health、reset 和逐步 act 交换。无需手动制作请求文件，也无需手动 reset。保持 A 运行到平台显示测评完成；A 未运行、超时或返回非法电压会使提交失败，修复后重新提交。共享存储或 C 的 HFM 故障由主办方修复后重试。
 
-```bash
-read -rsp '输入同一个 A 推理服务访问令牌: ' SUBMISSION_ACCESS_TOKEN
-echo
-export SUBMISSION_ACCESS_TOKEN
+## 8.3 输入、动作与可靠性
 
-curl --fail --silent --show-error \
-  -H "Authorization: Bearer ${SUBMISSION_ACCESS_TOKEN}" \
-  http://127.0.0.1:8001/health
-```
+C 发送当前仿真观测字典（含 reference），A 使用自己的 wrapper 选择特征并进行冻结归一化。baseline 输出 7 维动作，经 A 的动作 wrapper 转为 12 维电压（CS、PF1–PF10、VS）；C 再执行统一电源延迟、变化率限制、PSM 和 HFM。A 不重复执行电源模型。C 不加载选手代码或模型，也不向公共目录发布官方 shot 文件、初始化路径或平台凭据。
 
-确认响应中 `ok`、`model_loaded` 为 `true`。这只确认 A 本机服务已就绪，仍需保证 C 能访问提交地址。`8001` 是 A 的 HTTP 推理端口；C 的 HFM socket 默认端口是 `5558`，由主办方管理。
+每条消息包含请求编号、有效期和签名，文件写完后原子替换；重复步骤不会重复推理。公共目录中的观测不是保密数据，签名用于防止消息被冒充，不阻止目录管理员读取或删除。A、C 时钟应同步。已完成的消息会清理，超时留下的消息过期后由 A 清理；同一服务只允许一个活动测评客户端。
 
-## 8.3 上传平台
-
-在 [比赛平台](https://competition.opensii.ai/) 对应课题上传 **`results/endpoint.json`**，这是选手需要上传的唯一文件，大小不超过 **64 KiB**。B 必须允许该课题上传 JSON。文件格式如下，通常由生成器填写，无需手改：
-
-```json
-{
-  "version": 1,
-  "protocol": "hfm-remote-policy-v1",
-  "service_url": "https://a.example.com",
-  "access_token": "YOUR_AGENT_TOKEN"
-}
-```
-
-C 下载这个文件后调用 A 的 `/health`、`/reset`、`/act`，运行官方仿真并回传七项分数。A 不返回分数，C 不下载 A 的模型、代码或仿真环境。内网地址需要由 C 管理员提前加入允许列表，不是每份提交都人工审核。
-
-例如 A 地址为 `http://10.0.0.12:8001`，由 C 管理员在评分器启动命令中添加 `--allow-agent-origin http://10.0.0.12:8001`。选手不在 `endpoint.json` 中设置允许项；该配置也不会建立网络隧道，A 与 C 仍需路由互通。主办方的完整启动方式见 `server/offline-grading` 分支 README。
-
-从提交到平台显示完成前，保持 A 服务和模型运行。A 连接、鉴权或推理失败会使该提交失败，修复后重新提交；C 的 HFM 故障由主办方修复并重试。A 最多记住 4096 个已结束回合，达到容量后需在无活动测评时重启，不能通过重复旧 reset 清空或重新激活旧回合。
+A 最多记住 4096 个已结束回合，达到容量后在无活动测评时重启。模型身份标识用于诊断，不能保证远端模型不可被修改。文件交换耗时只用于审计，不作为 0.5 ms 模型推理惩罚。
 
 ## 8.4 修改 wrapper 或模型接口
 
-默认适配器直接实例化 `train/wrappers.py` 的 `ReferenceObservationWrapper` 和 `NormalizedAction7DTo12DWrapper`，因此特征和动作处理复用训练代码，不需要维护 ONNX 版实现。改变内部观测维数时，服务按真实 wrapper 与 checkpoint 的空间匹配，不强制 90 维。
+默认适配器直接使用 A 本机 `ReferenceObservationWrapper` 和 `NormalizedAction7DTo12DWrapper`，按真实 wrapper 与 checkpoint 空间匹配，不强制 90 维。如果改变类名、构造参数或接口，可指定自己的本地工厂：
 
-如果改变了 wrapper 类名、构造参数或模型接口，可在 A 上通过 `--adapter-factory train.my_adapter:build_adapter` 指定自己的适配器。接口和协议说明见 [submission/README.md](submission/README.md)。正式运行时不要重复施加电源延迟、变化率限制或 PSM，这些由 C 统一执行。
+```bash
+python submission/shared_service.py \
+  --model results/YOUR_RUN/checkpoints \
+  --adapter-factory train.my_adapter:build_adapter
+```
+
+适配器接口和消息说明见 [submission/README.md](submission/README.md)。HTTP 服务与 ONNX 工具保留作旧版开发用途，当前正式提交使用共享目录协议。

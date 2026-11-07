@@ -1,80 +1,54 @@
-# A：远程 checkpoint 推理服务
+# A：共享目录 checkpoint 推理服务
 
-A 保存模型和实际训练代码；B 接收 `endpoint.json`；C 保存官方测评 shot、运行 HFM 并评分。A 只接收当前观测并返回 **12 维物理电压设定值**。无需导出 ONNX，也不把模型、wrapper 或仿真环境上传给 B/C。
-
-## 启动与提交
-
-在 A 的项目根目录，使用已有训练环境：
+在选手服务器 A 的项目根目录执行：
 
 ```bash
 pip install -r submission/requirements.txt
-read -rsp 'A 服务访问令牌: ' SUBMISSION_ACCESS_TOKEN
-echo
-export SUBMISSION_ACCESS_TOKEN
-
-python submission/export_endpoint.py \
-  --service-url http://YOUR_SERVER_IP:8001 \
-  --output results/endpoint.json
-
-python submission/service2.py \
-  --model results/YOUR_RUN/ppo_f2_latest.zip \
-  --vecnormalize results/YOUR_RUN/vecnormalize.pkl \
-  --host 0.0.0.0 --port 8001
+python submission/shared_service.py --model results/YOUR_RUN/checkpoints
 ```
 
-上传 `results/endpoint.json` 到 B，然后保持 A 服务运行。将地址替换为 **C 可访问的实际 IP／域名**；0.0.0.0 是监听地址，127.0.0.1 仅指调用方自己。公网建议使用 HTTPS 反向代理。内网地址由 C 管理员提前加入允许列表。
+或 `bash submission/run.sh --model results/YOUR_RUN/checkpoints`。程序自动加载最新 checkpoint 和匹配归一化，创建邮箱及本地 `results/endpoint.json`。将该文件上传平台 B，保持进程运行；无需 IP、端口、HTTP 或 ONNX。C 在自己的 HFM 上仿真并评分。
 
-访问令牌是 A 的专用凭据，不能使用平台登录 token；连接文件含该令牌，不要公开或提交 Git。新终端若需要生成文件／访问服务，需设置相同令牌。
+| 参数 | 用途 |
+| --- | --- |
+| `--model` | 必填，checkpoint 文件、checkpoints 目录或训练运行目录 |
+| `--vecnormalize` | 可选，显式指定匹配的 VecNormalize.pkl |
+| `--shared-root` | 默认 `/inspire/hdd/project/26-nuclear-fusion/public/plasma-agents`；可用 `SHARED_AGENT_ROOT` 设置 |
+| `--output` | 默认本地 `results/endpoint.json`；已有文件复用服务编号和密钥，多模型需不同文件 |
+| `--poll-interval` | 默认 0.05 秒，检查新请求间隔 |
+| `--adapter-factory` | 本机 `module:function` 适配工厂 |
+| `--device` | 模型运行设备，默认 cpu |
 
-模型路径也可为运行目录或 `checkpoints` 目录：运行目录优先最终模型；`checkpoints` 按最大训练步数选模型，只搭配同一步数归一化。可用 `SUBMISSION_MODEL_PATH`、`SUBMISSION_VECNORMALIZE_PATH`、`SUBMISSION_ADAPTER_FACTORY` 配置，或者直接传 CLI 参数。`bash submission/run.sh` 同样只启动推理，不启动 HFM。
+checkpoint 的配套文件和动作配置应保留在原运行目录。观测归一化统计冻结；缺少所需匹配文件时不会静默用原始观测。模型修改后重启服务，正式测评期间不要并行启动第二个服务或手动 reset。
 
-## 如何复用 wrapper
+## 提交文件与共享消息
 
-[history.py](history.py) 中的 `CheckpointPolicyAdapter` 直接实例化 A 本机 `train/wrappers.py` 的观测和动作 wrapper。缓冲环境把 C 的 observation 交给原 wrapper 的 reset/step，保留历史、动作累加等行为；它不构造或调用本地 HFM。按 checkpoint 的真实空间检查，不强制 90 维。VecNormalize 使用训练文件并冻结统计，不更新奖励归一化。
+`endpoint.json` 是小于等于 64 KiB 的严格 JSON，固定包含 `version=1`、`protocol=hfm-shared-policy-v1`、`transport=shared_directory`、随机 `agent_id` 和 `access_token`。生成器自动填写，无需手工修改；C 使用管理员配置的共享根目录，不接受选手指定任意文件路径。
 
-默认适配器使用 `ReferenceObservationWrapper`、`NormalizedAction7DTo12DWrapper` 的既有构造接口。仅修改类内部逻辑时会复用这些修改；若改变类名、构造参数或采用其他接口，可在 A 新建工厂：
+**密钥只存在 A 的本地私有提交文件及 B/C 的受控记录，不能放到公共邮箱中。** 公共邮箱为 `<shared-root>/<agent_id>/requests` 与 `responses`，消息含 HMAC-SHA256 签名、方向、请求 ID、有效期和请求摘要，写完后原子替换。C 先验证签名／关联编号再接收动作。签名不能防止有目录权限的人读取观测、删除消息或造成服务不可用；部署需合理设置项目组／ACL，A、C 均有访问权限，且时钟同步。Linux 文件系统必须支持跨机器锁和原子重命名。
+
+内部复用 health/reset/act 和原有 episode_id/step_id 协议：重复最后一步返回缓存结果，跳步、旧回合和冲突请求失败。返回动作必须恰好 12 个有限物理电压；非有限观测用 JSON null 传递，在 A 转回 NaN。每次服务启动有新 service_id，C 检测中途重启；model_id 仅用于诊断。一个邮箱同时只允许一个 C 客户端，4096 个旧回合达到容量后需空闲重启。完成请求删除，过期孤立消息由 A 清理。
+
+## 复用自己的训练 wrapper
+
+`history.py` 中的 `CheckpointPolicyAdapter` 在 A 实际实例化训练观测和动作 wrapper。缓冲环境把 C 的原始 observation 交给 reset/step，不在 A 创建 HFM。按模型真实空间校验，不固定 90 维。
+
+改变 wrapper 类名、构造参数或接口时，在 A 提供工厂：
 
 ```python
 # train/my_adapter.py
 def build_adapter(model, metadata, config):
-    # 返回自己的 Python 适配器对象，直接复用自己的训练代码。
-    # 必须提供 reset()、encode(observation)、decode(model_action)。
+    # 对象需提供 reset()、encode(observation)、decode(model_action)。
     return MyAdapter(model, metadata, config)
 ```
 
 ```bash
-python submission/service2.py --model results/YOUR_RUN/checkpoints \
+python submission/shared_service.py --model results/YOUR_RUN/checkpoints \
   --adapter-factory train.my_adapter:build_adapter
 ```
 
-`encode` 结果经冻结 VecNormalize 后传入 PPO.predict；`decode` 返回 12 维电压。A 不重复执行电源延迟、变化率限制或 PSM，这些由 C 管理。如果没有使用观测归一化，训练元数据必须明确 `observation_normalization=false`。
+encode 后应用冻结 VecNormalize，模型预测后由 decode 返回 12 维设定电压。电源传输延迟、变化率限制和 PSM 由 C 执行，A 不重复施加。
 
-## HTTP 协议
+## 旧工具
 
-所有请求可携带 `Authorization: Bearer <A专用令牌>`。设置 `SUBMISSION_ACCESS_TOKEN` 后三个端点都必须鉴权。一个服务只支持一个活动测评回合；C 串行调用，正式评测中不要从另一个程序手动 reset。
-
-`GET /health`：返回 `ok`、`protocol=hfm-remote-policy-v1`、模型加载状态和诊断用 model_id。加载失败返回 503。
-
-`POST /reset`：
-
-```json
-{"protocol":"hfm-remote-policy-v1","episode_id":"C生成的唯一回合ID"}
-```
-
-`POST /act`：
-
-```json
-{"protocol":"hfm-remote-policy-v1","episode_id":"C生成的唯一回合ID","step_id":0,"observation":{"Ip":[500000.0]}}
-```
-
-这里的 observation 仅示意格式；正式请求包含 C 的原始观测，默认 wrapper 需要 reference 字段。响应包含 `ok`、相同 protocol/episode_id/step_id、`action`（长度 12）及 model_id。缺失或非有限观测用 JSON null 表示，A 转为 NaN；返回动作必须有限。
-
-同一回合的相同 reset 不再次重置。重复最后一步且内容相同返回缓存动作，不再次推理或累加；跳步、旧回合或相同步不同内容返回 409。推理出错后该回合不可继续，需要新的 episode_id。C 不信任选手返回的分数，也不向 A 发送 shot 文件／路径。
-
-服务记住最多 4096 个已结束回合，拒绝旧 reset 重新激活它们；达到容量后拒绝新回合，需在无活动测评时重启 A 服务。不会通过删除旧编号来允许过期请求重放。
-
-model_id 用于发现意外重启或加载变化，不是对选手模型不可修改的证明。网络往返耗时仅作 C 的审计，和模型内核耗时不同。
-
-## 原 ONNX 工具
-
-原 ONNX 导出和三文件打包工具保留作开发用途。服务可显式使用 `--backend onnx --model-dir submission/model`；正式默认路线是 checkpoint＋连接文件，不需要这一步。旧的无回合／步编号 HTTP 调用不是正式远程协议。
+`service2.py`、`export_endpoint.py` 是旧 HTTP 开发工具，原 ONNX 导出工具也保留。它们生成的 HTTP 连接文件不适用于当前正式共享目录模式；请使用上面的单条启动命令重新生成提交文件。
