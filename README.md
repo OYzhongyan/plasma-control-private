@@ -36,18 +36,17 @@ python -m pip install -r server_evaluator/requirements.txt
 
 ```text
 submission_model.zip
-├── policy2.onnx
-├── policy2.metadata.json
-└── policy2_vecnormalize_stats.npz
+├── controller.onnx
+└── controller.json
 ```
 
-服务器自动校验、解包并加载这三份文件。上传上限默认 **128 MiB**，包内文件名固定。当前仅支持与 `main` 一致的 `reference_only_v1` 接口：模型输入为当前目标的 **90 维 reference 特征**，不包含实际状态或观测／动作历史；元数据版本为 `3`，`history_steps=0`、`action_history_steps=0`。
+服务器自动校验、解包并加载这两个文件。上传上限默认 **128 MiB**，包内文件名固定。当前接口为 `hfm_controller_v1`：`controller.json` 声明需要的原始仿真观测字段及可选状态，ONNX 内完成全部特征处理、归一化、网络计算和动作转换，直接输出 **12 维物理电压设定值（V）**。
 
-输入顺序固定为 `reference_Ip`（1）、`reference_lX`（1）、`reference_lcfs_points`（32×2，按行展开）、`reference_rX`（4）、`reference_zX`（4）、`reference_strike_r`（8）、`reference_strike_z`（8）。归一化使用同一次训练导出的冻结统计量。旧的 812 维历史模型不能通过修改元数据变成新模型，须重新训练和导出。
+服务器只按字段名提供原始观测、增加 batch 轴并转换 float32，不依赖选手内部特征维数或 `train` 代码。归一化统计量已在 ONNX 内。若声明状态，服务器每回合清零并在推理成功后保存 `next_state`，供下一步使用；无状态模型不需要状态张量。详细接口及选手导出方法见 [submission/README.md](submission/README.md)。
 
-ONNX 输出 **7 维归一化动作**，先裁剪到 `[-1, 1]`，再根据元数据中的 `action_mode` 转换：`absolute` 乘以 `[1499, 230, 172, 172, 348, 348, 270]` V；`delta` 乘以 `0.16 × [1499, 175, 175, 175, 175, 175, 80]` V 并逐步累加，每回合从零开始。随后按索引 `[0,1,1,2,2,3,3,4,4,5,5,6]` 展开为 HFM 接收的 12 维电压设定值。
+当前 baseline 的网络仍为 90 维 reference 输入和 7 维动作，相关排列、裁剪、缩放、delta 累加和 7→12 维映射均在导出图内，测评端不再重建 wrapper。选手可以导出使用其他公开观测字段或内部状态的控制器；ZIP 内不允许 Python、pickle 或其他文件。旧的三文件 `policy2` 包须用新版导出器重新导出。
 
-训练与测评统一使用 `environment/power_supply.py`：电源传输延迟在每步重新采样，通道 0–10（CS/PF）为 **2–5 ms**，通道 11（VS）为 **0–1 ms**；仿真步长为 **1 ms**，延迟步数取 `round(delay_s / 0.001)`。处理顺序为传输延迟 → 电压变化率限制 → PSM 标定 → HFM。服务器为每份模型重建电源并固定 `--seed`（默认 `0`），启动日志和审计配置均记录这套设置。电源延迟独立于观测延迟；当前 reference 编码不引入历史观测，测评端不支持非零观测延迟配置。
+训练与测评统一使用 `environment/power_supply.py`：电源传输延迟在每步重新采样，通道 0–10（CS/PF）为 **2–5 ms**，通道 11（VS）为 **0–1 ms**；仿真步长为 **1 ms**，延迟步数取 `round(delay_s / 0.001)`。处理顺序为传输延迟 → 电压变化率限制 → PSM 标定 → HFM。服务器为每份模型重建电源并固定 `--seed`（默认 `0`），启动日志和审计配置均记录这套设置。电源模型由主办方执行，不封装进选手 ONNX。电源延迟独立于观测延迟，当前测评不支持非零观测延迟配置。
 
 # 3. 启动 HFM socket 服务
 
@@ -127,7 +126,7 @@ export PLATFORM_PASSWORD
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-reference-v1 \
+  --data-dir server_evaluator/runtime-controller-v1 \
   --once
 ```
 
@@ -136,7 +135,7 @@ python server_evaluator/run.py \
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-reference-v1 \
+  --data-dir server_evaluator/runtime-controller-v1 \
   --poll-interval 15
 ```
 
@@ -153,7 +152,7 @@ python server_evaluator/run.py \
 
 # 7. 日志、数据与常驻部署
 
-默认工作数据保存在 `server_evaluator/runtime-reference-v1/`：
+默认工作数据保存在 `server_evaluator/runtime-controller-v1/`：
 
 | 路径 | 内容 |
 | --- | --- |
@@ -166,7 +165,7 @@ python server_evaluator/run.py \
 
 解包后的模型文件在本次评测结束后自动清理，原始 ZIP 与审计结果保留。重启时程序复用已保存结果，尚未完成的任务重新评测。更改官方目标或评分配置前停止服务，并使用新的 `--data-dir`，保留旧目录以核对历史成绩。
 
-从旧历史观测测评端升级时，先停止旧进程，再使用新的 `runtime-reference-v1` 目录，不要复用 `runtime-models-v1`。平台已回传为 `failed` 的提交不会自动重评：需重新提交当前 main 导出的模型包，或由平台管理员将原任务重置为待评。
+从旧模型包升级时，先停止旧进程，再使用新的 `runtime-controller-v1` 目录，不要复用 `runtime-models-v1` 或 `runtime-reference-v1`。平台已回传为 `failed` 的提交不会自动重评：需重新提交当前 main 导出的模型包，或由平台管理员将原任务重置为待评。
 
 Linux 常驻部署可使用 [plasma-grader.service](server_evaluator/plasma-grader.service)，按实际环境配置运行账号、代码路径、Python 环境、凭据文件和数据目录；完整安装步骤见 [服务器测评说明](server_evaluator/README.md#6-systemd-常驻部署)。
 

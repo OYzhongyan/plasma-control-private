@@ -17,17 +17,14 @@ import sys
 import tempfile
 import time
 from typing import Any
-import zipfile
 
 import numpy as np
 
 from server_evaluator.grader import Grader, GradingUnavailable, InvalidSubmission
 
 LOG = logging.getLogger(__name__)
-MODEL_NAME = "policy2.onnx"
-METADATA_NAME = "policy2.metadata.json"
-STATS_NAME = "policy2_vecnormalize_stats.npz"
-MAX_STATS_EXPANDED_BYTES = 16 * 1024 * 1024
+MODEL_NAME = "controller.onnx"
+METADATA_NAME = "controller.json"
 
 
 def _dependency(name: str):
@@ -43,95 +40,20 @@ def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8-sig"), parse_constant=reject)
 
 
-def _reject_external_tensors(message, tensor_type) -> None:
-    """Walk every protobuf message, including attributes/subgraphs/functions."""
-    if isinstance(message, tensor_type):
-        if message.external_data or message.data_location == tensor_type.EXTERNAL:
-            raise InvalidSubmission("ONNX external_data tensors are not permitted")
-    for descriptor, value in message.ListFields():
-        if descriptor.type != descriptor.TYPE_MESSAGE:
-            continue
-        repeated = (descriptor.is_repeated if hasattr(descriptor, "is_repeated")
-                    else descriptor.label == descriptor.LABEL_REPEATED)
-        if repeated:
-            for child in value:
-                _reject_external_tensors(child, tensor_type)
-        else:
-            _reject_external_tensors(value, tensor_type)
-
-
 def _validate_metadata(model_dir: Path) -> dict[str, Any]:
-    history = _dependency("submission.history")
+    contract = _dependency("submission.controller_contract")
     try:
-        metadata = _read_json(model_dir / METADATA_NAME)
-        if not isinstance(metadata, dict):
-            raise ValueError("metadata must be a JSON object")
-        if metadata.get("feature_mode") != history.REFERENCE_FEATURE_MODE:
-            raise ValueError("feature_mode must be reference_only_v1; retrain and export a 90D reference-only model")
-        history.validate_reference_metadata(metadata)
-        return metadata
+        return contract.read_manifest(model_dir / METADATA_NAME)
     except OSError as exc:
-        raise GradingUnavailable(f"Cannot read model metadata: {exc}") from exc
+        raise GradingUnavailable(f"Cannot read controller manifest: {exc}") from exc
     except (ValueError, TypeError, KeyError, RecursionError) as exc:
-        raise InvalidSubmission(f"Invalid model metadata: {exc}") from exc
-
-
-def _validate_stats(model_dir: Path, obs_dim: int) -> None:
-    path = model_dir / STATS_NAME
-    try:
-        # NPZ is another ZIP: bound its expanded size before NumPy allocates arrays.
-        with zipfile.ZipFile(path) as archive:
-            if sum(item.file_size for item in archive.infolist()) > MAX_STATS_EXPANDED_BYTES:
-                raise ValueError("normalization archive is too large when expanded")
-        with np.load(path, allow_pickle=False) as values:
-            if not {"obs_mean", "obs_var"}.issubset(values.files):
-                raise ValueError("normalization requires obs_mean and obs_var")
-            for name in values.files:
-                arr = values[name]
-                if arr.dtype.kind not in "biuf" or not np.all(np.isfinite(arr)):
-                    raise ValueError(f"{name} must contain finite real numeric values")
-                if name in {"obs_mean", "obs_var"} and arr.shape != (obs_dim,):
-                    raise ValueError(f"{name} must have shape ({obs_dim},)")
-                if name == "obs_var" and np.any(arr < 0):
-                    raise ValueError("obs_var cannot be negative")
-                if name in {"clip_obs", "epsilon"} and (arr.size != 1 or float(arr.reshape(-1)[0]) <= 0):
-                    raise ValueError(f"{name} must be one positive number")
-    except OSError as exc:
-        raise GradingUnavailable(f"Cannot read normalization statistics: {exc}") from exc
-    except (ValueError, TypeError, KeyError, zipfile.BadZipFile, EOFError) as exc:
-        raise InvalidSubmission(f"Invalid normalization statistics: {exc}") from exc
+        raise InvalidSubmission(f"Invalid controller manifest: {exc}") from exc
 
 
 def _load_policy(model_dir: Path, config: dict):
-    onnx = _dependency("onnx")
+    _dependency("onnx")
     ort = _dependency("onnxruntime")
-    metadata = _validate_metadata(model_dir)
-    _validate_stats(model_dir, metadata["obs_dim"])
-    try:
-        model_bytes = (model_dir / MODEL_NAME).read_bytes()
-    except OSError as exc:
-        raise GradingUnavailable(f"Cannot read ONNX model: {exc}") from exc
-    try:
-        # Load bytes, never a path, so the parser cannot follow external tensors.
-        model = onnx.load_model_from_string(model_bytes)
-        _reject_external_tensors(model, onnx.TensorProto)
-        onnx.checker.check_model(model, full_check=True)
-        if len(model.graph.input) != 1 or len(model.graph.output) != 1:
-            raise ValueError("policy must have exactly one input and one output")
-        for value, dimension, label in ((model.graph.input[0], metadata["obs_dim"], "input"),
-                                        (model.graph.output[0], 7, "output")):
-            tensor = value.type.tensor_type
-            if tensor.elem_type != onnx.TensorProto.FLOAT:
-                raise ValueError(f"policy {label} must use float32")
-            dims = tensor.shape.dim
-            if len(dims) != 2 or (dims[1].HasField("dim_value") and dims[1].dim_value != dimension):
-                raise ValueError(f"policy {label} must have shape [batch, {dimension}]")
-            if dims[0].HasField("dim_value") and dims[0].dim_value != 1:
-                raise ValueError(f"policy {label} batch dimension must be 1 or dynamic")
-    except InvalidSubmission:
-        raise
-    except Exception as exc:
-        raise InvalidSubmission(f"Invalid ONNX model: {exc}") from exc
+    _validate_metadata(model_dir)
     try:
         threads = int(config["onnx_threads"])
         if threads < 1:
@@ -143,21 +65,15 @@ def _load_policy(model_dir: Path, config: dict):
     except Exception as exc:
         raise GradingUnavailable(f"Invalid server ONNX configuration: {exc}") from exc
     inference = _dependency("submission.inference_common")
-    policy = inference.BaseOnnxPolicy(model_dir=model_dir, preferred_name=MODEL_NAME,
-                                      session_options=options)
-    if not policy.ready:
-        raise InvalidSubmission(f"ONNX policy failed to load: {policy.load_error}")
     try:
-        # Torch exports may label the action width symbolically. Probe the graph
-        # directly so validation does not advance delta-action accumulation.
-        probe = policy.session.run([policy.output_name], {
-            policy.input_name: np.zeros((1, metadata["obs_dim"]), dtype=np.float32)})[0]
-        probe = np.asarray(probe)
-        if probe.shape != (1, 7) or not np.all(np.isfinite(probe)):
-            raise ValueError("policy must produce a finite float32 array with shape (1, 7)")
+        # Generic loader checks the graph, transport shapes and finite outputs;
+        # it never imports the contestant's training wrapper or export factory.
+        return inference.BaseOnnxPolicy(model_dir=model_dir, session_options=options,
+                                         raise_on_error=True)
+    except (OSError, ImportError) as exc:
+        raise GradingUnavailable(f"Cannot load controller: {exc}") from exc
     except Exception as exc:
-        raise InvalidSubmission(f"ONNX inference preflight failed: {exc}") from exc
-    return policy
+        raise InvalidSubmission(f"Invalid ONNX controller: {exc}") from exc
 
 
 def _read_yaml(path: str | Path) -> dict:

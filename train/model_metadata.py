@@ -1,15 +1,12 @@
-"""Current-reference inference using the exact training observation/action wrappers."""
+"""Training metadata; never imported by the grading runtime."""
 
 from __future__ import annotations
 
 from typing import Any
 
-import gymnasium as gym
-import numpy as np
 
 from train.wrappers import (
     ReferenceObservationWrapper,
-    NormalizedAction7DTo12DWrapper,
 )
 
 REFERENCE_FEATURE_MODE = "reference_only_v1"
@@ -51,36 +48,3 @@ def validate_reference_metadata(metadata: dict[str, Any]) -> None:
             valid = actual == value
         if not valid:
             raise ValueError(f"Reference metadata {key} does not match training layout")
-
-
-class _ActionSink(gym.Env):
-    """Supply action-space/reset plumbing without simulating an environment."""
-    observation_space = gym.spaces.Dict({})
-    action_space = gym.spaces.Box(-np.inf, np.inf, shape=(12,), dtype=np.float32)
-
-    def reset(self, *, seed=None, options=None):
-        return {}, {}
-
-
-class ReferencePolicyAdapter:
-    """Encode the current target only; retain delta-action accumulation."""
-
-    def __init__(self, metadata: dict[str, Any]):
-        validate_reference_metadata(metadata)
-        sink = _ActionSink()
-        self.actions = NormalizedAction7DTo12DWrapper(sink, action_mode=metadata["action_mode"])
-        self.observations = ReferenceObservationWrapper(sink, action_mode=metadata["action_mode"])
-        self.reset()
-
-    def encode(self, observation: dict[str, Any]) -> np.ndarray:
-        return self.observations.convert_obs_dict_to_vector(observation)
-
-    def reset(self) -> None:
-        self.actions.reset()
-
-    def decode(self, action: np.ndarray) -> np.ndarray:
-        action = np.asarray(action, dtype=np.float32).reshape(-1)
-        if action.size != 7 or not np.all(np.isfinite(action)):
-            raise ValueError("The policy must produce 7 finite actions")
-        # SB3 predict() clips Box actions; ONNX emits the raw actor output.
-        return self.actions.action(np.clip(action, -1., 1.)).astype(np.float32)
