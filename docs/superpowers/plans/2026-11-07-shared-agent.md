@@ -13,7 +13,7 @@
 - [x] T1: Write failing local channel/session tests. Implement confined filesystem operations, descriptor schema, signatures, locks and atomic bounded messages.
 - [x] T2: Add A worker and CLI, automatic descriptor generation and launcher. Verify real exchanges, duplicate actions, expiry, malformed messages, service restarts and single-client locking. Update main README/submission README and commit.
 - [x] T3: Sync common files into server branch. Add shared C client/grader/rollout and default CLI, preserve trusted scoring/delay and infrastructure retry classification. Test fake platform + A files + fake HFM and no training imports.
-- [ ] T4: Independent whole-change review; reproduce and fix important findings, verify both branches, commit locally, no push.
+- [x] T4: Independent whole-change review; reproduce and fix important findings, verify both branches, commit locally, no push.
 
 ## Review focus
 
@@ -31,3 +31,4 @@ Public-directory symlink/TOCTOU confinement; secret disclosure and signed respon
 - Ruling: C's private runtime directory must use reliable local persistent storage for the watchdog; its default project directory is convenient for local development, while systemd uses /var/lib. Cost: operators on network-mounted projects must choose a local --data-dir.
 - Final fix pass also reproduced unsafe lock-path misclassification RED and maps it to submission failure, avoiding queue-wide pending for a malformed participant mailbox. Full suite after initial three fixes: 181 passed, 4 skipped; final extra lock fix remains under verification.
 - Final server verification complete: 182 passed, 4 skipped, 30 warnings in 76.74s; all four reproduced findings fixed. Final Linux smoke passed native permissions, descriptor secrecy, no-follow directory-swap confinement and locks. Main synchronization/verification next.
+- T4 complete: server implementation c7ec4d7; main final targeted suite 73 passed, 3 skipped, 25 warnings in 44.49s. Shared protocol, filesystem, service and tests verified identical across branches. No algorithm files changed; no production mount/HFM/platform contacted. Finish choice: local commits only, no push/worktrees, retain root checkout on main.
