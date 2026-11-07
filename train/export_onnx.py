@@ -1,8 +1,12 @@
-"""Export a trained SB3 policy and automatically package one platform upload."""
+"""Export a complete controller and atomically package one platform upload.
 
+Only this local export process imports training code or reads pickle files.
+"""
 from __future__ import annotations
 import argparse
+import importlib
 import json
+import os
 import pickle
 import shutil
 import sys
@@ -14,118 +18,24 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from submission.history import REFERENCE_FEATURE_MODE, reference_metadata, validate_reference_metadata
+from train.model_metadata import REFERENCE_FEATURE_MODE, reference_metadata
+from submission.controller_contract import make_manifest, MODEL_NAME, MANIFEST_NAME
 from submission.model_bundle import create_bundle
 
 
-class OnnxablePolicy(torch.nn.Module):
-    """Minimal wrapper around an SB3 actor-critic policy."""
-
-    def __init__(self, policy):
-        super().__init__()
-        self.policy = policy
-
-    def forward(self, observation):
-        actions, _, _ = self.policy(observation, deterministic=True)
-        return actions
+def default_out_path():
+    return ROOT / "submission/model" / MODEL_NAME
 
 
-def default_out_path() -> Path:
-    name = "policy2.onnx"
-    return ROOT / "submission" / "model" / name
-
-
-def metadata_path_for_onnx(path: Path) -> Path:
-    return path.with_suffix(".metadata.json")
-
-
-def vecnormalize_stats_path_for_onnx(path: Path) -> Path:
-    return path.with_name(f"{path.stem}_vecnormalize_stats.npz")
-
-
-def vecnormalize_source_candidates(
-    model_path: Path, explicit_path: Path | None = None
-) -> list[Path]:
-    candidates: list[Path] = []
-    if explicit_path is not None:
-        candidates.append(explicit_path)
-    parent = model_path.parent
-    stem = model_path.stem
-    candidates.extend(
-        [
-            parent / "vecnormalize_stats.npz",
-            parent / "vecnormalize.pkl",
-            model_path.with_name(f"{stem}_vecnormalize_stats.npz"),
-            model_path.with_name(f"{stem}.vecnormalize_stats.npz"),
-            model_path.with_name(f"{stem}_vecnormalize.pkl"),
-            model_path.with_name(f"{stem}.vecnormalize.pkl"),
-        ]
-    )
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for candidate in candidates:
-        resolved = candidate.resolve()
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        unique.append(candidate)
-    return unique
-
-
-def _write_vecnormalize_stats_from_object(vecnormalize: object, out_path: Path) -> None:
-    obs_rms = getattr(vecnormalize, "obs_rms", None)
-    if obs_rms is None:
-        raise ValueError("VecNormalize object does not contain obs_rms")
-    values: dict[str, np.ndarray] = {
-        "obs_mean": np.asarray(obs_rms.mean, dtype=np.float64),
-        "obs_var": np.asarray(obs_rms.var, dtype=np.float64),
-        "clip_obs": np.asarray(
-            getattr(vecnormalize, "clip_obs", 10.0), dtype=np.float64
-        ),
-        "epsilon": np.asarray(
-            getattr(vecnormalize, "epsilon", 1e-08), dtype=np.float64
-        ),
-    }
-    ret_rms = getattr(vecnormalize, "ret_rms", None)
-    if ret_rms is not None:
-        values["ret_mean"] = np.asarray(ret_rms.mean, dtype=np.float64)
-        values["ret_var"] = np.asarray(ret_rms.var, dtype=np.float64)
-        values["clip_reward"] = np.asarray(
-            getattr(vecnormalize, "clip_reward", 10.0), dtype=np.float64
-        )
-    np.savez(out_path, **values)
-
-
-def export_vecnormalize_stats(
-    model_path: Path, out_path: Path, explicit_path: Path | None = None
-) -> Path | None:
-    """Copy or convert VecNormalize statistics into the submission model directory."""
-    stats_out = vecnormalize_stats_path_for_onnx(out_path)
-    for source in vecnormalize_source_candidates(model_path, explicit_path):
-        if not source.is_file():
-            continue
-        stats_out.parent.mkdir(parents=True, exist_ok=True)
-        suffixes = "".join(source.suffixes)
-        if source.suffix == ".npz" or suffixes.endswith(".stats.npz"):
-            shutil.copyfile(source, stats_out)
-        elif source.suffix == ".pkl":
-            with open(source, "rb") as f:
-                vecnormalize = pickle.load(f)
-            _write_vecnormalize_stats_from_object(vecnormalize, stats_out)
-        else:
-            continue
-        print(f"vecnormalize stats: {stats_out} (source: {source})")
-        return stats_out
-    print(
-        "warning: VecNormalize stats not found; ONNX inference will use raw observations."
-    )
-    return None
+def metadata_path_for_onnx(path):
+    return Path(path).with_suffix(".json")
 
 
 def load_export_metadata(
     model_path: Path,
     metadata_path: Path | None = None,
     config_path: Path | None = None,
+    *, allow_custom: bool = False,
 ) -> dict:
     """Recover the preprocessing contract saved alongside a model/checkpoint."""
     if metadata_path is not None:
@@ -145,6 +55,8 @@ def load_export_metadata(
             None,
         )
     if config_path is None:
+        if allow_custom:
+            return {}
         raise ValueError("reference_only_v1 metadata not found; provide matching --metadata or --config")
     if config_path.suffix == ".pkl":
         with config_path.open("rb") as stream:
@@ -161,121 +73,147 @@ def load_export_metadata(
             action_mode=str(actions.get("mode", "absolute")),
             norm_obs=bool(normalization.get("enabled", True) and normalization.get("norm_obs", True)),
         )
+    if allow_custom:
+        return dict(config.get("metadata", config))
     raise ValueError("Export requires reference_only_v1 training metadata; retrain the model with the current wrapper")
 
 
-def export_onnx(
-    model_path: Path, out_path: Path, metadata: dict
-) -> None:
-    try:
-        from stable_baselines3 import PPO
-    except ImportError as exc:
-        raise RuntimeError(
-            "stable-baselines3 is required to export SB3 models"
-        ) from exc
+def normalization_candidates(model_path):
+    stem = model_path.stem
+    return [model_path.with_name(stem + "_vecnormalize_stats.npz"),
+            model_path.with_name(stem + "_vecnormalize.pkl"),
+            model_path.with_name(stem + ".vecnormalize_stats.npz"),
+            model_path.with_name(stem + ".vecnormalize.pkl"),
+            model_path.parent / "vecnormalize_stats.npz",
+            model_path.parent / "vecnormalize.pkl"]
+
+
+def load_normalization(model_path, explicit_path=None):
+    candidates = [explicit_path] if explicit_path is not None else normalization_candidates(model_path)
+    if explicit_path is not None and not explicit_path.is_file():
+        raise FileNotFoundError(f"VecNormalize file not found: {explicit_path}")
+    source = next((p for p in candidates if p.is_file()), None)
+    if source is None:
+        return None
+    if source.suffix == ".npz":
+        with np.load(source, allow_pickle=False) as data:
+            values = {k: np.array(data[k]) for k in ("obs_mean", "obs_var", "epsilon", "clip_obs") if k in data}
+    elif source.suffix == ".pkl":
+        with source.open("rb") as stream:
+            obj = pickle.load(stream)
+        values = dict(obs_mean=np.array(obj.obs_rms.mean), obs_var=np.array(obj.obs_rms.var),
+                      epsilon=np.array(obj.epsilon), clip_obs=np.array(obj.clip_obs))
+    else:
+        raise ValueError("VecNormalize must be a local .pkl or numeric .npz")
+    if not {"obs_mean", "obs_var"} <= set(values):
+        raise ValueError("VecNormalize requires obs_mean and obs_var")
+    for name, value in values.items():
+        if value.dtype.kind not in "iuf" or not np.all(np.isfinite(value)):
+            raise ValueError(f"VecNormalize {name} must contain finite real numbers")
+    if np.any(values["obs_var"] < 0):
+        raise ValueError("VecNormalize variance cannot be negative")
+    for name in ("epsilon", "clip_obs"):
+        if name in values and (values[name].size != 1 or float(values[name].reshape(-1)[0]) <= 0):
+            raise ValueError(f"VecNormalize {name} must be one positive number")
+    return values
+
+
+def verify_controller(module, manifest, directory):
+    import onnxruntime as ort
+    from submission.inference_common import BaseOnnxPolicy
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = options.inter_op_num_threads = 1
+    runtime = BaseOnnxPolicy(model_dir=directory, session_options=options, raise_on_error=True)
+    rng = np.random.default_rng(7)
+    for episode in range(2):
+        runtime.reset()
+        state = (torch.zeros((1, manifest["state_dim"]),
+                            dtype=getattr(torch, manifest["state_dtype"])) if manifest["state_dim"] else None)
+        for step in range(3):
+            observations = {f["name"]: rng.uniform(.1, 1., size=f["shape"]).astype(np.float32)
+                            for f in manifest["observations"]}
+            inputs = [torch.from_numpy(observations[f["name"]][None]) for f in manifest["observations"]]
+            if state is not None:
+                inputs.append(state)
+            with torch.no_grad():
+                outputs = module(*inputs)
+            if state is not None:
+                action, state = outputs
+            else:
+                action = outputs
+            np.testing.assert_allclose(runtime.act(observations), action.detach().cpu().numpy()[0],
+                                       atol=2e-4, rtol=2e-5, err_msg="Torch/ONNX controller parity failed")
+            if state is not None:
+                np.testing.assert_allclose(runtime.state, state.detach().cpu().numpy(), atol=1e-6, rtol=2e-5)
+
+
+def export_onnx(model_path, out_path, metadata, *, normalization=None,
+                controller_factory="train.controller_export:build_controller"):
+    from stable_baselines3 import PPO
+    from train.controller_export import ControllerSpec
+    model_path, out_path = Path(model_path), Path(out_path)
+    if out_path.suffix.lower() != ".onnx":
+        raise ValueError("Controller output must end in .onnx")
     model = PPO.load(str(model_path), device="cpu")
-    obs_shape = model.observation_space.shape
-    action_shape = model.action_space.shape
-    if obs_shape is None:
-        raise ValueError("model observation space must have a fixed shape")
-    action_dim = (
-        int(action_shape[0]) if action_shape is not None and len(action_shape) else 7
-    )
-    metadata = dict(metadata)
-    if metadata.get("feature_mode") != REFERENCE_FEATURE_MODE:
-        raise ValueError("Export requires reference_only_v1 metadata; retrain the model with the current wrapper")
-    if len(obs_shape) != 1 or int(metadata["obs_dim"]) != int(obs_shape[0]):
-        raise ValueError(
-            f"Model input {obs_shape} does not match metadata obs_dim={metadata.get('obs_dim')}. "
-            "Provide the model's training configs.pkl with --config or matching --metadata."
-        )
-    if action_dim != 7:
-        raise ValueError("The normalized action wrapper requires a 7D actor")
-    validate_reference_metadata(metadata)
-    metadata["action_dim"] = action_dim
+    if normalization is None:
+        normalization = load_normalization(model_path)
+    module_name, separator, factory_name = controller_factory.partition(":")
+    if not separator:
+        raise ValueError("--controller-factory must be module:function")
+    factory = getattr(importlib.import_module(module_name), factory_name)
+    spec = factory(model, metadata, normalization)
+    if not isinstance(spec, ControllerSpec):
+        raise ValueError("Controller factory must return ControllerSpec")
+    manifest = make_manifest(spec.observations, spec.state_dim, spec.state_dtype)
+    module = spec.module.to("cpu").eval()
+    inputs = tuple(torch.zeros((1, *field["shape"]), dtype=torch.float32) for field in manifest["observations"])
+    names = [field["name"] for field in manifest["observations"]]
+    outputs = ["action"]
+    if spec.state_dim:
+        inputs += (torch.zeros((1, spec.state_dim), dtype=getattr(torch, spec.state_dtype)),)
+        names.append("state")
+        outputs.append("next_state")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    sample_obs = torch.zeros((1, *obs_shape), dtype=torch.float32, device="cpu")
-    module = OnnxablePolicy(model.policy).to("cpu")
-    module.eval()
-    with torch.no_grad():
-        torch.onnx.export(
-            module,
-            sample_obs,
-            str(out_path),
-            input_names=["observation"],
-            output_names=["action"],
-            dynamic_axes={"observation": {0: "batch"}, "action": {0: "batch"}},
-            opset_version=17,
-            dynamo=False,
-        )
-    metadata_path_for_onnx(out_path).write_text(
-        json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
-    )
-    print(f"exported: {out_path}")
-    print(f"metadata: {metadata_path_for_onnx(out_path)}")
+    with tempfile.TemporaryDirectory(prefix="plasma-controller-export-", dir=out_path.parent) as temp:
+        staged = Path(temp)
+        with torch.no_grad():
+            torch.onnx.export(module, inputs, str(staged / MODEL_NAME),
+                              input_names=names, output_names=outputs,
+                              dynamic_axes={name: {0: "batch"} for name in names + outputs},
+                              opset_version=17, dynamo=False)
+        (staged / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        verify_controller(module, manifest, staged)
+        os.replace(staged / MODEL_NAME, out_path)
+        os.replace(staged / MANIFEST_NAME, metadata_path_for_onnx(out_path))
+    print(f"controller: {out_path}")
+    return manifest
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Export semifinal PPO policy to ONNX")
-    parser.add_argument("--model", type=Path, required=True)
-    parser.add_argument("--out", type=Path, default=None)
-    parser.add_argument(
-        "--metadata",
-        type=Path,
-        default=None,
-        help="Optional matching metadata JSON; otherwise detected from the training directory.",
-    )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=None,
-        help="Training configs.pkl or YAML, needed if the model was moved away from its run directory.",
-    )
-    parser.add_argument(
-        "--vecnormalize",
-        type=Path,
-        default=None,
-        help="Optional VecNormalize .pkl or stats .npz. If omitted, export searches beside the model for vecnormalize_stats.npz or vecnormalize.pkl.",
-    )
-    packaging = parser.add_mutually_exclusive_group()
-    packaging.add_argument(
-        "--bundle", type=Path,
-        help="Upload ZIP destination; defaults to results/submission_model.zip in the project.",
-    )
-    packaging.add_argument(
-        "--no-bundle", action="store_true",
-        help="Only export ONNX and preprocessing files for development, without creating an upload ZIP.",
-    )
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", required=True, type=Path)
+    parser.add_argument("--out", type=Path)
+    parser.add_argument("--metadata", type=Path, help="Local training metadata, not the controller manifest")
+    parser.add_argument("--config", type=Path, help="Matching training configs.pkl or YAML")
+    parser.add_argument("--vecnormalize", type=Path)
+    parser.add_argument("--controller-factory", default="train.controller_export:build_controller",
+                        help="Local-only module:function returning ControllerSpec; never uploaded")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--bundle", type=Path)
+    group.add_argument("--no-bundle", action="store_true")
     args = parser.parse_args(argv)
+    metadata = load_export_metadata(args.model, args.metadata, args.config,
+                                   allow_custom=args.controller_factory != "train.controller_export:build_controller")
+    normalization = load_normalization(args.model, args.vecnormalize)
     out_path = args.out or default_out_path()
-    metadata = load_export_metadata(args.model, args.metadata, args.config)
-    export_onnx(args.model, out_path, metadata)
-    stats = export_vecnormalize_stats(args.model, out_path, args.vecnormalize)
-    if metadata.get("requires_vecnormalize"):
-        if stats is None:
-            raise ValueError("This model requires VecNormalize observation statistics")
-        with np.load(stats) as data:
-            if any(
-                np.asarray(data[key]).size != int(metadata["obs_dim"])
-                for key in ("obs_mean", "obs_var")
-            ):
-                raise ValueError(
-                    "VecNormalize statistics do not match the exported observation layout"
-                )
+    export_onnx(args.model, out_path, metadata, normalization=normalization,
+                controller_factory=args.controller_factory)
     if not args.no_bundle:
-        if stats is None:
-            raise ValueError("A model upload requires matching VecNormalize statistics; use --vecnormalize")
-        # Stage only this export's outputs, including custom --out filenames.
-        # Never pick up old files from submission/model when a source is missing.
-        with tempfile.TemporaryDirectory(prefix="plasma-model-export-") as temporary:
-            staging = Path(temporary)
-            for source, name in (
-                (out_path, "policy2.onnx"),
-                (metadata_path_for_onnx(out_path), "policy2.metadata.json"),
-                (stats, "policy2_vecnormalize_stats.npz"),
-            ):
-                shutil.copyfile(source, staging / name)
-            package = create_bundle(staging, args.bundle or ROOT / "results" / "submission_model.zip")
+        with tempfile.TemporaryDirectory(prefix="plasma-controller-package-") as temp:
+            staging = Path(temp)
+            shutil.copyfile(out_path, staging / MODEL_NAME)
+            shutil.copyfile(metadata_path_for_onnx(out_path), staging / MANIFEST_NAME)
+            package = create_bundle(staging, args.bundle or ROOT / "results/submission_model.zip")
         print(f"Model package ready: {package.resolve()}")
     return 0
 

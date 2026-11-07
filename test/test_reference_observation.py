@@ -67,7 +67,7 @@ def test_measured_state_other_reference_fields_and_action_history_cannot_leak_in
 
 
 def test_sensor_delay_and_noise_keep_the_current_reference():
-    from train.wrappers import ObservationDelayNoiseWrapper
+    from train.sensor_perturbation import ObservationDelayNoiseWrapper
 
     class SensorEnv(ReferenceEnv):
         def reset(self, **kwargs):
@@ -102,23 +102,14 @@ def test_invalid_reference_fails_with_field_name(key, value):
 
 
 def test_reference_metadata_describes_zero_history_and_rejects_reordered_fields():
-    from submission.history import ReferencePolicyAdapter, reference_metadata
+    from train.model_metadata import reference_metadata, validate_reference_metadata
     metadata = reference_metadata("delta")
-    assert metadata["feature_mode"] == "reference_only_v1"
-    assert metadata["obs_dim"] == 90
+    assert metadata["feature_mode"] == "reference_only_v1" and metadata["obs_dim"] == 90
     assert metadata["history_steps"] == metadata["action_history_steps"] == 0
-    adapter = ReferencePolicyAdapter(metadata)
-    np.testing.assert_array_equal(adapter.encode(target()), np.arange(90))
-    first = adapter.decode(np.ones(7, dtype=np.float32))
-    np.testing.assert_array_equal(adapter.encode(target()), np.arange(90))
-    second = adapter.decode(np.ones(7, dtype=np.float32))
-    np.testing.assert_allclose(second, 2 * first)
-    adapter.reset()
-    np.testing.assert_allclose(adapter.decode(np.ones(7, dtype=np.float32)), first)
     invalid = copy.deepcopy(metadata)
     invalid["reference_keys"].reverse()
     with pytest.raises(ValueError, match="reference_keys"):
-        ReferencePolicyAdapter(invalid)
+        validate_reference_metadata(invalid)
 
 
 def test_export_config_requires_explicit_reference_only_layout(tmp_path):
@@ -139,7 +130,7 @@ def reference_export(tmp_path_factory):
     sb3 = pytest.importorskip("stable_baselines3")
     pytest.importorskip("onnx")
     pytest.importorskip("onnxruntime")
-    from submission.history import reference_metadata
+    from train.model_metadata import reference_metadata
     from train.export_onnx import main
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
     directory = tmp_path_factory.mktemp("reference_export")
@@ -158,7 +149,7 @@ def reference_export(tmp_path_factory):
     model.save(directory / "model.zip")
     env.save(str(directory / "vecnormalize.pkl"))
     (directory / "f2_features.metadata.json").write_text(json.dumps(reference_metadata("absolute")))
-    main(["--model", str(directory / "model.zip"), "--out", str(directory / "policy2.onnx"),
+    main(["--model", str(directory / "model.zip"), "--out", str(directory / "controller.onnx"),
           "--bundle", str(directory / "submission_model.zip")])
     env.training = False
     return directory, model, env
@@ -170,7 +161,7 @@ def test_trained_90_feature_actor_critic_export_and_inference_match(reference_ex
     directory, model, env = reference_export
     policy = Policy(directory)
     assert policy.ready, policy.load_error
-    assert policy.metadata["obs_dim"] == 90
+    assert policy.status()["obs_dim"] == 90
     actions = NormalizedAction7DTo12DWrapper(ReferenceEnv())
     for index in range(3):
         vector = (np.arange(90, dtype=np.float32) + index).reshape(1, -1)
@@ -180,7 +171,7 @@ def test_trained_90_feature_actor_critic_export_and_inference_match(reference_ex
 
 
 def test_export_rejects_changed_reference_order_before_writing(reference_export, tmp_path):
-    from submission.history import reference_metadata
+    from train.model_metadata import reference_metadata
     from train.export_onnx import export_onnx
     directory, _, _ = reference_export
     metadata = reference_metadata("absolute")
@@ -192,7 +183,7 @@ def test_export_rejects_changed_reference_order_before_writing(reference_export,
 
 def test_evaluation_uses_the_models_action_mode(reference_export, tmp_path):
     from omegaconf import OmegaConf
-    from submission.history import reference_metadata
+    from train.model_metadata import reference_metadata
     from train.evaluate import configure_model_interface
     _, model, _ = reference_export
     (tmp_path / "f2_features.metadata.json").write_text(json.dumps(reference_metadata("delta")))
@@ -204,7 +195,7 @@ def test_evaluation_uses_the_models_action_mode(reference_export, tmp_path):
 
 
 def test_evaluation_requires_matching_normalization_when_metadata_requires_it(tmp_path):
-    from submission.history import reference_metadata
+    from train.model_metadata import reference_metadata
     from train.evaluate import resolve_evaluation_normalization
     with pytest.raises(FileNotFoundError, match="VecNormalize"):
         resolve_evaluation_normalization(reference_metadata("delta"), None)

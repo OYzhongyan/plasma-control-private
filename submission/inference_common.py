@@ -1,510 +1,84 @@
-"""Shared inference helpers for semifinal submission policies."""
+"""Generic ONNX control: field transport and optional state, no training imports.
 
+Feature extraction, normalization and action conversion are embedded in ONNX.
+"""
 from __future__ import annotations
-import json
-import sys
+import math
 from pathlib import Path
-from typing import Any
 import numpy as np
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-try:
-    from environment.xpt_utils import extract_xpt_observation_pack
-except Exception:
-    extract_xpt_observation_pack = None
-ACTION_DIM = 12
-ACTION_DIM_7 = 7
-ACTION_7D_TO_12D_INDEX = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6]
-ACTION_LOW_12D = np.array(
-    [-1499, -230, -172, -172, -348, -348, -270, -270, -348, -348, -270, -270],
-    dtype=np.float32,
-)
-ACTION_HIGH_12D = np.array(
-    [1499, 230, 172, 172, 348, 348, 270, 270, 348, 348, 270, 270], dtype=np.float32
-)
-ACTION_LOW_7D = np.array([-1499, -230, -172, -172, -348, -348, -270], dtype=np.float32)
-ACTION_HIGH_7D = np.array([1499, 230, 172, 172, 348, 348, 270], dtype=np.float32)
-ACTION_7D_FROM_12D_INDEX = [0, 1, 3, 5, 7, 9, 11]
-COIL_LIMITS_A = np.array([45000.0] + [14000.0] * 10 + [4000.0], dtype=np.float32)
-BASE_FEATURE_KEYS = [
-    "Ip",
-    "R",
-    "Z",
-    "lX",
-    "reference_Ip",
-    "reference_R",
-    "reference_Z",
-    "reference_lX",
-    "lcfs_points",
-    "reference_lcfs_points",
-    "I_PF",
-    "Rmax",
-    "Rmin",
-    "aminor",
-    "deltal",
-    "deltau",
-    "kappa",
-    "rc",
-    "zc",
-    "FA",
-    "FB",
-    "failure",
-]
-F2_FEATURE_KEYS = [
-    *BASE_FEATURE_KEYS,
-    "rX",
-    "zX",
-    "FX",
-    "nX",
-    "reference_rX",
-    "reference_zX",
-    "reference_x_valid",
-    "reference_strike_r",
-    "reference_strike_z",
-    "reference_strike_valid",
-    "reference_nX",
-    "reference_n_strike",
-]
-FEATURE_SHAPES = {
-    "Ip": [1],
-    "R": [1],
-    "Z": [1],
-    "lX": [1],
-    "reference_Ip": [1],
-    "reference_R": [1],
-    "reference_Z": [1],
-    "reference_lX": [1],
-    "lcfs_points": [32, 2],
-    "reference_lcfs_points": [32, 2],
-    "I_PF": [12],
-    "Rmax": [1],
-    "Rmin": [1],
-    "aminor": [1],
-    "deltal": [1],
-    "deltau": [1],
-    "kappa": [1],
-    "rc": [1],
-    "zc": [1],
-    "FA": [1],
-    "FB": [1],
-    "failure": [1],
-    "rX": [6],
-    "zX": [6],
-    "FX": [6],
-    "nX": [1],
-    "reference_rX": [4],
-    "reference_zX": [4],
-    "reference_x_valid": [4],
-    "reference_strike_r": [8],
-    "reference_strike_z": [8],
-    "reference_strike_valid": [8],
-    "reference_nX": [1],
-    "reference_n_strike": [1],
-    "xpt_nx_norm": [1],
-    "xpt_nx_error": [1],
-    "xpt_x_valid": [4],
-    "xpt_r": [4],
-    "xpt_z": [4],
-    "xpt_position_error_3cm": [4, 2],
-    "xpt_flux_error_0p003": [4],
-    "reference_xpt_r": [4],
-    "reference_xpt_z": [4],
-    "reference_xpt_valid": [4],
-    "reference_nx": [1],
-}
-
-
-def default_metadata() -> dict[str, Any]:
-    keys = F2_FEATURE_KEYS
-    shapes = {key: FEATURE_SHAPES[key] for key in keys}
-    obs_dim = int(sum((np.prod(shapes[key]) for key in keys)))
-    return {
-        "version": 1,
-        "keys": keys,
-        "shapes": shapes,
-        "obs_dim": obs_dim,
-        "action_mode": "7D",
-        "action_dim": 7,
-        "action_units": "physical_voltage",
-        "feature_mode": "raw",
-        "history_steps": 0,
-    }
-
-
-def action_7d_to_12d(action_7d: np.ndarray) -> np.ndarray:
-    action_7d = np.asarray(action_7d, dtype=np.float32).reshape(-1)
-    if action_7d.size != ACTION_DIM_7:
-        raise ValueError(f"action_7d must have size 7, got {action_7d.size}")
-    action_7d = np.clip(action_7d, ACTION_LOW_7D, ACTION_HIGH_7D)
-    return action_7d[ACTION_7D_TO_12D_INDEX]
-
-
-def normalized_action_7d_to_12d(action_7d: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    action_norm = np.asarray(action_7d, dtype=np.float32).reshape(-1)
-    if action_norm.size != ACTION_DIM_7:
-        raise ValueError(
-            f"normalized action_7d must have size 7, got {action_norm.size}"
-        )
-    action_norm = np.clip(action_norm, -1.0, 1.0)
-    action_physical = action_norm * ACTION_HIGH_7D
-    return (action_7d_to_12d(action_physical), action_norm)
-
-
-def _coerce(value: Any, shape: list[int], dtype=np.float32) -> np.ndarray:
-    size = int(np.prod(shape))
-    out = np.zeros(size, dtype=dtype)
-    if value is not None:
-        flat = np.asarray(value, dtype=dtype).reshape(-1)
-        n = min(size, flat.size)
-        if n > 0:
-            out[:n] = flat[:n]
-    return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0).reshape(shape)
-
-
-def _scalar(observation: dict[str, Any], key: str, default: float = 0.0) -> float:
-    arr = _coerce(observation.get(key), [1]).reshape(-1)
-    if arr.size == 0:
-        return float(default)
-    value = float(arr[0])
-    return value if np.isfinite(value) else float(default)
-
-
-def _array(observation: dict[str, Any], key: str, shape: list[int]) -> np.ndarray:
-    return _coerce(observation.get(key), shape)
-
-
-def _xpt_pack(observation: dict[str, Any]) -> dict[str, Any]:
-    ref_rx = _array(observation, "reference_rX", [4])
-    ref_zx = _array(observation, "reference_zX", [4])
-    ref_sr = _array(observation, "reference_strike_r", [8])
-    ref_sz = _array(observation, "reference_strike_z", [8])
-    if extract_xpt_observation_pack is not None:
-        try:
-            return extract_xpt_observation_pack(
-                observation, ref_rx, ref_zx, ref_sr, ref_sz
-            )
-        except Exception:
-            pass
-    return {
-        "nX": int(_scalar(observation, "nX")),
-        "x_r": np.zeros(4, dtype=np.float32),
-        "x_z": np.zeros(4, dtype=np.float32),
-        "x_flux_diff": np.zeros(4, dtype=np.float32),
-        "x_valid": np.zeros(4, dtype=np.float32),
-    }
-
-
-def _physical_feature_map(observation: dict[str, Any]) -> dict[str, np.ndarray]:
-    ip = _scalar(observation, "Ip")
-    ref_ip = _scalar(observation, "reference_Ip", ip)
-    r = _scalar(observation, "R")
-    ref_r = _scalar(observation, "reference_R", r)
-    z = _scalar(observation, "Z")
-    ref_z = _scalar(observation, "reference_Z", z)
-    lx = _scalar(observation, "lX")
-    ref_lx = _scalar(observation, "reference_lX", lx)
-    lcfs = _array(observation, "lcfs_points", [32, 2])
-    ref_lcfs = _array(observation, "reference_lcfs_points", [32, 2])
-    i_pf = _array(observation, "I_PF", [12])
-    out: dict[str, np.ndarray] = {
-        "ip": np.array([ip / 500000.0], dtype=np.float32),
-        "reference_ip": np.array([ref_ip / 500000.0], dtype=np.float32),
-        "ip_error_50ka": np.array([(ip - ref_ip) / 50000.0], dtype=np.float32),
-        "r": np.array([r], dtype=np.float32),
-        "reference_r": np.array([ref_r], dtype=np.float32),
-        "r_error_3cm": np.array([(r - ref_r) / 0.03], dtype=np.float32),
-        "z": np.array([z], dtype=np.float32),
-        "reference_z": np.array([ref_z], dtype=np.float32),
-        "z_error_3cm": np.array([(z - ref_z) / 0.03], dtype=np.float32),
-        "lx": np.array([lx], dtype=np.float32),
-        "reference_lx": np.array([ref_lx], dtype=np.float32),
-        "lx_error": np.array([lx - ref_lx], dtype=np.float32),
-        "lcfs_points_absolute": lcfs,
-        "reference_lcfs_points_absolute": ref_lcfs,
-        "lcfs_error_3cm": (lcfs - ref_lcfs) / 0.03,
-        "i_pf_norm": i_pf / COIL_LIMITS_A,
-        "coil_margin": np.array(
-            [np.max(np.abs(i_pf) / COIL_LIMITS_A)], dtype=np.float32
-        ),
-        "rmax": np.array([_scalar(observation, "Rmax")], dtype=np.float32),
-        "rmin": np.array([_scalar(observation, "Rmin")], dtype=np.float32),
-        "aminor": np.array([_scalar(observation, "aminor")], dtype=np.float32),
-        "deltal": np.array([_scalar(observation, "deltal")], dtype=np.float32),
-        "deltau": np.array([_scalar(observation, "deltau")], dtype=np.float32),
-        "kappa": np.array([_scalar(observation, "kappa")], dtype=np.float32),
-        "rc": np.array([_scalar(observation, "rc")], dtype=np.float32),
-        "zc": np.array([_scalar(observation, "zc")], dtype=np.float32),
-        "fa": np.array([_scalar(observation, "FA")], dtype=np.float32),
-        "fb": np.array([_scalar(observation, "FB")], dtype=np.float32),
-        "failure": np.array([_scalar(observation, "failure")], dtype=np.float32),
-    }
-    rx = _array(observation, "rX", [6])
-    zx = _array(observation, "zX", [6])
-    ref_rx = _array(observation, "reference_rX", [4])
-    ref_zx = _array(observation, "reference_zX", [4])
-    ref_valid = _array(observation, "reference_x_valid", [4])
-    reference_nx = _scalar(observation, "reference_nX", float(np.sum(ref_valid > 0.5)))
-    if reference_nx <= 0.0:
-        reference_nx = 4.0
-    pack = _xpt_pack(observation)
-    x_r = np.asarray(pack["x_r"], dtype=np.float32).reshape(4)
-    x_z = np.asarray(pack["x_z"], dtype=np.float32).reshape(4)
-    x_valid = np.asarray(pack["x_valid"], dtype=np.float32).reshape(4)
-    x_flux = np.asarray(pack["x_flux_diff"], dtype=np.float32).reshape(4)
-    nx = float(pack["nX"])
-    out.update(
-        {
-            "rx": rx,
-            "zx": zx,
-            "fx": _array(observation, "FX", [6]),
-            "nx": np.array([_scalar(observation, "nX")], dtype=np.float32),
-            "reference_rx": ref_rx,
-            "reference_zx": ref_zx,
-            "x_error_3cm": np.stack(
-                [(rx[:4] - ref_rx) / 0.03, (zx[:4] - ref_zx) / 0.03], axis=-1
-            ),
-            "reference_x_valid": _array(observation, "reference_x_valid", [4]),
-            "reference_strike_r": _array(observation, "reference_strike_r", [8]),
-            "reference_strike_z": _array(observation, "reference_strike_z", [8]),
-            "reference_strike_valid": _array(
-                observation, "reference_strike_valid", [8]
-            ),
-            "reference_nx": np.array(
-                [_scalar(observation, "reference_nX")], dtype=np.float32
-            ),
-            "reference_n_strike": np.array(
-                [_scalar(observation, "reference_n_strike")], dtype=np.float32
-            ),
-            "xpt_nx_norm": np.array([nx / max(reference_nx, 1.0)], dtype=np.float32),
-            "xpt_nx_error": np.array(
-                [(nx - reference_nx) / max(reference_nx, 1.0)], dtype=np.float32
-            ),
-            "xpt_x_valid": x_valid,
-            "xpt_r": x_r,
-            "xpt_z": x_z,
-            "xpt_position_error_3cm": np.stack(
-                [(x_r - ref_rx) / 0.03, (x_z - ref_zx) / 0.03], axis=-1
-            ),
-            "xpt_flux_error_0p003": x_flux / 0.003,
-            "reference_xpt_r": ref_rx,
-            "reference_xpt_z": ref_zx,
-            "reference_xpt_valid": ref_valid,
-            "reference_nx": np.array([reference_nx], dtype=np.float32),
-        }
-    )
-    return out
-
-
-def flatten_observation(
-    observation: dict[str, Any],
-    metadata: dict[str, Any],
-    history: dict[str, np.ndarray] | None = None,
-) -> np.ndarray:
-    if metadata.get("feature_mode") in {
-        "physical_v1",
-        "physical_f2_xpt_v1",
-        "physical_f2_xpt_no_ref_rz_v1",
-    }:
-        feature_map = _physical_feature_map(observation)
-        if history:
-            feature_map.update(history)
-        parts = []
-        shapes = metadata.get("shapes", {})
-        for key in metadata.get("keys", []):
-            shape = list(shapes.get(key, FEATURE_SHAPES.get(key, [1])))
-            parts.append(_coerce(feature_map.get(key), shape).reshape(-1))
-        return np.concatenate(parts, axis=0).astype(np.float32)
-    parts = []
-    shapes = metadata.get("shapes", {})
-    for key in metadata.get("keys", []):
-        shape = list(shapes.get(key, FEATURE_SHAPES.get(key, [1])))
-        parts.append(_coerce(observation.get(key), shape).reshape(-1))
-    return np.concatenate(parts, axis=0).astype(np.float32)
-
-
-def load_metadata(model_path: Path | None) -> dict[str, Any]:
-    if model_path is not None:
-        candidate = model_path.with_suffix(".metadata.json")
-        if candidate.is_file():
-            try:
-                return json.loads(candidate.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-    return default_metadata()
-
-
-def _vecnormalize_candidates(model_path: Path) -> list[Path]:
-    stem = model_path.stem
-    return [
-        model_path.with_name(f"{stem}_vecnormalize_stats.npz"),
-        model_path.with_name(f"{stem}.vecnormalize_stats.npz"),
-        model_path.with_name(f"{stem}_vecnormalize.npz"),
-        model_path.with_name(f"{stem}.vecnormalize.npz"),
-        model_path.parent / "vecnormalize_stats.npz",
-    ]
-
-
-def load_vecnormalize_stats(
-    model_path: Path | None, obs_dim: int
-) -> dict[str, Any] | None:
-    if model_path is None:
-        return None
-    obs_dim = int(obs_dim)
-    if obs_dim <= 0:
-        return None
-    for candidate in _vecnormalize_candidates(model_path):
-        if not candidate.is_file():
-            continue
-        try:
-            with np.load(candidate) as data:
-                if "obs_mean" not in data or "obs_var" not in data:
-                    continue
-                mean = np.asarray(data["obs_mean"], dtype=np.float64).reshape(-1)
-                var = np.asarray(data["obs_var"], dtype=np.float64).reshape(-1)
-                if mean.size != obs_dim or var.size != obs_dim:
-                    continue
-                clip_obs = (
-                    float(np.asarray(data["clip_obs"]).reshape(-1)[0])
-                    if "clip_obs" in data
-                    else 10.0
-                )
-                epsilon = (
-                    float(np.asarray(data["epsilon"]).reshape(-1)[0])
-                    if "epsilon" in data
-                    else 1e-08
-                )
-                if not np.isfinite(clip_obs) or clip_obs <= 0.0:
-                    clip_obs = 10.0
-                if not np.isfinite(epsilon) or epsilon <= 0.0:
-                    epsilon = 1e-08
-                return {
-                    "path": str(candidate),
-                    "mean": mean,
-                    "var": np.maximum(var, 0.0),
-                    "clip_obs": clip_obs,
-                    "epsilon": epsilon,
-                }
-        except Exception:
-            continue
-    return None
-
-
-def apply_obs_normalization(
-    obs: np.ndarray, stats: dict[str, Any] | None
-) -> np.ndarray:
-    obs = np.asarray(obs, dtype=np.float32).reshape(-1)
-    if stats is None:
-        return obs
-    mean = np.asarray(stats["mean"], dtype=np.float64).reshape(-1)
-    var = np.asarray(stats["var"], dtype=np.float64).reshape(-1)
-    if mean.size != obs.size or var.size != obs.size:
-        return obs
-    epsilon = float(stats.get("epsilon", 1e-08))
-    clip_obs = float(stats.get("clip_obs", 10.0))
-    normalized = (obs - mean) / np.sqrt(var + epsilon)
-    return np.clip(normalized, -clip_obs, clip_obs).astype(np.float32)
+from submission.controller_contract import MANIFEST_NAME, MODEL_NAME, observation_inputs, read_manifest
+from submission.onnx_validation import validate_graph
 
 
 class BaseOnnxPolicy:
-    """ONNX-backed policy; invalid artifacts are reported instead of zero actions."""
-
-    def __init__(self, *, model_dir: str | Path, preferred_name: str):
+    def __init__(self, *, model_dir, preferred_name=MODEL_NAME, session_options=None, raise_on_error=False):
         self.model_dir = Path(model_dir)
-        self.preferred_name = preferred_name
         self.session = None
-        self.input_name = None
-        self.output_name = None
-        self.load_error: str | None = None
-        self.reference_adapter = None
-        self.metadata = default_metadata()
-        self.obs_normalization: dict[str, Any] | None = None
-        self._try_load_model()
-
-    def _resolve_model_path(self) -> Path | None:
-        preferred = self.model_dir / self.preferred_name
-        if preferred.exists():
-            return preferred
-        fallback = self.model_dir / "policy.onnx"
-        if fallback.exists():
-            return fallback
-        candidates = sorted(self.model_dir.glob("*.onnx"))
-        return candidates[0] if candidates else None
-
-    def _try_load_model(self) -> None:
-        model_path = self._resolve_model_path()
-        if model_path is None:
-            self.load_error = f"No ONNX model found in {self.model_dir}"
-            return
-        self.metadata = load_metadata(model_path)
-        self.obs_normalization = load_vecnormalize_stats(
-            model_path, int(self.metadata.get("obs_dim", 0))
-        )
+        self.metadata = {}
+        self.state = None
+        self.load_error = None
         try:
             import onnxruntime as ort
-
-            if self.metadata.get("feature_mode") != "reference_only_v1":
-                raise ValueError("Policy requires reference_only_v1 metadata and a newly trained 90D model")
-            from submission.history import ReferencePolicyAdapter
-
-            self.reference_adapter = ReferencePolicyAdapter(self.metadata)
-            if self.metadata.get("observation_normalization") is False:
-                self.obs_normalization = None
-            if (
-                self.metadata.get("requires_vecnormalize")
-                and self.obs_normalization is None
-            ):
-                raise ValueError(
-                    "Matching VecNormalize observation statistics are required"
-                )
-
-            self.session = ort.InferenceSession(
-                str(model_path), providers=["CPUExecutionProvider"]
-            )
-            self.input_name = self.session.get_inputs()[0].name
-            self.output_name = self.session.get_outputs()[0].name
-            input_dim = self.session.get_inputs()[0].shape[-1]
-            if isinstance(input_dim, int) and input_dim != int(
-                self.metadata["obs_dim"]
-            ):
-                raise ValueError(
-                    f"ONNX input has {input_dim} features but metadata defines {self.metadata['obs_dim']}"
-                )
-            output_dim = self.session.get_outputs()[0].shape[-1]
-            if isinstance(output_dim, int) and output_dim != int(
-                self.metadata["action_dim"]
-            ):
-                raise ValueError("ONNX output dimension does not match metadata")
+            self.metadata = read_manifest(self.model_dir / MANIFEST_NAME)
+            model_bytes = (self.model_dir / preferred_name).read_bytes()
+            validate_graph(model_bytes, self.metadata)
+            try:
+                kwargs = {"providers": ["CPUExecutionProvider"]}
+                if session_options is not None:
+                    kwargs["sess_options"] = session_options
+                self.session = ort.InferenceSession(model_bytes, **kwargs)
+                self.reset()
+                values = {f["name"]: np.zeros((1, *f["shape"]), np.float32)
+                          for f in self.metadata["observations"]}
+                if self.state is not None:
+                    values["state"] = self.state.copy()
+                self._check_outputs(self.session.run(self.output_names, values))
+            except Exception as exc:
+                raise ValueError(f"Controller load/preflight failed: {exc}") from exc
         except Exception as exc:
             self.load_error = str(exc)
             self.session = None
-            self.input_name = None
-            self.output_name = None
+            if raise_on_error:
+                raise
 
     @property
-    def ready(self) -> bool:
-        return self.session is not None and self.load_error is None
+    def ready(self):
+        return self.session is not None
 
-    def status(self) -> dict[str, Any]:
-        return {
-            "ok": self.ready,
-            "model_loaded": self.ready,
-            "feature_mode": self.metadata.get("feature_mode"),
-            "obs_dim": self.metadata.get("obs_dim"),
-            "normalization_loaded": self.obs_normalization is not None,
-            "error": self.load_error,
-        }
+    @property
+    def output_names(self):
+        return ["action", "next_state"] if self.metadata["state_dim"] else ["action"]
 
-    def reset(self) -> None:
-        if self.reference_adapter is not None:
-            self.reference_adapter.reset()
-        return None
+    def reset(self):
+        size = self.metadata.get("state_dim", 0)
+        self.state = (np.zeros((1, size), dtype=self.metadata["state_dtype"]) if size else None)
 
-    def act(self, observation: dict[str, Any]) -> np.ndarray:
+    def _check_outputs(self, values):
+        action = np.asarray(values[0])
+        if action.shape != (1, 12) or action.dtype != np.float32 or not np.all(np.isfinite(action)):
+            raise ValueError("Controller action must contain 12 finite float32 physical voltages")
+        state = None
+        if self.metadata["state_dim"]:
+            state = np.asarray(values[1])
+            if (state.shape != self.state.shape or state.dtype != self.state.dtype
+                    or not np.all(np.isfinite(state))):
+                raise ValueError("Controller next_state must match state shape/dtype and be finite")
+        return action[0].copy(), None if state is None else state.copy()
+
+    def act(self, observation):
         if not self.ready:
-            raise RuntimeError(self.load_error or "ONNX model is not ready")
-        features = self.reference_adapter.encode(observation)
-        obs = apply_obs_normalization(features, self.obs_normalization).reshape(1, -1)
-        action = self.session.run([self.output_name], {self.input_name: obs})[0]
-        return self.reference_adapter.decode(action)
+            raise RuntimeError(self.load_error or "Controller is not ready")
+        values = observation_inputs(observation, self.metadata)
+        if self.state is not None:
+            values["state"] = self.state.copy()
+        action, next_state = self._check_outputs(self.session.run(self.output_names, values))
+        self.state = next_state
+        return action
+
+    def status(self):
+        return dict(ok=self.ready, model_loaded=self.ready, error=self.load_error,
+                    interface=self.metadata.get("interface"),
+                    observations=[f["name"] for f in self.metadata.get("observations", [])],
+                    obs_dim=sum(math.prod(f["shape"]) for f in self.metadata.get("observations", [])),
+                    state_dim=self.metadata.get("state_dim"), action_dim=12,
+                    normalization_embedded=True)

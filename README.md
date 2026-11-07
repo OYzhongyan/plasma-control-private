@@ -267,7 +267,7 @@ python rollout/visualize_rollout.py --run_name YOUR_RUN
 
 ## 8.1 导出并打包模型
 
-以下两种方式任选其一，均在项目根目录执行。将 `YOUR_RUN` 替换为训练运行目录名。`train/export_onnx.py` 在导出模型、元数据和归一化统计后自动打包，无需另行压缩。终端显示 `Model package ready` 才表示本次模型包已更新，导出或打包报错时不要上传旧文件。
+以下两种方式任选其一，均在项目根目录执行。将 `YOUR_RUN` 替换为训练运行目录名。`train/export_onnx.py` 把观测处理、冻结归一化、策略网络和动作转换一起导出到 ONNX，并自动打包。终端显示 `Model package ready` 才表示本次模型包已更新，导出或打包报错时不要上传旧文件。
 
 **训练中断后使用最新 checkpoint**：从 `checkpoints/` 中选择训练步数最大的模型，同时使用同一步数对应的归一化文件。
 
@@ -288,7 +288,7 @@ else
     echo "导出模型：$MODEL_PATH"
     python train/export_onnx.py \
       --model "$MODEL_PATH" \
-      --out submission/model/policy2.onnx \
+      --out submission/model/controller.onnx \
       --vecnormalize "$VECNORMALIZE_PATH"
   fi
 fi
@@ -299,7 +299,7 @@ fi
 ```bash
 python train/export_onnx.py \
   --model results/YOUR_RUN/ppo_f2_latest.zip \
-  --out submission/model/policy2.onnx \
+  --out submission/model/controller.onnx \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
@@ -307,21 +307,22 @@ python train/export_onnx.py \
 
 ## 8.2 提交文件组成
 
-上述命令把导出的三份文件放入 ZIP 根目录，最终只需提交 **`results/submission_model.zip`**：
+上述命令把导出的两份文件放入 ZIP 根目录，最终只需提交 **`results/submission_model.zip`**：
 
 ```text
 submission_model.zip
-├── policy2.onnx
-├── policy2.metadata.json
-└── policy2_vecnormalize_stats.npz
+├── controller.onnx
+└── controller.json
 ```
 
-`policy2.onnx` 是策略模型，`policy2.metadata.json` 描述 90 维当前目标输入与动作接口，`policy2_vecnormalize_stats.npz` 保存匹配的 90 维归一化统计。ZIP 文件名可以自定，但包内三份文件名称固定，且不能再套一层目录或加入其他文件；压缩包上限为 128 MiB。
+`controller.onnx` 包含完整控制器；归一化统计量已经成为图内常量，不再单独上传。`controller.json` 只声明需要哪些原始仿真观测字段、可选状态以及 12 维电压输出协议。ZIP 文件名可以自定，但包内两个文件名称固定，且不能再套一层目录或加入其他文件；压缩包上限为 128 MiB。
 
-当前 baseline 的 ONNX 输出 7 维独立动作（CS、5 组配对 PF、VS），评分服务器沿用训练时的动作映射，将其转换成 HFM 接收的 12 维线圈电压。
+当前 baseline 的神经网络仍使用 90 维 reference 特征和 7 维动作；ONNX 内完成特征排列、归一化、动作裁剪、absolute／delta 转换及 7→12 维展开。对服务器而言，控制器直接输出 12 维物理电压设定值；服务器再统一施加电源延迟、变化率限制和 PSM，并运行 HFM。delta 累加状态通过 ONNX 的 `state`／`next_state` 传递，每回合清零；无状态控制器不需要这两个张量。
+
+选手可修改特征或动作处理，具体导出接口见 [submission/README.md](submission/README.md)。自定义处理必须实现为可导出 ONNX 的张量运算，修改 Python／NumPy wrapper 不会自动修改导出图。服务器只加载 ONNX 和接口说明，不导入选手的 `train` 或其他 Python 文件。旧的三文件 `policy2` 提交包须重新导出。
 
 ## 8.3 上传平台
 
-在 [比赛平台](https://competition.opensii.ai/) 的对应课题中上传 `results/submission_model.zip`，等待服务器自动解包、测评并回传结果。只上传这个文件，不分别上传其中三份文件，也不上传训练用 PPO checkpoint、`.pkl`、`target.json` 或轨迹 JSON。官方目标和评测环境由服务器统一提供。无队列堆积时，单个文件测评结果将在几分钟内提交给比赛平台。
+在 [比赛平台](https://competition.opensii.ai/) 的对应课题中上传 `results/submission_model.zip`，等待服务器自动解包、测评并回传结果。只上传这个文件，不分别上传其中两份文件，也不上传训练用 PPO checkpoint、`.pkl`、Python 脚本、`target.json` 或轨迹 JSON。官方目标和评测环境由服务器统一提供。
 
 > 注意，比赛分数会以最高分为准，**建议用git做好代码版本保存，实训课题结束时切回最高分代码版本**，方便助教复现您提交的最高分结果

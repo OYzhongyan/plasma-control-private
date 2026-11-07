@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 def trained_model(tmp_path_factory):
     sb3 = pytest.importorskip("stable_baselines3")
     pytest.importorskip("onnx")
-    from submission.history import reference_metadata
+    from train.model_metadata import reference_metadata
 
     directory = tmp_path_factory.mktemp("bundle_source")
     metadata = reference_metadata("delta")
@@ -42,7 +42,7 @@ def test_export_automatically_packages_current_files(trained_model, tmp_path, mo
     assert exporter.main(["--model", str(trained_model / "model.zip")]) == 0
     package = tmp_path / "results/submission_model.zip"
     extracted = unpack_bundle(package, tmp_path / "server_model")
-    for name in ("policy2.onnx", "policy2.metadata.json", "policy2_vecnormalize_stats.npz"):
+    for name in ("controller.onnx", "controller.json"):
         assert (extracted / name).read_bytes() == (tmp_path / "submission/model" / name).read_bytes()
 
 
@@ -54,8 +54,8 @@ def test_export_custom_paths_keep_fixed_archive_names(trained_model, tmp_path):
                  "--out", str(tmp_path / "actor.onnx"), "--bundle", str(package)]) == 0
     with zipfile.ZipFile(package) as archive:
         assert set(archive.namelist()) == {
-            "policy2.onnx", "policy2.metadata.json", "policy2_vecnormalize_stats.npz"}
-        assert archive.read("policy2.onnx") == (tmp_path / "actor.onnx").read_bytes()
+            "controller.onnx", "controller.json"}
+        assert archive.read("controller.onnx") == (tmp_path / "actor.onnx").read_bytes()
 
 
 def test_missing_current_stats_never_packages_stale_export(trained_model, tmp_path, monkeypatch):
@@ -84,5 +84,5 @@ def test_development_export_can_skip_packaging(trained_model, tmp_path, monkeypa
 
     monkeypatch.setattr(exporter, "ROOT", tmp_path)
     assert exporter.main(["--model", str(trained_model / "model.zip"), "--no-bundle"]) == 0
-    assert (tmp_path / "submission/model/policy2.onnx").is_file()
+    assert (tmp_path / "submission/model/controller.onnx").is_file()
     assert not (tmp_path / "results/submission_model.zip").exists()
