@@ -12,7 +12,9 @@ python train/export_onnx.py --model results/YOUR_RUN/ppo_f2_latest.zip \
   --vecnormalize results/YOUR_RUN/vecnormalize.pkl
 ```
 
-The exporter automatically reads `f2_features.metadata.json` or `configs.pkl` from the run directory. For a relocated model, supply `--config /path/to/configs.pkl`. The historical adapter reuses `train/wrappers.py` for observation history and absolute/delta actions, preserving zero padding, first-step action repetition, accumulation and physical voltage ordering. A 4-step delta policy has 812 input features. VecNormalize runs after history construction, using the frozen training statistics. Delays/noise supplied by the evaluator are not applied a second time.
+The exporter reads `f2_features.metadata.json` or `configs.pkl` from the run directory. For a relocated model, supply `--config /path/to/configs.pkl`. Only `reference_only_v1` metadata (version 3) and newly trained 90D models are supported. The adapter uses the same `ReferenceObservationWrapper` and absolute/delta action wrapper as main. Features contain only the current reference, with no state or action history; VecNormalize uses the matching frozen training statistics. The export also packages the three artifacts into one `submission_model.zip` for platform upload.
+
+The server grader uses the same physical supply delays as training: channels 0?10 (CS/PF) sample 2?5 ms each step and VS samples 0?1 ms, with a 1 ms simulator step. Those delays are applied by the HFM predictor, independently of observation perturbations; the policy adapter does not apply them a second time.
 
 Call `/reset` before each episode. `/health` returns 200 only when the model and required preprocessing artifacts load successfully, and reports feature mode, dimension and normalization readiness. Missing/mismatched artifacts return 503. `/act` failures return 500 instead of zero-action fallback.
 

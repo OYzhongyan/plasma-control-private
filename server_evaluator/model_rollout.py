@@ -66,26 +66,9 @@ def _validate_metadata(model_dir: Path) -> dict[str, Any]:
         metadata = _read_json(model_dir / METADATA_NAME)
         if not isinstance(metadata, dict):
             raise ValueError("metadata must be a JSON object")
-        if metadata.get("feature_mode") != history.HISTORY_FEATURE_MODE:
-            raise ValueError("feature_mode must be historical_observation_v1")
-        steps = metadata.get("history_steps")
-        if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
-            raise ValueError("history_steps must be a positive integer")
-        for name in ("include_xpt", "observation_normalization", "requires_vecnormalize"):
-            if name in metadata and not isinstance(metadata[name], bool):
-                raise ValueError(f"{name} must be a boolean")
-        if metadata.get("action_units") != "normalized":
-            raise ValueError("historical policy action_units must be normalized")
-        expected = history.history_metadata(
-            steps, metadata.get("action_mode"),
-            include_xpt=metadata.get("include_xpt", True),
-            norm_obs=metadata.get("observation_normalization", True))
-        for name in ("obs_dim", "action_dim", "action_history_dim", "action_history_steps"):
-            value = metadata.get(name)
-            if isinstance(value, bool) or not isinstance(value, int) or value != expected[name]:
-                raise ValueError(f"metadata {name} does not match the training layout")
-        if metadata.get("requires_vecnormalize", True) != expected["requires_vecnormalize"]:
-            raise ValueError("requires_vecnormalize disagrees with observation_normalization")
+        if metadata.get("feature_mode") != history.REFERENCE_FEATURE_MODE:
+            raise ValueError("feature_mode must be reference_only_v1; retrain and export a 90D reference-only model")
+        history.validate_reference_metadata(metadata)
         return metadata
     except OSError as exc:
         raise GradingUnavailable(f"Cannot read model metadata: {exc}") from exc
@@ -166,7 +149,7 @@ def _load_policy(model_dir: Path, config: dict):
         raise InvalidSubmission(f"ONNX policy failed to load: {policy.load_error}")
     try:
         # Torch exports may label the action width symbolically. Probe the graph
-        # directly so validation does not advance observation/action history.
+        # directly so validation does not advance delta-action accumulation.
         probe = policy.session.run([policy.output_name], {
             policy.input_name: np.zeros((1, metadata["obs_dim"]), dtype=np.float32)})[0]
         probe = np.asarray(probe)

@@ -259,10 +259,14 @@ def test_cli_check_config_is_offline(tmp_path, sample):
     env = dict(__import__("os").environ)
     for name in ("PLATFORM_USERNAME", "PLATFORM_PASSWORD", "PLATFORM_TOKEN"):
         env.pop(name, None)
+    # Supervisor imports must not parse a stale shell override before the
+    # evaluator pins its own trusted catalogue (the child pins it too).
+    env["SAISDATA_SHOTS_CONFIG"] = str(ROOT / "README.md")
     proc = subprocess.run([sys.executable, str(ROOT / "server_evaluator/run.py"), "--problem-id", "p1", "--target", str(path), "--check-config"], capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["max_score"] == 30
     assert json.loads(proc.stdout)["metric_names"] == list(METRIC_MAXIMA)
+    assert json.loads(proc.stdout)["evaluation"]["power_supply"]["pf_delay_range_s"] == [.002, .005]
 
 
 def test_cli_once_rejects_legacy_json_and_reports_once(tmp_path, sample, platform):

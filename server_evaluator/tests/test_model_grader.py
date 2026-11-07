@@ -27,6 +27,15 @@ def make_bundle(tmp_path):
     return create_bundle(directory, tmp_path / "model.zip")
 
 
+def test_grading_audit_declares_reference_interface_and_physical_delays(tmp_path, sample):
+    grader = make_grader(tmp_path, sample)
+    assert grader.config["model_interface"] == {
+        "feature_mode": "reference_only_v1", "obs_dim": 90, "action_dim": 7}
+    assert grader.config["power_supply"] == {
+        "dt_s": .001, "pf_delay_range_s": [.002, .005],
+        "vs_delay_range_s": [0., .001], "delay_sampling": "each_step"}
+
+
 def test_model_grader_unpacks_and_preserves_seven_scores(tmp_path, sample, monkeypatch):
     grader = make_grader(tmp_path, sample)
     result = {"metrics_scores": METRIC_MAXIMA, "status": "completed", "evaluator_message": "F2b score=30"}

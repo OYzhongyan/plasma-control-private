@@ -31,6 +31,19 @@ class ModelGrader:
                  obs_perturb_config=None, hfm_host="127.0.0.1", hfm_port=5558,
                  socket_timeout=300.0, evaluation_timeout=1800.0, seed=0,
                  onnx_threads=1, memory_limit_mb=4096, inference_timeout=1.0, stop_event=None):
+        self.shots_config = ROOT / "configs/shots.yaml"
+        # Importing environment also loads its shot catalogue. Pin that import
+        # to the same trusted file as the child, without changing the caller's
+        # environment variables.
+        previous_catalogue = os.environ.get("SAISDATA_SHOTS_CONFIG")
+        os.environ["SAISDATA_SHOTS_CONFIG"] = str(self.shots_config)
+        try:
+            from environment.power_supply import DT, DELAY_RANGE_PF, DELAY_RANGE_VS
+        finally:
+            if previous_catalogue is None:
+                os.environ.pop("SAISDATA_SHOTS_CONFIG", None)
+            else:
+                os.environ["SAISDATA_SHOTS_CONFIG"] = previous_catalogue
         self.data_dir = Path(data_dir).resolve()
         self.stop_event = stop_event if stop_event is not None else Event()
         self.evaluation_timeout = float(evaluation_timeout)
@@ -43,6 +56,9 @@ class ModelGrader:
             "hfm_host": hfm_host, "hfm_port": int(hfm_port),
             "socket_timeout": float(socket_timeout), "seed": int(seed), "onnx_threads": int(onnx_threads),
             "memory_limit_mb": int(memory_limit_mb),
+            "model_interface": {"feature_mode": "reference_only_v1", "obs_dim": 90, "action_dim": 7},
+            "power_supply": {"dt_s": DT, "pf_delay_range_s": list(DELAY_RANGE_PF),
+                             "vs_delay_range_s": list(DELAY_RANGE_VS), "delay_sampling": "each_step"},
         }
         if not hfm_host or not 1 <= self.config["hfm_port"] <= 65535:
             raise ValueError("HFM host/port is invalid")
@@ -62,7 +78,6 @@ class ModelGrader:
                 if key == "reference_config" and not value.get("shot_id"):
                     raise ValueError("reference_config must define shot_id")
         # Pin the shot catalogue instead of inheriting a shell's unrelated override.
-        self.shots_config = ROOT / "configs/shots.yaml"
         files = {Path(self.config[k]) for k in ("target_path", "env_config", "reference_config", "obs_perturb_config") if self.config[k]}
         files.add(self.shots_config)
         for folder in ("server_evaluator", "submission", "environment", "evaluation/eval/score"):

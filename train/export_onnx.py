@@ -1,4 +1,4 @@
-"""Export a trained SB3 policy to the submission ONNX layout."""
+"""Export a trained SB3 policy and automatically package one platform upload."""
 
 from __future__ import annotations
 import argparse
@@ -6,6 +6,7 @@ import json
 import pickle
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 import numpy as np
 import torch
@@ -13,8 +14,8 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from train.features import FeatureMetadata
-from submission.history import HISTORY_FEATURE_MODE, history_metadata
+from submission.history import REFERENCE_FEATURE_MODE, reference_metadata, validate_reference_metadata
+from submission.model_bundle import create_bundle
 
 
 class OnnxablePolicy(torch.nn.Module):
@@ -144,7 +145,7 @@ def load_export_metadata(
             None,
         )
     if config_path is None:
-        return FeatureMetadata.create().to_dict()
+        raise ValueError("reference_only_v1 metadata not found; provide matching --metadata or --config")
     if config_path.suffix == ".pkl":
         with config_path.open("rb") as stream:
             config = pickle.load(stream)
@@ -152,39 +153,19 @@ def load_export_metadata(
         import yaml
 
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    # Old JSON-trainer snapshots already contain their complete metadata.
-    saved_metadata = config.get("metadata")
-    if saved_metadata is not None:
-        return (
-            saved_metadata.to_dict()
-            if hasattr(saved_metadata, "to_dict")
-            else dict(saved_metadata)
-        )
     features = config.get("features", {})
     actions = config.get("actions", {})
     normalization = config.get("vecnormalize", {})
-    if "mode" not in features:
-        return history_metadata(
-            history_steps=int(features.get("history_steps", 4)),
+    if features.get("observation_mode") == REFERENCE_FEATURE_MODE:
+        return reference_metadata(
             action_mode=str(actions.get("mode", "absolute")),
-            norm_obs=bool(
-                normalization.get("enabled", True)
-                and normalization.get("norm_obs", True)
-            ),
+            norm_obs=bool(normalization.get("enabled", True) and normalization.get("norm_obs", True)),
         )
-    return FeatureMetadata.create(
-        mode=str(features["mode"]),
-        history_steps=int(features.get("history_steps", 0)),
-        action_units=(
-            "normalized"
-            if actions.get("mode") == "normalized_7d"
-            else "physical_voltage"
-        ),
-    ).to_dict()
+    raise ValueError("Export requires reference_only_v1 training metadata; retrain the model with the current wrapper")
 
 
 def export_onnx(
-    model_path: Path, out_path: Path, metadata: FeatureMetadata | dict
+    model_path: Path, out_path: Path, metadata: dict
 ) -> None:
     try:
         from stable_baselines3 import PPO
@@ -200,19 +181,17 @@ def export_onnx(
     action_dim = (
         int(action_shape[0]) if action_shape is not None and len(action_shape) else 7
     )
-    metadata = (
-        metadata.to_dict() if isinstance(metadata, FeatureMetadata) else dict(metadata)
-    )
+    metadata = dict(metadata)
+    if metadata.get("feature_mode") != REFERENCE_FEATURE_MODE:
+        raise ValueError("Export requires reference_only_v1 metadata; retrain the model with the current wrapper")
     if len(obs_shape) != 1 or int(metadata["obs_dim"]) != int(obs_shape[0]):
         raise ValueError(
             f"Model input {obs_shape} does not match metadata obs_dim={metadata.get('obs_dim')}. "
             "Provide the model's training configs.pkl with --config or matching --metadata."
         )
-    if metadata.get("feature_mode") == HISTORY_FEATURE_MODE:
-        if action_dim != 7:
-            raise ValueError("The historical action wrapper requires a 7D actor")
-    else:
-        metadata["action_mode"] = "7D" if action_dim == 7 else "12D"
+    if action_dim != 7:
+        raise ValueError("The normalized action wrapper requires a 7D actor")
+    validate_reference_metadata(metadata)
     metadata["action_dim"] = action_dim
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sample_obs = torch.zeros((1, *obs_shape), dtype=torch.float32, device="cpu")
@@ -258,6 +237,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional VecNormalize .pkl or stats .npz. If omitted, export searches beside the model for vecnormalize_stats.npz or vecnormalize.pkl.",
     )
+    packaging = parser.add_mutually_exclusive_group()
+    packaging.add_argument(
+        "--bundle", type=Path,
+        help="Upload ZIP destination; defaults to results/submission_model.zip in the project.",
+    )
+    packaging.add_argument(
+        "--no-bundle", action="store_true",
+        help="Only export ONNX and preprocessing files for development, without creating an upload ZIP.",
+    )
     args = parser.parse_args(argv)
     out_path = args.out or default_out_path()
     metadata = load_export_metadata(args.model, args.metadata, args.config)
@@ -274,6 +262,21 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(
                     "VecNormalize statistics do not match the exported observation layout"
                 )
+    if not args.no_bundle:
+        if stats is None:
+            raise ValueError("A model upload requires matching VecNormalize statistics; use --vecnormalize")
+        # Stage only this export's outputs, including custom --out filenames.
+        # Never pick up old files from submission/model when a source is missing.
+        with tempfile.TemporaryDirectory(prefix="plasma-model-export-") as temporary:
+            staging = Path(temporary)
+            for source, name in (
+                (out_path, "policy2.onnx"),
+                (metadata_path_for_onnx(out_path), "policy2.metadata.json"),
+                (stats, "policy2_vecnormalize_stats.npz"),
+            ):
+                shutil.copyfile(source, staging / name)
+            package = create_bundle(staging, args.bundle or ROOT / "results" / "submission_model.zip")
+        print(f"Model package ready: {package.resolve()}")
     return 0
 
 

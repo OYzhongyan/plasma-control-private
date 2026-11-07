@@ -32,7 +32,41 @@ submission_model.zip
 
 不要在 ZIP 中再套一层目录。服务器使用自己的推理、特征处理、仿真和评分代码；选手不提交 Python 脚本、PPO checkpoint、pickle、目标文件或自报成绩的轨迹 JSON。
 
-本版本接受 `historical_observation_v1` 历史观测接口。当前 baseline 的 ONNX 输出 7 维独立动作（CS、5 组 PF、VS），服务器按训练时的配对映射转换为 HFM 接收的 12 维电压；模型包中的元数据需与权重和归一化统计一致。
+本版本仅接受与 `main` 一致的 `reference_only_v1` 接口，元数据版本为 `3`。输入是当前目标的 **90 维 reference 特征**，没有实际状态、历史观测或动作历史；`history_steps`、`action_history_steps`、`action_history_dim` 均为 `0`。
+
+| 输入顺序 | 字段 | 维数 |
+| --- | --- | ---: |
+| 1 | `reference_Ip` | 1 |
+| 2 | `reference_lX` | 1 |
+| 3 | `reference_lcfs_points`（32×2，按行展开） | 64 |
+| 4 | `reference_rX` | 4 |
+| 5 | `reference_zX` | 4 |
+| 6 | `reference_strike_r` | 8 |
+| 7 | `reference_strike_z` | 8 |
+
+服务器与 main 使用相同的 `ReferenceObservationWrapper`、`reference_metadata()` 和 `ReferencePolicyAdapter`。严格校验字段顺序、形状、动作模式和归一化标志；需要归一化时使用同次训练导出的 90 维冻结统计量。旧的 `historical_observation_v1`／812 维模型不兼容，须重新训练和导出，不能只改元数据。
+
+ONNX 输出 7 维归一化动作，先裁剪到 `[-1, 1]`，然后按元数据的 `action_mode` 转换：
+
+- `absolute`：乘以 `[1499, 230, 172, 172, 348, 348, 270]` V。
+- `delta`：乘以 `0.16 × [1499, 175, 175, 175, 175, 175, 80]` V，并累加到上一设定值；回合重置时清零。
+
+两种模式都按索引 `[0,1,1,2,2,3,3,4,4,5,5,6]` 展开为 12 维电压设定值，再经过电源模型送入 HFM。测评端保留 ONNX Runtime CPU 单线程限制，模型包中的权重、元数据和统计量必须来自同次导出。
+
+### 电源延迟与观测扰动
+
+训练与测评统一采用 `environment/power_supply.py` 中的设置：
+
+| 设置 | 值 |
+| --- | --- |
+| 仿真步长 | 1 ms |
+| 通道 0–10（CS/PF）传输延迟 | 每步均匀采样 2–5 ms |
+| 通道 11（VS）传输延迟 | 每步均匀采样 0–1 ms |
+| 离散延迟步数 | `round(delay_s / 0.001)` |
+| 电源处理顺序 | 传输延迟 → 电压变化率限制 → PSM 标定 → HFM |
+| 正式评测随机种子 | `--seed 0`，每份模型重建电源 RNG |
+
+这是物理电源传输延迟，与 `features.delay_step`／`eval.obs_perturb.delay_steps` 的观测延迟不同。关闭观测扰动不会关闭电源延迟。当前测评不支持非零观测延迟，遇到该配置会报告基础设施配置错误；当前目标 reference 特征不使用测量状态历史。启动日志、`--check-config` 输出和每次评测的 `config.json` 记录接口、电源延迟与种子。
 
 出题组准备以下文件，所有选手使用同一套配置：
 
@@ -133,7 +167,7 @@ export PLATFORM_PASSWORD
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-models-v1 \
+  --data-dir server_evaluator/runtime-reference-v1 \
   --once
 ```
 
@@ -142,7 +176,7 @@ python server_evaluator/run.py \
 ```bash
 python server_evaluator/run.py \
   --target evaluation/results/target.json \
-  --data-dir server_evaluator/runtime-models-v1 \
+  --data-dir server_evaluator/runtime-reference-v1 \
   --poll-interval 15
 ```
 
@@ -163,7 +197,7 @@ python server_evaluator/run.py \
 | `--seed` | `0`，固定评测随机种子 |
 | `--onnx-threads` | `1`，CPU 推理线程数 |
 | `--memory-limit-mb` | `4096`，Linux 评测子进程地址空间上限（MiB，至少 256）；不限制独立运行的 HFM 进程 |
-| `--data-dir` | 项目根目录下 `server_evaluator/runtime-models-v1` |
+| `--data-dir` | 项目根目录下 `server_evaluator/runtime-reference-v1` |
 | `--sources` | `offline,manual`；可只设 `offline` |
 | `--limit` | 每种来源每轮最多 100 条，可设 1～500 |
 | `--http-timeout` | 平台/下载 HTTP 读取超时 30 秒，连接超时 10 秒 |
@@ -190,7 +224,7 @@ python server_evaluator/run.py \
 将 `--data-dir` 放在可持久保存的磁盘。默认目录结构为：
 
 ```text
-server_evaluator/runtime-models-v1/
+server_evaluator/runtime-reference-v1/
 ├── tasks.sqlite3
 ├── worker.lock
 ├── downloads/                 # 按提交 ID 哈希命名的模型 ZIP
@@ -214,13 +248,13 @@ server_evaluator/runtime-models-v1/
 - 同一数据目录有单实例锁，不同目录或机器不会共享锁；同一课题只运行一套评分服务。
 - 目标、模型包契约、可信推理/仿真/评分逻辑或有效评测配置改变时，指纹会变化，程序拒绝复用旧缓存。先停止旧服务、保留旧目录，再选择新的 `--data-dir`；尚未回传的旧结果应先核对。
 
-**从轨迹 JSON 评分升级时，使用新的 `runtime-models-v1` 目录。** 旧缓存不会自动迁移。平台已完成的历史提交不会自动重评，旧轨迹 JSON 不能作为模型包继续评测。需要重评时，由管理员安排重新提交模型或重置任务。
+**从旧历史观测模型或轨迹 JSON 评分升级时，先停止旧评分器，再使用新的 `runtime-reference-v1` 目录，不要复用 `runtime-models-v1`。** 旧缓存不会自动迁移。平台已完成或失败的历史提交不会自动重评，旧轨迹 JSON 不能作为模型包继续评测。需要重评时，由管理员安排重新提交模型或将平台任务重置为待评；仅重启评分器不会重评已回传的失败记录。
 
 ## 6. systemd 常驻部署
 
 先保证完整 HFM 已在同机 `127.0.0.1:5558` 启动并可用，再部署评分服务。模板只管理 Python 评分器，**不会管理或启动 HFM**；HFM 退出或服务器重启后，需要恢复 HFM 服务。
 
-按实际情况修改 [plasma-grader.service](plasma-grader.service) 中的账号、仓库和 Python 路径。模板使用 `/opt/plasma-control-server`、其 `.venv`，以及新数据目录 `/var/lib/plasma-grader/models-v1`。
+按实际情况修改 [plasma-grader.service](plasma-grader.service) 中的账号、仓库和 Python 路径。模板使用 `/opt/plasma-control-server`、其 `.venv`，以及新数据目录 `/var/lib/plasma-grader/reference-v1`。
 
 创建 `/etc/plasma-grader.env`，填写管理员提供的助教身份与课题 ID：
 
@@ -235,7 +269,7 @@ PLATFORM_PROBLEM_ID=YOUR_PLATFORM_STRING_PROBLEM_ID
 ```bash
 sudo chmod 600 /etc/plasma-grader.env
 sudo useradd --system --home /var/lib/plasma-grader --create-home plasma-grader
-sudo install -d -o plasma-grader -g plasma-grader /var/lib/plasma-grader/models-v1
+sudo install -d -o plasma-grader -g plasma-grader /var/lib/plasma-grader/reference-v1
 sudo cp server_evaluator/plasma-grader.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now plasma-grader

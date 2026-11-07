@@ -27,7 +27,7 @@ from train.references import build_reference, default_reference_path
 from train.rewards import SemifinalDenseReward
 from train.wrappers import *
 from train.utils import warmup_cosine_schedule
-from submission.history import history_metadata
+from submission.history import reference_metadata
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -182,7 +182,7 @@ def make_env(
                 noise_std=delay_noise_std,
                 seed=seed + 20000,
             )
-        env = HistoricalOBservationWrapper(
+        env = ReferenceObservationWrapper(
             env,
             obs_history_step=obs_history_step,
             include_xpt=True,
@@ -425,8 +425,7 @@ def run_training(cfg: DictConfig) -> int:
         pickle.dump(cfg, f)
     (save_dir / "f2_features.metadata.json").write_text(
         json.dumps(
-            history_metadata(
-                history_steps=int(cfg.features.history_steps),
+            reference_metadata(
                 action_mode=str(cfg.actions.mode),
                 norm_obs=bool(cfg.vecnormalize.enabled and cfg.vecnormalize.norm_obs),
             ),
