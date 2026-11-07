@@ -90,6 +90,8 @@ S=\frac{\Gamma}{500}\sum_{k=1}^{K}\eta_k\mu_k\rho_k
 
 榜单中的七项贡献分已经包含权重、时间平均及惩罚，直接相加即为综合分，不再重复加权。
 
+第 8 节的远程正式测评由 C 记录 HTTP 往返耗时作为审计信息，不将其作为模型内核推理耗时，因此不触发上述 0.5 ms 耗时惩罚；C 另有通信超时和整场评测超时限制。
+
 # 3. 仿真器与控制架构
 
 HFM 是一个将轴对称自由边界等离子体平衡与线圈／被动导体回路耦合、按时间步推进的托卡马克控制仿真器。
@@ -135,7 +137,7 @@ $L_p$ 、 $R_p$ 是等离子体等效电感、电阻， $I_{\rm ni}$ 为非感�
 
 ## 3.2 Actor–Critic 控制
 
-本项目用 **PPO** 训练 Actor–Critic 网络：Actor 根据当前时刻的目标特征输出控制动作；Critic 基于相同目标输入估计后续回报，帮助 PPO 计算优势并更新策略。两者各使用两层 256 单元的 Tanh 网络；部署推理时使用 Actor。
+本项目 baseline 用 **PPO** 训练 Actor–Critic 网络：Actor 根据当前时刻的目标特征输出控制动作；Critic 基于相同目标输入估计后续回报，帮助 PPO 计算优势并更新策略。两者各使用两层 256 单元的 Tanh 网络；部署推理时使用 Actor。
 
 ```mermaid
 flowchart LR
@@ -150,7 +152,7 @@ flowchart LR
     P -.训练更新.-> C
 ```
 
-`reference_only_v1` 接口只使用当前时刻的 **90 维目标值**，输入顺序如下，不拼接实际状态、历史观测或动作历史：
+baseline 的 `reference_only_v1` 接口只使用当前时刻的 **90 维目标值**，输入顺序如下，不拼接实际状态、历史观测或动作历史。选手可修改特征和 wrapper；远程提交时在 A 复用自己的训练接口，见第 8.4 节。
 
 | 字段 | 维度 |
 | --- | ---: |
@@ -265,7 +267,15 @@ python rollout/visualize_rollout.py --run_name YOUR_RUN
 
 本项目采用 A/B/C 流程：**A 为选手服务器，B 为比赛平台，C 为主办方测评服务器**。A 在本地加载 checkpoint、归一化和自己的训练 wrapper；B 保存连接配置；C 运行 HFM、选择官方测评 shot，逐步发送观测并接收 A 返回的 12 维电压，最后由 C 评分并更新 B 的排行榜。
 
-正式提交不需要导出 ONNX，不上传 checkpoint、代码或本地仿真结果。测评 shot 文件不发送给 A；A 只接收模型所需的当前观测。训练和日常本地验证仍可使用选手自己的 HFM。
+**正式提交不需要导出 ONNX。** 选手上传一个 `endpoint.json`，模型及训练代码保留在 A。训练和日常本地验证仍可使用选手自己的 HFM，正式评分由 C 完成。
+
+| 位置 | 保存的文件 | 负责的操作 |
+| --- | --- | --- |
+| A：选手服务器 | PPO checkpoint `.zip`、匹配的 `VecNormalize.pkl`、训练代码和 wrapper | 加载模型，处理观测，返回电压 |
+| B：比赛平台 | 选手上传的 `endpoint.json`、提交记录和成绩 | 管理队伍、提交与排行榜 |
+| C：测评服务器 | 官方目标、shot、HFM、可信评分代码及评测记录 | 拉取连接文件，运行仿真并回传分数 |
+
+C 发送当前仿真观测字典（包括 reference），A 根据自己的 wrapper 选取输入。baseline 网络输出 7 维动作，由 A 转为 **12 维物理电压设定值**（CS、PF1–PF10、VS）后返回；C 再施加统一电源模型。测评 shot 文件和初始化路径不发送给 A；C 不加载 A 的 checkpoint 或训练代码。
 
 ## 8.1 安装推理依赖
 
@@ -310,20 +320,40 @@ python submission/service2.py \
 
 缺少匹配归一化文件时不会静默使用其它步数或原始观测。请保持服务进程运行，确保防火墙／端口映射允许 C 访问。同一个服务地址一次只处理一个测评回合，不要在正式测评中手动 reset。
 
+请保留完整训练运行目录及其中的 `f2_features.metadata.json`、`configs.pkl`，让服务读取训练使用的动作模式等配置。仅复制 checkpoint 到其他位置可能丢失这些设置。启动时只加载一次模型；切换权重或修改 wrapper 后，应在无活动测评时重启服务，再提交测评。
+
+提交前，可另开一个终端，输入与启动服务时相同的 A 访问令牌，检查 A 本机的服务状态：
+
+```bash
+read -rsp '输入同一个 A 推理服务访问令牌: ' SUBMISSION_ACCESS_TOKEN
+echo
+export SUBMISSION_ACCESS_TOKEN
+
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer ${SUBMISSION_ACCESS_TOKEN}" \
+  http://127.0.0.1:8001/health
+```
+
+确认响应中 `ok`、`model_loaded` 为 `true`。这只确认 A 本机服务已就绪，仍需保证 C 能访问提交地址。`8001` 是 A 的 HTTP 推理端口；C 的 HFM socket 默认端口是 `5558`，由主办方管理。
+
 ## 8.3 上传平台
 
-在 [比赛平台](https://competition.opensii.ai/) 对应课题上传 **`results/endpoint.json`**。B 必须允许该课题上传 JSON。文件格式如下，通常由生成器填写，无需手改：
+在 [比赛平台](https://competition.opensii.ai/) 对应课题上传 **`results/endpoint.json`**，这是选手需要上传的唯一文件，大小不超过 **64 KiB**。B 必须允许该课题上传 JSON。文件格式如下，通常由生成器填写，无需手改：
 
 ```json
 {
   "version": 1,
   "protocol": "hfm-remote-policy-v1",
   "service_url": "https://a.example.com",
-  "access_token": "A专用访问令牌"
+  "access_token": "YOUR_AGENT_TOKEN"
 }
 ```
 
 C 下载这个文件后调用 A 的 `/health`、`/reset`、`/act`，运行官方仿真并回传七项分数。A 不返回分数，C 不下载 A 的模型、代码或仿真环境。内网地址需要由 C 管理员提前加入允许列表，不是每份提交都人工审核。
+
+例如 A 地址为 `http://10.0.0.12:8001`，由 C 管理员在评分器启动命令中添加 `--allow-agent-origin http://10.0.0.12:8001`。选手不在 `endpoint.json` 中设置允许项；该配置也不会建立网络隧道，A 与 C 仍需路由互通。主办方的完整启动方式见 `server/offline-grading` 分支 README。
+
+从提交到平台显示完成前，保持 A 服务和模型运行。A 连接、鉴权或推理失败会使该提交失败，修复后重新提交；C 的 HFM 故障由主办方修复并重试。A 最多记住 4096 个已结束回合，达到容量后需在无活动测评时重启，不能通过重复旧 reset 清空或重新激活旧回合。
 
 ## 8.4 修改 wrapper 或模型接口
 
