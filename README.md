@@ -261,67 +261,72 @@ python rollout/visualize_rollout.py --run_name YOUR_RUN
 数据保存在`results/YOUR_RUN/eval/figures/`
 
 
-# 8. 模型导出与平台提交
+# 8. 启动远程推理服务并提交平台
 
-选手运行模型导出命令，程序会自动生成一个 **`results/submission_model.zip`**，然后将它上传比赛平台。评分服务器自动从比赛平台下载、校验并解包，使用 CPU 加载模型，调用服务器自带的 HFM 仿真器生成轨迹，按官方目标计算七项贡献分并回传平台，平台更新综合分与排行榜。正式提交无需在选手端启动推理服务或运行本地评测。
+本项目采用 A/B/C 流程：**A 为选手服务器，B 为比赛平台，C 为主办方测评服务器**。A 在本地加载 checkpoint、归一化和自己的训练 wrapper；B 保存连接配置；C 运行 HFM、选择官方测评 shot，逐步发送观测并接收 A 返回的 12 维电压，最后由 C 评分并更新 B 的排行榜。
 
-## 8.1 导出并打包模型
+正式提交不需要导出 ONNX，不上传 checkpoint、代码或本地仿真结果。测评 shot 文件不发送给 A；A 只接收模型所需的当前观测。训练和日常本地验证仍可使用选手自己的 HFM。
 
-以下两种方式任选其一，均在项目根目录执行。将 `YOUR_RUN` 替换为训练运行目录名。`train/export_onnx.py` 在导出模型、元数据和归一化统计后自动打包，无需另行压缩。终端显示 `Model package ready` 才表示本次模型包已更新，导出或打包报错时不要上传旧文件。
+## 8.1 安装推理依赖
 
-**训练中断后使用最新 checkpoint**：从 `checkpoints/` 中选择训练步数最大的模型，同时使用同一步数对应的归一化文件。
+以下命令在 A 的项目根目录执行：
 
 ```bash
-RUN_DIR=results/YOUR_RUN
-
-LATEST_CP=$(find "$RUN_DIR/checkpoints" -maxdepth 1 -type f \
-  -name 'ppo_f2_*_steps.zip' -printf '%f\n' | sort -V | tail -n 1)
-
-if [[ -z "$LATEST_CP" ]]; then
-  echo "没有找到 checkpoint，请检查 $RUN_DIR/checkpoints"
-else
-  MODEL_PATH="$RUN_DIR/checkpoints/$LATEST_CP"
-  VECNORMALIZE_PATH="${MODEL_PATH%.zip}_vecnormalize.pkl"
-  if [[ ! -f "$VECNORMALIZE_PATH" ]]; then
-    echo "缺少对应的归一化文件：$VECNORMALIZE_PATH，请检查 checkpoint.save_vecnormalize 配置"
-  else
-    echo "导出模型：$MODEL_PATH"
-    python train/export_onnx.py \
-      --model "$MODEL_PATH" \
-      --out submission/model/policy2.onnx \
-      --vecnormalize "$VECNORMALIZE_PATH"
-  fi
-fi
+pip install -r submission/requirements.txt
 ```
 
-**训练正常结束后使用最终模型：**
+已有训练环境通常已具备 Torch 和 Stable-Baselines3。实际训练 wrapper 由 A 本机代码提供，C 不导入选手的 `train`。
+
+## 8.2 生成提交文件并启动服务
+
+将 `YOUR_SERVER_IP` 替换为 C 可以访问的 A 地址。`0.0.0.0` 是监听地址，`127.0.0.1` 只代表请求方本机，都不能作为 A 提交给远程 C 的服务地址。公网部署建议通过 HTTPS 反向代理访问。
+
+在同一终端设置 A 专用访问令牌、生成连接文件，再启动推理服务：
 
 ```bash
-python train/export_onnx.py \
+read -rsp '设置 A 推理服务访问令牌: ' SUBMISSION_ACCESS_TOKEN
+echo
+export SUBMISSION_ACCESS_TOKEN
+
+python submission/export_endpoint.py \
+  --service-url http://YOUR_SERVER_IP:8001 \
+  --output results/endpoint.json
+
+python submission/service2.py \
   --model results/YOUR_RUN/ppo_f2_latest.zip \
-  --out submission/model/policy2.onnx \
-  --vecnormalize results/YOUR_RUN/vecnormalize.pkl
+  --vecnormalize results/YOUR_RUN/vecnormalize.pkl \
+  --host 0.0.0.0 --port 8001
 ```
 
-默认提交包为项目根目录下的 `results/submission_model.zip`。可通过 `--bundle /path/to/team_model.zip` 指定输出位置。
+也可使用 `bash submission/run.sh --model ... --vecnormalize ...`，它只启动 A 的推理服务，不启动 HFM 或评分程序。令牌只用于 A/C 通信，不要使用 B 的平台登录 token。`endpoint.json` 含访问凭据，应仅上传给平台，不公开或提交 Git。
 
-## 8.2 提交文件组成
+**训练中断后使用最新 checkpoint**：改用以下启动命令，程序按训练步数选择该目录中的最新权重，并寻找同一步数的 `_vecnormalize.pkl`：
 
-上述命令把导出的三份文件放入 ZIP 根目录，最终只需提交 **`results/submission_model.zip`**：
-
-```text
-submission_model.zip
-├── policy2.onnx
-├── policy2.metadata.json
-└── policy2_vecnormalize_stats.npz
+```bash
+python submission/service2.py \
+  --model results/YOUR_RUN/checkpoints \
+  --host 0.0.0.0 --port 8001
 ```
 
-`policy2.onnx` 是策略模型，`policy2.metadata.json` 描述 90 维当前目标输入与动作接口，`policy2_vecnormalize_stats.npz` 保存匹配的 90 维归一化统计。ZIP 文件名可以自定，但包内三份文件名称固定，且不能再套一层目录或加入其他文件；压缩包上限为 128 MiB。
-
-当前 baseline 的 ONNX 输出 7 维独立动作（CS、5 组配对 PF、VS），评分服务器沿用训练时的动作映射，将其转换成 HFM 接收的 12 维线圈电压。
+缺少匹配归一化文件时不会静默使用其它步数或原始观测。请保持服务进程运行，确保防火墙／端口映射允许 C 访问。同一个服务地址一次只处理一个测评回合，不要在正式测评中手动 reset。
 
 ## 8.3 上传平台
 
-在 [比赛平台](https://competition.opensii.ai/) 的对应课题中上传 `results/submission_model.zip`，等待服务器自动解包、测评并回传结果。只上传这个文件，不分别上传其中三份文件，也不上传训练用 PPO checkpoint、`.pkl`、`target.json` 或轨迹 JSON。官方目标和评测环境由服务器统一提供。无队列堆积时，单个文件测评结果将在几分钟内提交给比赛平台。
+在 [比赛平台](https://competition.opensii.ai/) 对应课题上传 **`results/endpoint.json`**。B 必须允许该课题上传 JSON。文件格式如下，通常由生成器填写，无需手改：
 
-> 注意，比赛分数会以最高分为准，**建议用git做好代码版本保存，实训课题结束时切回最高分代码版本**，方便助教复现您提交的最高分结果
+```json
+{
+  "version": 1,
+  "protocol": "hfm-remote-policy-v1",
+  "service_url": "https://a.example.com",
+  "access_token": "A专用访问令牌"
+}
+```
+
+C 下载这个文件后调用 A 的 `/health`、`/reset`、`/act`，运行官方仿真并回传七项分数。A 不返回分数，C 不下载 A 的模型、代码或仿真环境。内网地址需要由 C 管理员提前加入允许列表，不是每份提交都人工审核。
+
+## 8.4 修改 wrapper 或模型接口
+
+默认适配器直接实例化 `train/wrappers.py` 的 `ReferenceObservationWrapper` 和 `NormalizedAction7DTo12DWrapper`，因此特征和动作处理复用训练代码，不需要维护 ONNX 版实现。改变内部观测维数时，服务按真实 wrapper 与 checkpoint 的空间匹配，不强制 90 维。
+
+如果改变了 wrapper 类名、构造参数或模型接口，可在 A 上通过 `--adapter-factory train.my_adapter:build_adapter` 指定自己的适配器。接口和协议说明见 [submission/README.md](submission/README.md)。正式运行时不要重复施加电源延迟、变化率限制或 PSM，这些由 C 统一执行。

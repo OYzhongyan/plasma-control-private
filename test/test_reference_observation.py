@@ -168,7 +168,7 @@ def test_trained_90_feature_actor_critic_export_and_inference_match(reference_ex
     from submission.inference2 import Policy
     from train.wrappers import NormalizedAction7DTo12DWrapper
     directory, model, env = reference_export
-    policy = Policy(directory)
+    policy = Policy(directory, backend="onnx")
     assert policy.ready, policy.load_error
     assert policy.metadata["obs_dim"] == 90
     actions = NormalizedAction7DTo12DWrapper(ReferenceEnv())

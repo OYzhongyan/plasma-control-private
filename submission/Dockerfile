@@ -25,7 +25,7 @@ RUN python3 --version \
 
 # 拷贝 submission 代码（含 start_infer.sh、run.sh，选手勿改）
 COPY submission /app/submission
-COPY train/__init__.py train/wrappers.py /app/train/
+COPY train /app/train
 COPY environment /app/environment
 COPY configs/shots.yaml /app/configs/shots.yaml
 COPY eval_files /app/eval_files
