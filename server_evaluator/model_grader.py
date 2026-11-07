@@ -166,7 +166,8 @@ class ModelGrader:
                            MKL_NUM_THREADS=str(self.config["onnx_threads"]),
                            OPENBLAS_NUM_THREADS=str(self.config["onnx_threads"]),
                            SAISDATA_SHOTS_CONFIG=str(self.shots_config), PYTHONUNBUFFERED="1")
-        options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
+        options = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else
+                   {"start_new_session": os.environ.get('PLASMA_GRADER_SUPERVISED') != '1'})
         log_path = job_dir / "evaluation.log"
         with log_path.open("wb") as log:
             try:

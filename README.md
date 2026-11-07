@@ -122,7 +122,36 @@ A 邮箱不存在、未运行、响应超时、模型中途重启或返回非法
 
 # 7. 审计、迁移和部署
 
-默认数据目录为 `server_evaluator/runtime-shared-v1`，保存任务数据库、原始私有连接文件和 `evaluations/*/attempt-*/` 中的可信配置、阶段、日志、真实轨迹与结果。临时 endpoint 副本在评测后删除。限制整个目录访问权限；轨迹审计不包含密钥。
+## 7.1 自动监控与重启 C（HFM 独立常驻）
+
+如果 HFM 已由你独立启动并保持运行，可用守护脚本代替直接启动 `run.py`。先按 `Ctrl+C` 停止旧 C 评分器，保留 A 和 HFM 运行，然后执行：
+
+```bash
+python server_evaluator/watchdog.py \
+  --target evaluation/results/target.json \
+  --data-dir server_evaluator/runtime-watchdog \
+  --agent-timeout 15 --agent-retries 2 \
+  --poll-interval 15
+```
+
+其余 `run.py` 平台、shot、共享目录、种子等参数可继续传入。**不要添加 `--hfm-runtime-dir`**：守护脚本只管理自己的 C 评分器和测评子进程，不启动、不停止独立 HFM；它不负责 HFM 保活或故障恢复。
+
+检测到 `Server code/configuration changed` 或启动时缓存指纹不一致时，守护脚本会停止旧评分器，等待默认 5 秒，创建全新的评分数据目录并重启 C。待评任务重新从 B 拉取；选手的普通失败、HFM 暂时不可用或网络警告不会触发缓存轮换。其他致命退出会保留日志并返回错误，不无限重启。
+
+`--data-dir` 在此是稳定的**守护根目录**：实际评分数据库位于其 `runs/run-*` 下，每次因配置变化重启会创建新目录，旧日志和成绩缓存不会删除。`active.json` 中的 `active_data_dir` 指向当前实际目录；以后查询 tasks.sqlite3、下载文件或测评日志时，使用这个实际目录。正常停止后再次运行相同命令，会复用最近一次目录；只有指纹变化才自动换新目录。
+
+```bash
+cat server_evaluator/runtime-watchdog/active.json
+tail -f server_evaluator/runtime-watchdog/supervisor.log
+```
+
+每个 `runs/run-*` 下的 `worker.log` 保存该次 C 完整输出，原有 `evaluations/*/attempt-*/` 日志也保留。旧目录中算完但未确认回传的成绩仍保留以便核对；平台仍待评的任务可能在新配置下重新仿真。正式部署将守护根目录放在 C 的可靠本地持久磁盘，只运行一套评分器。修改守护脚本自身时，应停止并重新启动它。
+
+可用 `--restart-delay 5` 设置重启间隔、`--shutdown-timeout 45` 设置优雅停止等待时间。按 `Ctrl+C` 停止守护脚本会同时清理它自己的评分子进程，不影响独立 HFM。
+
+## 7.2 数据与部署说明
+
+直接运行 `run.py` 时，默认数据目录为 `server_evaluator/runtime-shared-v1`，保存任务数据库、原始私有连接文件和 `evaluations/*/attempt-*/` 中的可信配置、阶段、日志、真实轨迹与结果。守护模式的数据目录结构见上一小节。临时 endpoint 副本在评测后删除。限制整个目录访问权限；轨迹审计不包含密钥。
 
 升级时停止旧评分进程，使用新缓存目录，不复用 `runtime-remote-v1`。A 启动共享服务时会把合法旧 HTTP endpoint 自动换成共享协议文件；选手需重新上传新文件。平台已回传的失败记录不会自动重评，需重交或管理员重置。A 保存 4096 个旧回合编号，达到容量后应在空闲时重启；service_id 能检测中途重启，model_id 不能保证选手模型不可更改。
 

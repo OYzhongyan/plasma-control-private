@@ -13,7 +13,7 @@ EnvironmentFile=/etc/plasma-grader.env
 Environment=PYTHONUNBUFFERED=1
 Environment=OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 Environment=SAISDATA_SHOTS_CONFIG=/opt/plasma-control-server/configs/shots.yaml
-ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server/server_evaluator/run.py \
+ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server/server_evaluator/watchdog.py \
     --target /opt/plasma-control-server/evaluation/results/target.json \
     --env-config /opt/plasma-control-server/configs/env_default.yaml \
     --reference-config /opt/plasma-control-server/eval_files/references.yaml \
@@ -24,11 +24,10 @@ ExecStart=/opt/plasma-control-server/.venv/bin/python /opt/plasma-control-server
     --shared-root /inspire/hdd/project/26-nuclear-fusion/public/plasma-agents \
     --seed 0 --onnx-threads 1 \
     --memory-limit-mb 4096 \
-    --data-dir /var/lib/plasma-grader/shared-v1
-Restart=on-failure
-RestartSec=15
+    --data-dir /var/lib/plasma-grader/watchdog
+Restart=no
 KillMode=mixed
-TimeoutStopSec=40
+TimeoutStopSec=75
 UMask=0077
 NoNewPrivileges=true
 

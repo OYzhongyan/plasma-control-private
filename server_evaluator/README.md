@@ -59,11 +59,40 @@ C 创建每回合 episode_id 和从 0 递增的 step_id；同一请求重发保�
 
 # 4. 审计、升级与 systemd
 
-`runtime-shared-v1` 保存 `tasks.sqlite3`、含私有密钥的 `downloads/*.json`（0600）、`evaluations/*/attempt-*/trajectory.json`、`result.json`、`evaluation.log`、`config.json` 和 `phase.json`。临时 endpoint 副本评测后删除，可信配置和轨迹审计不含 A 密钥。正式部署 `--data-dir` 应位于 C 的可靠本地持久磁盘，例如 systemd 模板中的 `/var/lib/plasma-grader/shared-v1`，并只允许运行账户和管理员读取；避免共享目录卡住时连监督阶段文件也被阻塞。
+HFM 独立常驻时，建议使用配置变化自动恢复入口：
+
+```bash
+python server_evaluator/watchdog.py \
+  --target evaluation/results/target.json \
+  --data-dir server_evaluator/runtime-watchdog \
+  --poll-interval 15
+```
+
+首次启用前停止旧的直接运行评分器。守护脚本接收其余常驻 `run.py` 参数，但拒绝 `--hfm-runtime-dir`、`--once` 和本地单文件联调模式，不启动或停止 HFM。只识别可信的代码／配置变化和缓存指纹不一致日志；检测后优雅停止自己的 C 进程，清理其测评子进程，等待 5 秒并换新缓存重启。未完成提交继续从平台拉取。普通模型失败、平台／HFM 暂时故障不会触发换缓存；无已知配置警告的致命退出直接返回错误。
+
+守护模式的 `--data-dir` 是稳定根目录，内部结构为：
+
+```text
+runtime-watchdog/
+├── active.json             # active_data_dir 指向当前真正的评分数据目录
+├── supervisor.log          # 启动、停止和重启原因
+├── supervisor-lock/        # 同一守护根目录的实例锁
+└── runs/run-*/
+    ├── worker.log          # 该次 C 的 stdout/stderr
+    ├── tasks.sqlite3
+    ├── downloads/
+    └── evaluations/
+```
+
+旧目录保留，不修改或强行复用旧指纹。正常停止后重启守护脚本，恢复 `active.json` 中最近一次缓存；若新配置不匹配会再自动轮换。旧的未确认回传成绩不迁移到新规则缓存，平台仍待评的提交可能重新评分；旧记录仍可审计。维护守护脚本自身时需重新启动守护进程。
+
+参数 `--restart-delay` 默认 5 秒，`--shutdown-timeout` 默认 45 秒。Ctrl+C / SIGTERM 停止守护进程时不自动拉起 C；Linux 只清理它拥有的进程组，不向独立 HFM 发进程信号。监督日志／状态应放可靠本地持久磁盘。不要同时以其他数据目录另起一套同课题 C 评分器。
+
+直接运行评分器时，`runtime-shared-v1` 保存 `tasks.sqlite3`、含私有密钥的 `downloads/*.json`（0600）、`evaluations/*/attempt-*/trajectory.json`、`result.json`、`evaluation.log`、`config.json` 和 `phase.json`；守护模式将这些文件放入当前 `runs/run-*`。临时 endpoint 副本评测后删除，可信配置和轨迹审计不含 A 密钥。正式部署的数据应位于 C 的可靠本地持久磁盘，并只允许运行账户和管理员读取；避免共享目录卡住时连监督阶段文件也被阻塞。
 
 先停止旧服务，再换新缓存和共享协议文件；不要复用 HTTP 的 runtime-remote-v1。A 自动迁移合法旧 HTTP endpoint，但必须重新上传 B。已回传失败的提交需重交或平台管理员重置。
 
-配置 [plasma-grader.service](plasma-grader.service) 的账户、项目、Python 和共享目录路径。默认连接单独启动的 HFM，自动托管时添加 `--hfm-runtime-dir`。在 `/etc/plasma-grader.env` 设置平台助教 `PLATFORM_USERNAME`、`PLATFORM_PASSWORD`、`PLATFORM_PROBLEM_ID` 或有效 `PLATFORM_TOKEN`：
+配置 [plasma-grader.service](plasma-grader.service) 的账户、项目、Python 和共享目录路径。模板使用 watchdog、缓存根目录 `/var/lib/plasma-grader/watchdog`，连接独立运行的 HFM，不支持托管 HFM。在 `/etc/plasma-grader.env` 设置平台助教 `PLATFORM_USERNAME`、`PLATFORM_PASSWORD`、`PLATFORM_PROBLEM_ID` 或有效 `PLATFORM_TOKEN`：
 
 ```bash
 sudo chmod 600 /etc/plasma-grader.env
@@ -73,7 +102,7 @@ sudo systemctl enable --now plasma-grader
 sudo journalctl -u plasma-grader -f
 ```
 
-模板 `UMask=0077` 保护 C 的私有结果；公共消息显式保留项目组访问权限。停止使用 `sudo systemctl stop plasma-grader`，独立启动的 HFM 需单独管理。
+模板 `UMask=0077` 保护 C 的私有结果；公共消息显式保留项目组访问权限。配置变化由 watchdog 自行重启 C，systemd 使用 `Restart=no`，其他致命配置错误不会被无限重试；修复后执行 `sudo systemctl restart plasma-grader`。停止使用 `sudo systemctl stop plasma-grader`，独立启动的 HFM 需单独管理。
 
 # 5. 回归与部署核验
 
