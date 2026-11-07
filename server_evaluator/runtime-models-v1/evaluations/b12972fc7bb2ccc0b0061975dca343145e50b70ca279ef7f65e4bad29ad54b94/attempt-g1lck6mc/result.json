@@ -1,0 +1,1 @@
+{"kind": "completed", "result": {"metrics_scores": {"Ip": 5.566970056957008, "LCFS": 0.0, "X": 0.0, "strike": 1.5346143547437583, "psiX": 0.0, "X2": 1.252101806586767, "psiX2": 0.0}, "status": "completed", "evaluator_message": "F2b score=8.353686/30; K_eff=499/500; gamma=1"}}
