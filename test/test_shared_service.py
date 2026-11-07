@@ -31,7 +31,9 @@ def step(index=0): return dict(protocol=PROTOCOL, episode_id='test-episode', ste
 def exchange(worker, endpoint, method, body, *, request_id=None, expires_at=None):
     from submission.shared_channel import encode_packet, decode_packet, digest
     request_id = request_id or uuid.uuid4().hex
-    raw = encode_packet(endpoint, request_id, 'request', dict(method=method, body=body),
+    payload = dict(method=method, body=body)
+    if method != 'health': payload['service_id'] = worker.service_id
+    raw = encode_packet(endpoint, request_id, 'request', payload,
                         expires_at=expires_at or time.time()+30)
     name = request_id+'.json'
     worker.mailbox.requests.write(name, raw)
@@ -94,6 +96,24 @@ def test_worker_restart_changes_service_id(tmp_path):
     endpoint = make_descriptor()
     with SharedWorker(tmp_path, endpoint, CounterPolicy()) as first: before = first.service_id
     with SharedWorker(tmp_path, endpoint, CounterPolicy()) as second: assert second.service_id != before
+
+
+def test_pre_restart_requests_cannot_displace_new_episode(worker):
+    from submission.agent_session import AgentSession
+    from submission.shared_channel import encode_packet
+    service, endpoint = worker
+    old_request_id=uuid.uuid4().hex
+    # This is the old wire request, missing an incarnation binding.
+    old=encode_packet(endpoint,old_request_id,'request',dict(method='reset',body=reset()),expires_at=time.time()+30)
+    service.service_id=uuid.uuid4().hex
+    service.session=AgentSession(service.policy)
+    current=dict(protocol=PROTOCOL,episode_id='new-episode')
+    assert exchange(service,endpoint,'reset',current)['ok']
+    before=service.policy.resets
+    service.mailbox.requests.write(old_request_id+'.json',old)
+    service.poll_once()
+    assert service.policy.resets==before
+    assert service.session.episode=='new-episode'
 
 
 def test_startup_migrates_existing_http_descriptor_without_manual_address_choice(tmp_path, monkeypatch):

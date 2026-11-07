@@ -43,9 +43,12 @@ class SharedWorker:
 
     def dispatch(self, payload):
         try:
-            if set(payload) != {'method', 'body'} or not isinstance(payload['body'], dict):
+            if (not {'method', 'body'}.issubset(payload) or set(payload)-{'method', 'body', 'service_id'}
+                    or not isinstance(payload['body'], dict)):
                 raise ValueError('Invalid request')
             method, body = payload['method'], payload['body']
+            if method != 'health' and payload.get('service_id') != self.service_id:
+                raise ValueError('Request belongs to a previous service incarnation')
             if method == 'health':
                 result = dict(self.policy.status(), protocol=PROTOCOL)
                 result['ok'] = bool(self.policy.ready)

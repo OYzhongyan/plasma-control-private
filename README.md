@@ -288,7 +288,7 @@ bash submission/run.sh --model results/YOUR_RUN/checkpoints
 python submission/shared_service.py --model results/YOUR_RUN
 ```
 
-请保留运行目录内的 `f2_features.metadata.json`、`configs.pkl` 和配套归一化文件，以恢复动作模式等设置。模型与 wrapper 只在启动时加载；修改后应在无活动测评时重启 A。默认复用已有 `results/endpoint.json` 的服务编号；同时启动多个模型时，为每个进程指定不同的 `--output` 文件。
+请保留运行目录内的 `f2_features.metadata.json`、`configs.pkl` 和配套归一化文件，以恢复动作模式等设置。模型与 wrapper 只在启动时加载；修改后应在无活动测评时重启 A。默认复用已有共享协议 `results/endpoint.json` 的服务编号；若该文件是合法旧 HTTP 连接文件，启动成功后自动替换为共享协议，需重新上传平台。同时启动多个模型时，为每个进程指定不同的 `--output` 文件。
 
 ## 8.2 共享目录与提交文件
 

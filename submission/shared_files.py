@@ -6,6 +6,15 @@ from pathlib import Path
 import re
 import secrets
 import stat
+import time
+
+
+def _retry_windows(operation):
+    for attempt in range(6):
+        try: return operation()
+        except OSError as exc:
+            if os.name != 'nt' or exc.errno != errno.EACCES or attempt == 5: raise
+            time.sleep(.01)
 
 
 def _name(value):
@@ -58,7 +67,7 @@ class Directory:
         return fd
 
     def read(self, name, maximum):
-        with os.fdopen(self.open(name, os.O_RDONLY), 'rb') as stream:
+        with os.fdopen(_retry_windows(lambda: self.open(name, os.O_RDONLY)), 'rb') as stream:
             if os.fstat(stream.fileno()).st_size > maximum: raise ValueError('Mailbox file is too large')
             raw = stream.read(maximum + 1)
         if len(raw) > maximum: raise ValueError('Mailbox file is too large')
@@ -73,7 +82,7 @@ class Directory:
                 stream.write(raw); stream.flush(); os.fsync(stream.fileno())
             if self.fd is not None:
                 os.replace(temporary, name, src_dir_fd=self.fd, dst_dir_fd=self.fd)
-            else: os.replace(self.path / temporary, self.path / name)
+            else: _retry_windows(lambda: os.replace(self.path / temporary, self.path / name))
         finally:
             self.unlink(temporary)
 
@@ -81,7 +90,7 @@ class Directory:
         _name(name)
         try:
             if self.fd is not None: os.unlink(name, dir_fd=self.fd)
-            else: (self.path / name).unlink()
+            else: _retry_windows(lambda: (self.path / name).unlink())
         except FileNotFoundError: pass
 
     def names(self, maximum=256):
