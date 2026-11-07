@@ -146,3 +146,11 @@ def test_missing_controller_fails_readiness_without_zero_action_fallback(tmp_pat
     with pytest.raises(RuntimeError):
         policy.act({"Ip": [3.]})
     assert create_app(tmp_path).test_client().get("/health").status_code == 503
+
+
+def test_service_script_bootstraps_imports_without_pythonpath(tmp_path):
+    script = "import runpy, sys; value=runpy.run_path(sys.argv[1], run_name='smoke_import'); assert 'app' in value"
+    process = subprocess.run([sys.executable, "-B", "-c", script, str(ROOT / "submission/service2.py")],
+                             cwd=tmp_path, capture_output=True, text=True,
+                             env=dict(os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1"))
+    assert process.returncode == 0, process.stderr

@@ -48,5 +48,3 @@ def validate_reference_metadata(metadata: dict[str, Any]) -> None:
             valid = actual == value
         if not valid:
             raise ValueError(f"Reference metadata {key} does not match training layout")
-
-

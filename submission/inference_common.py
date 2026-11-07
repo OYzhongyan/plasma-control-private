@@ -4,8 +4,15 @@ Feature extraction, normalization and action conversion are embedded in ONNX.
 """
 from __future__ import annotations
 import math
+import sys
 from pathlib import Path
 import numpy as np
+
+# Also support the documented direct entrypoint python submission/service2.py.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from submission.controller_contract import MANIFEST_NAME, MODEL_NAME, observation_inputs, read_manifest
 from submission.onnx_validation import validate_graph
 

@@ -23,9 +23,9 @@
 
 - [x] T1: Write failing contract/runtime/package tests. Implement independent field schema, manifest validation, data-only two-file bundle and generic ONNX runtime. Remove runtime imports of train.
 - [x] T2: Write failing export parity/custom-controller tests. Implement local Torch controller factory and full export, embed frozen statistics and state, verify ORT parity. Move training metadata helpers into train.
-- [ ] T3: Update main submission docs, Docker runtime and dependent tests. Validate and save a scoped main commit; preserve user files.
-- [ ] T4: Transfer common changes to server/offline-grading without a worktree. Update model validation/supervision/fingerprints, new cache default and administrator docs. Test malformed packages and real export plus fake-HFM scoring with train imports blocked.
-- [ ] T5: Request one independent final code review, fix important findings through regression tests, verify both branches, save server commit and report limits and commit IDs.
+- [x] T3: Update main submission docs, Docker runtime and dependent tests. Validate and save a scoped main commit; preserve user files.
+- [x] T4: Transfer common changes to server/offline-grading without a worktree. Update model validation/supervision/fingerprints, new cache default and administrator docs. Test malformed packages and real export plus fake-HFM scoring with train imports blocked.
+- [x] T5: Request one independent final code review, fix important findings through regression tests, verify both branches, save server commit and report limits and commit IDs.
 
 ## Execution ledger
 
@@ -35,3 +35,9 @@
 - Ruling: state_dtype supports float32/float64; baseline delta uses float64 to match the existing NumPy accumulator.
 - Main had a deleted sensor helper still imported by evaluation; restored its existing server behavior in a training-only sensor_perturbation module, keeping it outside submission.
 - Wider legacy regression check: 31 passed, 7 failed because main already lacks train.features and train.legacy_train_ppo; leave obsolete-tool cleanup outside this task.
+
+- T3 main implementation saved as fb6ba23; 89 focused tests passed.
+- T4 server integration: 161 passed, 1 skipped, including full train-import-prohibited fake-HFM grading. HFM/official score/shot/delay source unchanged.
+- Final independent review found one direct-script import regression; reproduced red with empty PYTHONPATH, restored root bootstrap, all 22 runtime tests green. Reviewer confirmed no remaining important findings.
+
+- Final post-review server suite: 162 passed, 1 skipped, 37 warnings. Main-specific service startup fix backported; final main suite: 90 passed, 32 warnings. No live HFM or production platform requests made.

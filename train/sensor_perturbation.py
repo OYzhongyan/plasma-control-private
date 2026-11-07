@@ -34,7 +34,7 @@ class ObservationDelayNoiseWrapper(gym.Wrapper):
         return {k: np.asarray(v, dtype=np.float64).copy() for k, v in obs.items()}
 
     def _delayed_noised(self, step_index: int) -> dict[str, Any]:
-        
+
         di = step_index - self.delay_steps
         src = self._obs_hist[max(0, di)]
         out: dict[str, Any] = {}
