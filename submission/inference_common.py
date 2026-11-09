@@ -444,11 +444,9 @@ class BaseOnnxPolicy:
         try:
             import onnxruntime as ort
 
-            if self.metadata.get("feature_mode") != "reference_only_v1":
-                raise ValueError("Policy requires reference_only_v1 metadata and a newly trained 90D model")
-            from submission.history import ReferencePolicyAdapter
+            from submission.history import build_policy_adapter
 
-            self.reference_adapter = ReferencePolicyAdapter(self.metadata)
+            self.reference_adapter = build_policy_adapter(self.metadata)
             if self.metadata.get("observation_normalization") is False:
                 self.obs_normalization = None
             if (

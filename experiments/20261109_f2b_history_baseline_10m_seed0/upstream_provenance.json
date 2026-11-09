@@ -1,0 +1,33 @@
+{
+  "source_project": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/SII-585-THU",
+  "source_commit": "ffda09ab4621ede477ff71247547f8cbc43d133a",
+  "source_dirty_status": "D \"\\346\\210\\252\\345\\261\\2172026-10-28 08.44.05.png\"",
+  "source_files": {
+    "train_v2\\evaluate.py": "8b5fd419f40caede1a0ec9ca7a3ee5efcfb0a8ac3b42c78d94c431e1b3da9e60",
+    "train_v2\\rewards.py": "10717a8c9c59ac41799c360346dad2c5bb66e6e2a0c93befeaefd1524b33f98e",
+    "train_v2\\train_ppo.py": "ebe52e4326c7e9e6c18b553fe813365d3d42d7799592bcba5bc7fdfd50d43d2d",
+    "train_v2\\utils.py": "4aace40ba5c1e87614f41e91de1a5bbc9efa4fa5c06f3dcf599daea016919d61",
+    "train_v2\\wrappers.py": "67d0fadd4ef974e0fd5b6cc63537a83d920b07e1ca2ba0ceb040e7c7910505d4",
+    "train_v2\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "train_v2\\configs\\base.yaml": "189e7428cc3e4cab05cd0d70dbb41a50a4226ab8f3275f5d4289cda7bdf37b6f",
+    "train_v2\\configs\\eval.yaml": "d4f423fe347b9fd56c7e891c955804a9117e441284de91cd398521d540de4ab6",
+    "train_v2\\configs\\task\\f1.yaml": "4657767b02f509cabcea54f176ff6f150286e8932528c45a241c54d1761ad240",
+    "train_v2\\configs\\task\\f2.yaml": "28ca70a0478fe7c445d98d7dafa33b31ccd58e55d6581e4cc246d0e987c26d04"
+  },
+  "restoration": {
+    "observation_wrapper": "train.wrappers.ObservationWrapper",
+    "reward": "train.dense_rewards.SemifinalDenseReward",
+    "reward_specialization": "F2 constant-folding only; F1 paths removed, verified numerical parity",
+    "training_shots": [
+      "15892_400",
+      "15892_500"
+    ],
+    "validation_shot": "14795_400",
+    "test_shot": "13705_500",
+    "hfm_runtime": "\\inspire\\qb-ilm\\project\\ai-for-fusion\\czxs25220173\\hfm-runtime-release-sealed-latest",
+    "resource_quota": {
+      "cpu": 54,
+      "memory_bytes": 322122547200
+    }
+  }
+}

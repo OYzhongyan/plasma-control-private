@@ -31,7 +31,11 @@ checkpoint 的配套文件和动作配置应保留在原运行目录。观测归
 
 ## 复用自己的训练 wrapper
 
-`history.py` 中的 `CheckpointPolicyAdapter` 在 A 实际实例化训练观测和动作 wrapper。缓冲环境把 C 的原始 observation 交给 reset/step，不在 A 创建 HFM。按模型真实空间校验，不固定 90 维。
+`history.py` 中的 `CheckpointPolicyAdapter` 在 A 实际实例化训练的 `ObservationWrapper` 和 `NormalizedAction7DTo12DWrapper`。缓冲环境把 C 的原始 observation 交给 reset/step，不在 A 创建 HFM；归一化统计冻结，输入空间按模型、metadata 和实际 wrapper 校验。
+
+默认 baseline 恢复自 SII-585-THU commit `ffda09ab4621ede477ff71247547f8cbc43d133a`：4 帧 188 维观测加 5 帧 12 维物理动作历史，共 812 维。Actor 与 Critic 使用相同输入；Actor 输出 7 维归一化 delta，经累加、配对映射后返回 12 维物理电压。每次 reset 清空历史及增量累加状态，动作历史保存转换后的物理电压，避免重复累加。旧 90 维 `reference_only_v1` 仅用于加载 metadata 与 checkpoint 匹配的已有产物，不作为默认训练接口。
+
+训练使用同一上游的 dense reward；其平滑映射、soft current mask 和部分权重与正式评分不同，训练回报总和不能作为比赛得分。C 始终使用正式七项满分 30 分的评分器。训练、离线评估与记录命令见根目录 [README.md](../README.md) 第 5、6、9 节；评分服务维护分支为 `grading`。
 
 改变 wrapper 类名、构造参数或接口时，在 A 提供工厂：
 

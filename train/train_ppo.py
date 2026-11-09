@@ -24,10 +24,23 @@ from train.callbacks import (
     save_vecnormalize_stats,
 )
 from train.references import build_reference, default_reference_path
-from train.rewards import CompetitionReward
+from train.rewards import SemifinalDenseReward
 from train.wrappers import *
 from train.utils import warmup_cosine_schedule
-from submission.history import reference_metadata
+from submission.history import observation_metadata
+
+
+def build_reward(weights):
+    return SemifinalDenseReward(
+        reward_weights=dict(weights),
+        score_lower_bound=bool(weights.get("score_lower_bound", False)),
+    )
+
+
+def configure_training_logger(directory):
+    """Keep PPO scalars locally, independently of W&B availability."""
+    from stable_baselines3.common.logger import configure
+    return configure(str(directory), ["stdout", "csv", "tensorboard"])
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -151,7 +164,8 @@ def make_env(
             max_steps=max_steps,
             reference_mode=reference_mode,
         )
-        reward_fn = CompetitionReward()
+        env_configs.setdefault("predictor", {})["power_supply_seed"] = int(seed) + 30_000
+        reward_fn = build_reward(reward_weights or {})
         env: gym.Env = HFMSimulator(env_configs, reward_fn=reward_fn)
         if reference_mode == "hold_initial":
             env = HoldInitialResetWrapper(
@@ -172,7 +186,11 @@ def make_env(
             )
         env = NormalizedAction7DTo12DWrapper(env, action_mode=action_mode)
         env = RewardInfoWrapper(env)
-        env = ReferenceObservationWrapper(
+        if delay_step > 0 or delay_noise_std:
+            env = ObservationDelayNoiseWrapper(
+                env, delay_steps=delay_step, noise_std=delay_noise_std, seed=seed + 20_000,
+            )
+        env = ObservationWrapper(
             env,
             obs_history_step=obs_history_step,
             include_xpt=True,
@@ -415,8 +433,9 @@ def run_training(cfg: DictConfig) -> int:
         pickle.dump(cfg, f)
     (save_dir / "f2_features.metadata.json").write_text(
         json.dumps(
-            reference_metadata(
+            observation_metadata(
                 action_mode=str(cfg.actions.mode),
+                history_steps=int(cfg.features.history_steps),
                 norm_obs=bool(cfg.vecnormalize.enabled and cfg.vecnormalize.norm_obs),
             ),
             indent=2,
@@ -450,7 +469,7 @@ def run_training(cfg: DictConfig) -> int:
         else SubprocVecEnv(env_fns, start_method="spawn")
     )
     print(
-        f"env observation_space: {vec_env.observation_space.shape}, action_space: {vec_env.action_space.shape} (reference_only_v1, no history, action_mode={cfg.actions.mode})"
+        f"env observation_space: {vec_env.observation_space.shape}, action_space: {vec_env.action_space.shape} (historical_observation_v1, history={cfg.features.history_steps}, action_mode={cfg.actions.mode})"
     )
     vec_env = VecMonitor(vec_env, filename=str(save_dir / "monitor.csv"))
     vecnormalize_cfg = cfg.vecnormalize
@@ -528,6 +547,7 @@ def run_training(cfg: DictConfig) -> int:
         print(f"resumed: {resume_path} with PPO overrides from train config")
     else:
         model = PPO(policy, vec_env, **ppo_kwargs)
+    model.set_logger(configure_training_logger(save_dir / "logs" / "ppo"))
     callbacks = []
     reward_log_interval = int(cfg.num_envs * ppo.n_steps)
     callbacks.append(
@@ -545,7 +565,7 @@ def run_training(cfg: DictConfig) -> int:
                 save_vecnormalize=bool(checkpoint_cfg.save_vecnormalize),
             )
         )
-    reset_num_timesteps = bool(resume_cfg.enabled)
+    reset_num_timesteps = bool(resume_cfg.get("reset_num_timesteps", True))
     try:
         model.learn(
             total_timesteps=int(ppo.total_timesteps),
@@ -564,6 +584,12 @@ def run_training(cfg: DictConfig) -> int:
             print(f"VecNormalize saved: {save_dir / 'vecnormalize.pkl'}")
         print(f"saved: {out}.zip")
         print(f"metadata: {save_dir / 'f2_features.metadata.json'}")
+        (save_dir / "training_summary.json").write_text(
+            json.dumps({"requested_timesteps": total_timesteps,
+                        "actual_timesteps": int(model.num_timesteps),
+                        "num_envs": n_envs, "rollout_steps": n_steps}, indent=2) + "\n",
+            encoding="utf-8",
+        )
     finally:
         vec_env.close()
         if wandb_run is not None:

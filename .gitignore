@@ -5,3 +5,14 @@ wandb/
 .obsidian/
 runs/
 /server_evaluator/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Experiment source/config/summary records are tracked; bulky artifacts stay local.
+/experiments/*/training/
+/experiments/*/evaluation/
+/experiments/*/wandb/
+/experiments/*/picture/*
+!/experiments/*/picture/.gitkeep
+/experiments/*/*.log
+/experiments/*/.runner.lock

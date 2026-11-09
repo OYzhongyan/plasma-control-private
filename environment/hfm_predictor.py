@@ -35,7 +35,7 @@ class HFMSocketPredictor(DockerSocketPredictor):
     ):
         config = config or {}
         super().__init__(name, config)
-        self._power_supply = PowerSupplyModel()
+        self._power_supply = PowerSupplyModel(seed=config.get("power_supply_seed"))
 
     def _get_init_config(self, config: dict[str, Any]) -> dict[str, Any]:
         if "fge_init_config" in config:

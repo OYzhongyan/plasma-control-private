@@ -14,7 +14,8 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from submission.history import REFERENCE_FEATURE_MODE, reference_metadata, validate_reference_metadata
+from submission.history import (REFERENCE_FEATURE_MODE, OBSERVATION_FEATURE_MODE,
+    reference_metadata, observation_metadata, validate_observation_metadata)
 from submission.model_bundle import create_bundle
 
 
@@ -145,7 +146,7 @@ def load_export_metadata(
             None,
         )
     if config_path is None:
-        raise ValueError("reference_only_v1 metadata not found; provide matching --metadata or --config")
+        raise ValueError("Training observation metadata not found; provide matching --metadata or --config")
     if config_path.suffix == ".pkl":
         with config_path.open("rb") as stream:
             config = pickle.load(stream)
@@ -161,7 +162,13 @@ def load_export_metadata(
             action_mode=str(actions.get("mode", "absolute")),
             norm_obs=bool(normalization.get("enabled", True) and normalization.get("norm_obs", True)),
         )
-    raise ValueError("Export requires reference_only_v1 training metadata; retrain the model with the current wrapper")
+    if features.get("observation_mode") == OBSERVATION_FEATURE_MODE:
+        return observation_metadata(
+            action_mode=str(actions.get("mode", "delta")),
+            history_steps=int(features.get("history_steps", 4)),
+            norm_obs=bool(normalization.get("enabled", True) and normalization.get("norm_obs", True)),
+        )
+    raise ValueError("Export requires explicit reference_only_v1 or historical_observation_v1 training metadata")
 
 
 def export_onnx(
@@ -182,8 +189,6 @@ def export_onnx(
         int(action_shape[0]) if action_shape is not None and len(action_shape) else 7
     )
     metadata = dict(metadata)
-    if metadata.get("feature_mode") != REFERENCE_FEATURE_MODE:
-        raise ValueError("Export requires reference_only_v1 metadata; retrain the model with the current wrapper")
     if len(obs_shape) != 1 or int(metadata["obs_dim"]) != int(obs_shape[0]):
         raise ValueError(
             f"Model input {obs_shape} does not match metadata obs_dim={metadata.get('obs_dim')}. "
@@ -191,7 +196,7 @@ def export_onnx(
         )
     if action_dim != 7:
         raise ValueError("The normalized action wrapper requires a 7D actor")
-    validate_reference_metadata(metadata)
+    validate_observation_metadata(metadata)
     metadata["action_dim"] = action_dim
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sample_obs = torch.zeros((1, *obs_shape), dtype=torch.float32, device="cpu")

@@ -1,0 +1,42 @@
+[
+  {
+    "index": 0,
+    "reward": 0.9,
+    "terminated": false
+  },
+  {
+    "index": 1,
+    "reward": 1.788162271029963,
+    "terminated": false
+  },
+  {
+    "index": 2,
+    "reward": 0.8881574226626501,
+    "terminated": false
+  },
+  {
+    "index": 3,
+    "reward": 0.6935069931248778,
+    "terminated": false
+  },
+  {
+    "index": 4,
+    "reward": 0.3762953343370118,
+    "terminated": false
+  },
+  {
+    "index": 5,
+    "reward": -5.0,
+    "terminated": true
+  },
+  {
+    "index": 6,
+    "reward": -5.0,
+    "terminated": true
+  },
+  {
+    "index": 7,
+    "reward": 1.7169301963575485,
+    "terminated": false
+  }
+]

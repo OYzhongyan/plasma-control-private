@@ -137,36 +137,42 @@ $L_p$ 、 $R_p$ 是等离子体等效电感、电阻， $I_{\rm ni}$ 为非感�
 
 ## 3.2 Actor–Critic 控制
 
-本项目 baseline 用 **PPO** 训练 Actor–Critic 网络：Actor 根据当前时刻的目标特征输出控制动作；Critic 基于相同目标输入估计后续回报，帮助 PPO 计算优势并更新策略。两者各使用两层 256 单元的 Tanh 网络；部署推理时使用 Actor。
+本项目 baseline 用 **PPO** 训练 Actor–Critic 网络：Actor 根据实际状态、目标误差和历史信息输出控制动作；Critic 基于相同的 **812 维输入**估计后续回报，帮助 PPO 计算优势并更新策略。两者各使用两层 256 单元的 Tanh 网络；部署推理时使用 Actor。
 
 ```mermaid
 flowchart LR
-    R[当前目标 reference] --> O[90 维目标特征与归一化]
+    R[实际观测与 reference] --> D[一步观测延迟]
+    D --> O[4 帧观测与 5 帧动作历史 · 812 维归一化输入]
     O --> A[Actor 策略]
-    A --> U[7 维动作 → 配对映射与电源模型]
+    A --> U[7 维增量动作 → 累加与配对映射]
     U -->|12 维电压| E[HFM 仿真器]
     O --> C[Critic 价值估计]
-    E -->|评分增量奖励| P[PPO 更新]
+    E -->|上游 dense reward| P[PPO 更新]
+    E --> R
     C --> P
     P -.训练更新.-> A
     P -.训练更新.-> C
 ```
 
-baseline 的 `reference_only_v1` 接口只使用当前时刻的 **90 维目标值**，输入顺序如下，不拼接实际状态、历史观测或动作历史。选手可修改特征和 wrapper；远程提交时在 A 复用自己的训练接口，见第 8.4 节。
+默认 `historical_observation_v1` 接口使用 `ObservationWrapper`，恢复自 SII-585-THU 的 F2 实现，来源 commit 为 `ffda09ab4621ede477ff71247547f8cbc43d133a`。每帧 **188 维观测**按以下顺序编码，拼接 **4 帧观测 + 5 帧 12 维物理动作 = 812 维**。选手可修改特征和 wrapper；远程提交时在 A 复用自己的训练接口，见第 8.4 节。
 
 | 字段 | 维度 |
 | --- | ---: |
-| `reference_Ip` | 1 |
-| `reference_lX` | 1 |
-| `reference_lcfs_points` | 64 |
-| `reference_rX` | 4 |
-| `reference_zX` | 4 |
-| `reference_strike_r` | 8 |
-| `reference_strike_z` | 8 |
+| 实际 `Ip`、`Ip-reference_Ip`、`reference_Ip` | 3 |
+| 实际拓扑 `lX`、`lX-reference_lX` | 2 |
+| 实际 LCFS 的 32 个二维点 | 64 |
+| LCFS 实际点与目标点的坐标误差 | 64 |
+| 12 路线圈电流除以各自限值、最大电流占限值比例 `coil_margin` | 13 |
+| 4 个 X 点槽位的有效标志、径向误差、竖直误差、归一磁通误差 | 16 |
+| X 点数量、实际打击点数量 | 2 |
+| 8 个打击点槽位的有效标志、径向误差、竖直误差 | 24 |
+| **单帧合计** | **188** |
 
-已有历史观测模型及归一化统计不适用于此接口，需要新建训练运行并重新生成模型。传感器延迟和噪声不会改变当前目标输入。
+X 点与打击点先匹配到目标槽位，无效槽位的误差置零。每回合 reset 清空历史，以零填充较早观测和动作；第一步执行后，5 个动作槽位均填入首个物理动作，之后逐步滚动。训练默认 `features.history_steps=4`、`features.delay_step=1`；一步延迟按上游逻辑作用于整个观测字典，包含 reference。原有 90 维 `reference_only_v1` 仅用于加载 metadata、模型与归一化统计匹配的已有产物，不作为新 baseline。
 
-使用 `actions.mode=delta` 时，7 维归一化动作先裁剪到 `[-1,1]`，转换为电压增量并累加，再经配对映射与电源响应后送入仿真器。每步奖励按比赛评分增量计算；使用相同目标、轨迹和耗时数据时，未归一化、未折扣的整段奖励之和对应比赛得分，PPO 内部仍可对奖励归一化并使用折扣回报。
+默认 `actions.mode=delta`：7 维归一化输出先裁剪到 `[-1,1]`，转换为电压增量并累加，再经配对映射得到 12 维物理电压。动作历史保存这 12 维电压。正式测评中的电源传输延迟、变化率限制和 PSM 由 C 执行。
+
+训练奖励也恢复为同一上游 commit 的 `SemifinalDenseReward`，配置为 `score_lower_bound=false`、`use_competition_score=false`。训练权重依次为 Ip=6、LCFS=6、主 X 位置=4、主 X 磁通=4、次级 X 位置=4、次级 X 磁通=3、strike=3；failure 和线圈越限惩罚均为 -5。它使用平滑误差映射、soft current mask，次级 X 两项权重也与正式评分不同，因此**原始 dense reward 的整段总和不等于正式比赛分数**。第 2 节的七项指标、满分 30 分及正式评分代码保持不变；实验结果须单独通过正式评分器计算。
 
 # 4. 准备工作
 
@@ -179,6 +185,7 @@ baseline 的 `reference_only_v1` 接口只使用当前时刻的 **90 维目标�
 ```bash
 cp -r ../public/inspire_shared/hfm-runtime-release-sealed-latest .
 conda activate competition_env
+pip install -e '.[baseline]'
 ```
 或者
 ```
@@ -189,7 +196,7 @@ cp ../public/inspire_shared/hfm-runtime-release-sealed-latest.tar .
 
 # 5. 训练模型
 
-先启动 32 个 HFM socket 实例，对应端口 `2223–2254`。每个环境连接一个独立实例：
+需要 32 个 HFM socket 实例，对应端口 `2223–2254`。已有空闲实例时直接复用；尚未启动时执行以下命令，每个环境连接一个独立实例：
 
 ```bash
 bash ../hfm-runtime-release-sealed-latest/tasksetstart.sh \
@@ -201,14 +208,20 @@ bash ../hfm-runtime-release-sealed-latest/tasksetstart.sh \
 ```bash
 python train/train_ppo.py \
   output_dir=YOUR_RUN_NAME \
-  reset_perturbation.fix_reset_params=true \
+  features.observation_mode=historical_observation_v1 \
+  features.history_steps=4 \
+  features.delay_step=1 \
+  actions.mode=delta \
+  reset_perturbation.fix_reset_params=false \
   num_envs=32 \
   ports=2223 
 ```
 
 训练产物保存在 `results/` 下的运行目录中。增减环境数时，应同时调整实例数量和 `num_envs`，注意HFM socket实例端口（port）要能与训练连接端口对应。
 
-> Tensorboard 使用：在启智平台招生营专项空间下的分布式训练按钮中，选择`Tensorboard`，然后点击右侧蓝色按钮`新建Tensorboard`，`Summary文件路径`选择项目根目录下的`runs`文件夹路径。
+每个运行目录均保存 `monitor.csv`、`logs/reward_components.csv` 和 `logs/ppo/progress.csv`，TensorBoard 事件也写入 `logs/ppo/`。本地 CSV 与 TensorBoard 始终启用。W&B 可使用 `WANDB_MODE=offline` 离线记录，无需登录；也可用 `wandb.enabled=false` 关闭。启智平台新建 TensorBoard 时，将 Summary 文件路径指向该运行目录的 `logs/ppo/`。
+
+完整 10m 实验的统一命令及记录格式见第 9 节。
 
 # 6. 验证模型
 
@@ -251,6 +264,8 @@ python train/evaluate.py \
   ports=2223 \
   target.default_reference_path=configs/xpt_reference_targets.json \
   'eval.shots="14795_400"' \
+  eval.obs_perturb.enabled=true \
+  actions.mode=delta
 ```
 
 # 7. 可视化
@@ -325,7 +340,7 @@ A 最多记住 4096 个已结束回合，达到容量后在无活动测评时重
 
 ## 8.4 修改 wrapper 或模型接口
 
-默认适配器直接使用 A 本机 `ReferenceObservationWrapper` 和 `NormalizedAction7DTo12DWrapper`，按真实 wrapper 与 checkpoint 空间匹配，不强制 90 维。如果改变类名、构造参数或接口，可指定自己的本地工厂：
+默认适配器直接使用 A 本机 `ObservationWrapper` 和 `NormalizedAction7DTo12DWrapper`，恢复历史、动作模式并按真实 wrapper 与 checkpoint 空间匹配。新 baseline 在 delta/history4 配置下为 812 维；已有 `reference_only_v1` 产物仅在 metadata 与模型匹配时使用对应旧接口。如果改变类名、构造参数或接口，可指定自己的本地工厂：
 
 ```bash
 python submission/shared_service.py \
@@ -334,3 +349,59 @@ python submission/shared_service.py \
 ```
 
 适配器接口和消息说明见 [submission/README.md](submission/README.md)。HTTP 服务与 ONNX 工具保留作旧版开发用途，当前正式提交使用共享目录协议。
+
+# 9. 可复现实验记录与 10m baseline
+
+实验 runner 复用已空闲的 **32 个 HFM 实例，端口 2223–2254**；它不启动或停止 HFM。执行前按第 4、5 节准备环境与实例。可先生成配置、命令和来源记录进行检查，再运行完整实验：
+
+```bash
+python tools/run_baseline_experiment.py \
+  --experiment-id 20261109_f2b_history_baseline_10m_seed0 \
+  --total-timesteps 10000000 --wandb-mode offline --dry-run
+
+python tools/run_baseline_experiment.py \
+  --experiment-id 20261109_f2b_history_baseline_10m_seed0 \
+  --total-timesteps 10000000 --wandb-mode offline
+```
+
+runner 默认 seed=0、32 环境、CPU PPO、delta/history4/delay1、每环境每 rollout 256 步、batch1024。训练使用 `15892_400` 和 `15892_500`，每次 reset 对 signeo、bp、q0 重新采样 ±5% 扰动（`fix_reset_params=false`）。训练成功后复用一个空闲端口，依次运行以下正式评分验证，每组 3 个 episode，同样启用一步观测延迟和每次 reset 的 ±5% 扰动：
+
+| 分组 | Shot | 起始 seed | Episode 数 |
+| --- | --- | ---: | ---: |
+| seen | `15892_400` | 100 | 3 |
+| validation | `14795_400` | 200 | 3 |
+| test | `13705_500` | 300 | 3 |
+
+各组 episode 的 seed 依次递增。seen、validation、test 分开汇报，单一训练 seed 的结果不能证明广泛泛化能力。正式成绩在训练和验证完成前均为待定，不用训练 dense reward 代替。
+
+训练环境 seed 为 `ppo.seed + env_index`，电源随机延迟使用对应环境 seed 加 30000；每个环境的随机流跨 reset 连续推进。重置扰动和观测噪声也使用独立的确定性随机流。延迟分布与电源计算方式保持不变；不同数值库或运行平台仍可能产生浮点差异。
+
+验证沿用上游 README 的观测扰动设置：除 1 步延迟外，`Ip` 加标准差 2300 A、`R` 加标准差 0.008 m 的高斯噪声；训练默认仅启用延迟，因此这些结果包含额外传感器扰动测试。runner 未测量模型内核推理耗时，不能据此声称满足可选的 0.5 ms 时延限制。
+
+所有记录保存在项目根目录 `experiments/<experiment-id>/`：
+
+```text
+experiments/<experiment-id>/
+├── DESIGN.md / PLAN.md         # 已有实验设计与实施计划
+├── README.md                   # 实验目的、变化、正式评分结果表
+├── manifest.json               # Git/source/target hash、来源、请求及实际步数
+├── environment.json            # Python、包版本、平台与资源信息
+├── requested_config.json       # 请求的训练配置
+├── resolved_config.yaml        # 训练后复制的 Hydra 实际配置
+├── commands.json / code.patch  # 子进程命令、相关已跟踪代码差异
+├── status.json / train.log     # PID、阶段、退出码与训练输出
+├── training/
+│   ├── .hydra/config.yaml
+│   ├── logs/reward_components.csv
+│   ├── logs/ppo/               # progress.csv 与 TensorBoard 事件
+│   ├── monitor.csv
+│   └── checkpoints/            # 模型及同一步归一化统计
+├── evaluation/<split>/         # 日志、轨迹、逐步 CSV、正式 score_summary.json
+├── metrics.json / metrics.csv  # 各组正式任务分与总分，满分 30
+├── picture/                    # 完整训练后的奖励曲线、验证 Ip/reference 图
+└── wandb/                      # 离线或在线 W&B 本地产物
+```
+
+PPO 按完整 rollout 更新，32×256=8192 步；请求 10,000,000 步通常实际完成 **10,002,432 步**。runner 分别记录请求值、预期取整值和从最终模型、PPO CSV 或 checkpoint 获取的实际步数。训练或验证失败会保存 `FAILED` 状态并返回非零退出码；已有运行或完成状态的实验不能覆盖，应使用新的实验 ID。`--dry-run` 不执行训练和验证，其记录可用于随后正式启动。
+
+短测可覆盖 `--total-timesteps`、`--num-envs`、`--base-port`，并用 `--skip-evaluation` 跳过后续验证；这类记录不能作为完整 10m 实验结果。`--eval-port` 默认复用 base port；`--wandb-mode` 支持 `offline`、`online`、`disabled`。比赛评分服务维护在 `grading` 分支，选手训练和推理代码维护在 `main`。

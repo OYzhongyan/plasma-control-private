@@ -50,6 +50,7 @@ from train.wrappers import (
     EpisodeResetWrapper,
     HoldInitialResetWrapper,
     ReferenceObservationWrapper,
+    ObservationWrapper,
     NormalizedAction7DTo12DWrapper,
     ObservationDelayNoiseWrapper,
     RewardInfoWrapper,
@@ -114,7 +115,9 @@ def make_eval_env(
             max_steps=int(cfg.max_steps),
             reference_mode=str(cfg.target.reference_mode),
         )
-        reward_fn = CompetitionReward()
+        env_config.setdefault("predictor", {})["power_supply_seed"] = int(seed) + 30_000
+        from train.train_ppo import build_reward
+        reward_fn = build_reward(cfg.reward_weights)
         env: gym.Env = HFMSimulator(env_config, reward_fn=reward_fn)
         if cfg.target.reference_mode == "hold_initial":
             env = HoldInitialResetWrapper(
@@ -142,7 +145,9 @@ def make_eval_env(
                 noise_std=dict(perturb_cfg.get("noise_std") or {}),
                 seed=seed + 10000,
             )
-        env = ReferenceObservationWrapper(
+        observation_wrapper = (ReferenceObservationWrapper
+            if cfg.features.get("observation_mode") == "reference_only_v1" else ObservationWrapper)
+        env = observation_wrapper(
             env,
             obs_history_step=int(cfg.features.history_steps),
             include_xpt=True,
@@ -214,11 +219,11 @@ def record_row(
         "ip": ip,
         "reference_ip": ref_ip,
         "ip_abs_error": abs(ip - ref_ip),
-        "terminated": int(bool(done)),
-        "truncated": 0,
+        "terminated": int(bool(done) and not bool(info.get("TimeLimit.truncated", False))),
+        "truncated": int(bool(info.get("TimeLimit.truncated", False))),
         "shot_id": shot_id,
         "port": port,
-        "hfm_timeout": 0,
+        "hfm_timeout": int(bool(info.get("hfm_timeout", False))),
         "failure": int(
             bool(info.get("failure", False))
             or _scalar(observation, "failure", 0.0) > 0.5
@@ -271,6 +276,7 @@ def summarize_rows(rows: list[dict[str, Any]], *, max_steps: int) -> dict[str, A
         "max_steps": max_steps,
         "survived_full": bool(lengths >= max_steps and (not failure)),
         "failure": failure,
+        "hfm_timeout": any(bool(row.get("hfm_timeout", False)) for row in step_rows),
         "reward_sum": reward_sum,
         "mean_ip_abs_error_ka": (
             float(np.nanmean(arr("ip_abs_error")) / 1000.0) if step_rows else None
@@ -628,14 +634,14 @@ def resolve_model_paths(
 
 def configure_model_interface(cfg: DictConfig, model: Any, model_file: Path) -> dict[str, Any]:
     from train.export_onnx import load_export_metadata
-    from submission.history import validate_reference_metadata
+    from submission.history import validate_observation_metadata
 
     metadata = load_export_metadata(model_file)
-    validate_reference_metadata(metadata)
-    if model.observation_space.shape != (90,) or model.action_space.shape != (7,):
-        raise ValueError("Evaluation requires a newly trained 90D reference-only model with 7 actions")
+    validate_observation_metadata(metadata)
+    if model.observation_space.shape != (int(metadata["obs_dim"]),) or model.action_space.shape != (7,):
+        raise ValueError("Evaluation model dimensions disagree with training observation metadata")
     cfg.features.observation_mode = metadata["feature_mode"]
-    cfg.features.history_steps = 0
+    cfg.features.history_steps = int(metadata["history_steps"])
     cfg.actions.mode = metadata["action_mode"]
     return metadata
 
@@ -644,12 +650,38 @@ def resolve_evaluation_normalization(metadata: dict[str, Any], path: Path | None
     if not metadata["observation_normalization"]:
         return None
     if path is None or not path.is_file():
-        raise FileNotFoundError("Matching 90D VecNormalize statistics are required for this model")
+        raise FileNotFoundError("Matching VecNormalize statistics are required for this model")
     return path
+
+
+def restore_training_configuration(cfg, model_file, *, overrides=None):
+    """Recover the saved training contract, keeping evaluation-only defaults."""
+    from copy import deepcopy
+    path = next((directory / "configs.pkl" for directory in
+                 (model_file.parent, model_file.parent.parent)
+                 if (directory / "configs.pkl").is_file()), None)
+    if path is None:
+        return cfg
+    with path.open("rb") as stream:
+        saved = pickle.load(stream)
+    evaluation = {"eval": deepcopy(cfg.eval),
+                  "reset_perturbation": deepcopy(cfg.reset_perturbation)}
+    if overrides is None:
+        from hydra.core.hydra_config import HydraConfig
+        overrides = HydraConfig.get().overrides.task if HydraConfig.initialized() else []
+    explicit = [value.lstrip("+") for value in overrides
+                if "=" in value and not value.startswith("~")]
+    restored = OmegaConf.merge(cfg, saved, evaluation, OmegaConf.from_dotlist(explicit))
+    OmegaConf.set_struct(restored, False)
+    return restored
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="eval")
 def main(cfg: DictConfig) -> int:
+    cp_num = cfg.eval.cp_num
+    model_file, _ = resolve_model_paths(cfg.eval.model_path,
+        int(cp_num) if cp_num is not None else None)
+    cfg = restore_training_configuration(cfg, model_file)
     cfg, references, reset_perturbation, base_config, _ = build_training_context(cfg)
     eval_cfg = cfg.eval
     output_dir = _rooted(eval_cfg.model_path) / "eval"
@@ -718,7 +750,7 @@ def main(cfg: DictConfig) -> int:
                     "shot_id": shot_id,
                     "episode": episode,
                     "trajectory": trajectory,
-                    "timeout": False,
+                    "timeout": bool(summary.get("hfm_timeout", False)),
                     "n_steps": len(obs_list),
                 }
             print(

@@ -59,6 +59,7 @@ class CompetitionReward:
     previous credit in the current reward, which can therefore be negative.
     """
     reward_weights: Any = None
+    score_lower_bound: bool | None = None  # Legacy argument; formal score is fixed.
     target: dict[str, Any] | None = None
     last_components: dict[str, float] = field(default_factory=dict, init=False)
 
@@ -167,5 +168,5 @@ class CompetitionReward:
         return reward, bool(terminated)
 
 
-# Older checkpoints/configs/tools may still import this public class name.
-SemifinalDenseReward = CompetitionReward
+# Default training baseline; CompetitionReward above remains an explicit scoring utility.
+from train.dense_rewards import SemifinalDenseReward

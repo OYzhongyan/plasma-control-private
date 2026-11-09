@@ -66,7 +66,7 @@ def test_measured_state_other_reference_fields_and_action_history_cannot_leak_in
     np.testing.assert_array_equal(env.convert_obs_dict_to_vector(observation), np.arange(90))
 
 
-def test_sensor_delay_and_noise_keep_the_current_reference():
+def test_sensor_delay_applies_before_legacy_reference_encoding_too():
     from train.wrappers import ObservationDelayNoiseWrapper
 
     class SensorEnv(ReferenceEnv):
@@ -79,9 +79,11 @@ def test_sensor_delay_and_noise_keep_the_current_reference():
             return {**obs, "Ip": np.array([100. + self.index])}, reward, terminated, truncated, info
 
     delayed = ObservationDelayNoiseWrapper(SensorEnv(), delay_steps=1,
-                                           noise_std={"reference_Ip": 10000.}, seed=7)
+                                           noise_std={"Ip": 2.}, seed=7)
     env = ReferenceObservationWrapper(delayed)
     obs, _ = env.reset()
+    np.testing.assert_array_equal(obs, np.arange(90, dtype=np.float32))
+    obs, *_ = env.step(np.zeros(7))
     np.testing.assert_array_equal(obs, np.arange(90, dtype=np.float32))
     obs, *_ = env.step(np.zeros(7))
     np.testing.assert_array_equal(obs, np.arange(90, dtype=np.float32) + 1)

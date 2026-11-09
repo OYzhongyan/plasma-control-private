@@ -180,14 +180,12 @@ class RewardComponentsCallback(BaseCallback):
             "hfm_timeout_count": float(self._hfm_timeout_count),
         }
 
-        # with open(self.csv_path, "a", newline="", encoding="utf-8") as f:
-        #     csv.writer(f).writerow(
-        #         [
-        #             self.num_timesteps,
-        #             *[means[key] for key in REWARD_COMPONENT_KEYS],
-        #             *[info_values[key] for key in INFO_COMPONENT_KEYS],
-        #         ]
-        #     )
+        with open(self.csv_path, "a", newline="", encoding="utf-8") as f:
+            csv.writer(f).writerow([
+                self.num_timesteps,
+                *[means.get(key, "") for key in REWARD_COMPONENT_KEYS],
+                *[info_values[key] for key in INFO_COMPONENT_KEYS],
+            ])
 
         for key, value in means.items():
             self.logger.record(f"reward_components/{key}", value)
@@ -224,6 +222,7 @@ class PlasmaCheckpointCallback(BaseCallback):
         self.save_path = Path(save_path)
         self.name_prefix = str(name_prefix)
         self.save_vecnormalize = bool(save_vecnormalize)
+        self.completed_rollouts = 0
 
     def _init_callback(self) -> None:
         self.save_path.mkdir(parents=True, exist_ok=True)
@@ -232,7 +231,8 @@ class PlasmaCheckpointCallback(BaseCallback):
         return True
 
     def _on_rollout_end(self) -> bool:
-        if self.n_calls % self.save_freq == 0:
+        self.completed_rollouts += 1
+        if self.completed_rollouts % self.save_freq == 0:
             self._save_checkpoint()
         return True
 

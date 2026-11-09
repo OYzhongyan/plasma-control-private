@@ -18,16 +18,26 @@ target:
   reference_variants_path: null
 env_config: configs/env_default.yaml
 features:
-  observation_mode: reference_only_v1
-  history_steps: 0  # Retained for CLI compatibility; no history is appended.
+  observation_mode: historical_observation_v1
+  history_steps: 4
   noise: false
-  delay_step: 0
+  delay_step: 1
   delay_noise_std: {}
 actions:
-  mode: absolute
-# Official weights/thresholds are taken from evaluation/eval/score/config.py.
-# Retained as an empty compatibility node for saved training configurations.
-reward_weights: {}
+  mode: delta
+# SII-585-THU F2 dense training reward; formal evaluation uses its own scorer.
+reward_weights:
+  use_competition_score: false
+  ip_score: 6.0
+  lcfs_score: 6.0
+  main_x_dist_score: 4.0
+  main_x_psi_score: 4.0
+  second_x_psi_score: 3.0
+  second_x_dist_score: 4.0
+  strike_dist_score: 3.0
+  failure_penalty: -5.0
+  coil_current_exceed_limit_penalty: -5.0
+  score_lower_bound: false
 reset_perturbation:
   enabled: true
   apply_mode: all
@@ -42,11 +52,11 @@ reset_perturbation:
   - 0.95
   - 1.05
 ppo:
-  total_timesteps: 1000000
+  total_timesteps: 10000000
   policy: MlpPolicy
   learning_rate: 0.0001
   n_steps: 256
-  batch_size: 512
+  batch_size: 1024
   n_epochs: 6
   gamma: 0.995
   gae_lambda: 0.95

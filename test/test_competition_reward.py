@@ -75,7 +75,7 @@ def test_reward_sum_matches_offline_score(case):
 
 def test_reset_discards_coil_and_global_penalties():
     from train.rewards import CompetitionReward, SemifinalDenseReward
-    assert SemifinalDenseReward is CompetitionReward
+    assert SemifinalDenseReward is not CompetitionReward
     obs, target = base_observation(); obs.update(target_observation(target))
     reward = CompetitionReward(target=target, reward_weights={"failure_penalty": -5., "use_competition_score": False}, score_lower_bound=False)
     bad = copy.deepcopy(obs); bad["I_PF"][0] = 50000.
@@ -155,7 +155,7 @@ def test_saved_hfm_observations_match_saved_trajectory_score():
     assert sum(values) == pytest.approx(expected["total_score"], abs=1e-10)
 
 
-def test_training_factory_and_ppo_update_with_competition_reward(monkeypatch):
+def test_explicit_competition_reward_factory_and_ppo_update(monkeypatch):
     gym = pytest.importorskip("gymnasium")
     PPO = pytest.importorskip("stable_baselines3").PPO
     import train.train_ppo as entrypoint
@@ -181,6 +181,7 @@ def test_training_factory_and_ppo_update_with_competition_reward(monkeypatch):
             return obs, reward, terminated, self.index == 8, info
 
     monkeypatch.setattr(entrypoint, "HFMSimulator", ReplaySimulator)
+    monkeypatch.setattr(entrypoint, "build_reward", lambda weights: CompetitionReward())
     env = entrypoint.make_env({}, port=2223, shot_id="15892_400", max_steps=8,
                               reference_mode="trajectory", references=build_reference(default_reference_path(), max_steps=8),
                               action_mode="delta", obs_history_step=4, reward_weights={})()

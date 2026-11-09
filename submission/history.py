@@ -13,6 +13,43 @@ from train.wrappers import (
 )
 
 REFERENCE_FEATURE_MODE = "reference_only_v1"
+OBSERVATION_FEATURE_MODE = "historical_observation_v1"
+
+
+def observation_metadata(action_mode: str, *, history_steps: int = 4,
+                         norm_obs: bool = True) -> dict[str, Any]:
+    """SII-585-THU's physical observation/action-history layout."""
+    if action_mode not in {"absolute", "delta"}:
+        raise ValueError(f"Invalid action_mode: {action_mode!r}")
+    if type(history_steps) is not int or history_steps < 1:
+        raise ValueError("history_steps must be a positive integer")
+    action_dim = 12 if action_mode == "delta" else 7
+    return dict(version=2, feature_mode=OBSERVATION_FEATURE_MODE,
+                history_steps=history_steps, include_xpt=True,
+                action_history_steps=5, action_history_dim=action_dim,
+                obs_dim=188 * history_steps + 5 * action_dim,
+                action_dim=7, action_mode=action_mode, action_units="normalized",
+                observation_normalization=bool(norm_obs), requires_vecnormalize=bool(norm_obs))
+
+
+def validate_observation_metadata(metadata: dict[str, Any]) -> None:
+    if metadata.get("feature_mode") == REFERENCE_FEATURE_MODE:
+        return validate_reference_metadata(metadata)
+    expected = observation_metadata(metadata.get("action_mode"),
+        history_steps=metadata.get("history_steps"),
+        norm_obs=metadata.get("observation_normalization", True))
+    for key, value in expected.items():
+        actual = metadata.get(key)
+        same_type = (isinstance(actual, bool) if isinstance(value, bool)
+                     else type(actual) is int if isinstance(value, int) else True)
+        if not same_type or actual != value:
+            raise ValueError(f"Observation metadata {key} does not match training layout")
+
+
+def build_policy_adapter(metadata):
+    if metadata.get("feature_mode") == REFERENCE_FEATURE_MODE:
+        return ReferencePolicyAdapter(metadata)
+    return ObservationPolicyAdapter(metadata)
 
 
 def reference_metadata(action_mode: str, *, norm_obs: bool = True) -> dict[str, Any]:
@@ -112,8 +149,12 @@ class CheckpointPolicyAdapter:
         self.buffer = _RemoteObservation()
         mode = metadata.get("action_mode", config.get("actions", {}).get("mode", "absolute"))
         self.actions = wrappers.NormalizedAction7DTo12DWrapper(self.buffer, action_mode=mode)
-        self.observations = wrappers.ReferenceObservationWrapper(
-            self.buffer, obs_history_step=int(config.get("features", {}).get("history_steps", 0)),
+        features = config.get("features", {})
+        feature_mode = metadata.get("feature_mode", features.get("observation_mode"))
+        wrapper = (wrappers.ObservationWrapper if feature_mode == OBSERVATION_FEATURE_MODE
+                   else wrappers.ReferenceObservationWrapper)
+        self.observations = wrapper(
+            self.buffer, obs_history_step=int(metadata.get("history_steps", features.get("history_steps", 0))),
             include_xpt=True, action_mode=mode)
         if self.observations.observation_space != model.observation_space:
             raise ValueError("Actual observation wrapper does not match checkpoint observation space")
@@ -140,11 +181,37 @@ class CheckpointPolicyAdapter:
         return vector
 
     def decode(self, action):
+        action = np.asarray(action, dtype=np.float32).reshape(-1)
+        if action.size != 7 or not np.all(np.isfinite(action)):
+            raise ValueError("The policy must produce 7 finite actions")
+        action = np.clip(action, -1., 1.)
         physical = np.asarray(self.actions.action(action), dtype=np.float32)
-        self.pending_action = np.asarray(action).copy()
+        self.pending_action = action.copy()
         self.buffer.physical_action = physical.copy()
         return physical
 
 
 def build_checkpoint_adapter(model, metadata, config):
     return CheckpointPolicyAdapter(model, metadata, config)
+
+
+class ObservationPolicyAdapter:
+    """Use the actual history wrapper for ONNX's external preprocessing too."""
+
+    def __init__(self, metadata):
+        from types import SimpleNamespace
+        validate_observation_metadata(metadata)
+        model = SimpleNamespace(
+            observation_space=gym.spaces.Box(-np.inf, np.inf, (metadata["obs_dim"],), dtype=np.float32),
+            action_space=gym.spaces.Box(-1., 1., (7,), dtype=np.float32),
+        )
+        self.adapter = CheckpointPolicyAdapter(model, metadata, {})
+
+    def reset(self):
+        self.adapter.reset()
+
+    def encode(self, observation):
+        return self.adapter.encode(observation)
+
+    def decode(self, action):
+        return self.adapter.decode(action)
