@@ -1,0 +1,26 @@
+{
+  "task_id": "F2b",
+  "rollouts": [
+    {
+      "rollout_id": "F2b_14795_400_ep00",
+      "task_id": "F2b",
+      "shot_id": "14795_400",
+      "episode": 0,
+      "n_steps": 16,
+      "task_score": 0.02863708696210418,
+      "metric_scores": {
+        "Ip": 0.02863708696210418,
+        "LCFS": 0.0,
+        "X": 0.0,
+        "strike": 0.0,
+        "psiX": 0.0,
+        "X2": 0.0,
+        "psiX2": 0.0
+      },
+      "total_score": 0.02863708696210418
+    }
+  ],
+  "mean_task_score": 0.02863708696210418,
+  "min_task_score": 0.02863708696210418,
+  "max_task_score": 0.02863708696210418
+}

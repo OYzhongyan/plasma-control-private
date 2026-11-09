@@ -1,0 +1,24 @@
+eval setup: model=/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/ppo_f2_latest.zip, vecnormalize=/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/vecnormalize.pkl, port=2223, shots=['14795_400'], max_steps=16, policy_mode=model, deterministic=True
+rolling out shot=14795_400, episode=0, seed=200
+{
+  "shot_id": "14795_400",
+  "episode": 0,
+  "steps": 16,
+  "max_steps": 16,
+  "survived_full": true,
+  "failure": false,
+  "hfm_timeout": false,
+  "reward_sum": 2.1176851242780685,
+  "mean_ip_abs_error_ka": 18.65174325307219,
+  "max_ip_abs_error_ka": 35.940696375093076,
+  "mean_lcfs_rms_cm": 12.264152716433458,
+  "max_lcfs_rms_cm": 15.20857796639412,
+  "final_lcfs_rms_cm": 15.20857796639412,
+  "topology_match_rate": 0.0,
+  "max_coil_margin": 0.8079675405064397
+}
+saved 17 rows to /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/eval/step_reward_components.csv
+saved 1 rollouts to /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/eval/rollout_observations.npz
+infer result: /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/eval/infer_result.json
+score summary: /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/eval/score_summary.json
+summary: /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/training/eval/rollout_summary.json

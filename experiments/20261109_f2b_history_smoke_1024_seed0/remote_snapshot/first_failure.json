@@ -1,0 +1,9 @@
+{
+  "pid": 1066056,
+  "child_pid": 1648292,
+  "phase": "FAILED",
+  "returncode": 1,
+  "updated_utc": "2026-11-09T13:36:40.644692+00:00",
+  "split": "seen",
+  "error": "seen evaluation failed"
+}

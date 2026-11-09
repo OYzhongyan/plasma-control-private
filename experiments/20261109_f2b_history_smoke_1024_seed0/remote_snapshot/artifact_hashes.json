@@ -1,0 +1,18 @@
+{
+  "ppo_f2_latest.zip": {
+    "bytes": 6687478,
+    "sha256": "61053385ce66d0ef6741aa8c4fb4822dc05c2fa0e420e84e94ef64cab6cad400"
+  },
+  "vecnormalize_stats.npz": {
+    "bytes": 14790,
+    "sha256": "f461e94f871c3e9023bb6e9861ee304f8faa9278a0ca071e9cac5f8a82e452b5"
+  },
+  "vecnormalize.pkl": {
+    "bytes": 35957,
+    "sha256": "bc1469a23ab2fa307f4d8dba6f9edc30ef23671b7ba0c6af21ae4e52919a434b"
+  },
+  "configs.pkl": {
+    "bytes": 9232,
+    "sha256": "d5caf163e7a1085a368042850425b11c5f6708cc55842ce9c84aa58ac6843262"
+  }
+}

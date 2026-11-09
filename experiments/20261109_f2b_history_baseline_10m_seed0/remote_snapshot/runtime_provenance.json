@@ -1,0 +1,38 @@
+{
+  "runtime_dir": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/hfm-runtime-release-sealed-latest",
+  "captured_utc": "2026-11-09T13:32:02.088494+00:00",
+  "matlab_release": "R2024a",
+  "files": {
+    "run_hfm_server.sh": {
+      "bytes": 1885,
+      "sha256": "ff1ecb07c6da3edfc91204a3ef1d6ddbc83f35623923f6990112b260725d49a3"
+    },
+    "matlab/R2024a/VersionInfo.xml": {
+      "bytes": 303,
+      "sha256": "520a11f862ae47dca525fcc51605ffcc5776970f9e78d7c42948b4ffe876f354"
+    },
+    "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat": {
+      "bytes": 286971326,
+      "sha256": "a867f152b8e901af4aceeaa2149fd4b4a1839f4ddc0c73ddf0c8e7a749ab5a27"
+    },
+    "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_400_v2.mat": {
+      "bytes": 264895,
+      "sha256": "e8311334094b8a9129045a921414059c548aebc6311d0270da1696fb324cd8e5"
+    },
+    "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_500_v2.mat": {
+      "bytes": 262605,
+      "sha256": "d86a11c92ad9c855e2d9962453b7a72048b6011764e529c23b3caf349c18bb41"
+    },
+    "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_14795_400_v2.mat": {
+      "bytes": 264440,
+      "sha256": "593d7067e54e9285018ed259dcfbd3fdb3ce64f4bba974e1f1bc7f0f46c327c4"
+    },
+    "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13705_500_v2.mat": {
+      "bytes": 165152,
+      "sha256": "dbedabd096727b4e800be5c625dac4ee8b6182deebd5b3b6c87b7aa48b6a3211"
+    }
+  },
+  "startup_policy": "reuse idle pre-existing pool 2223-2254; do not stop independent HFM",
+  "transport": "jupyter",
+  "network_proxy": "none"
+}

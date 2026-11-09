@@ -1,0 +1,7 @@
+{
+  "requested_timesteps": 1024,
+  "actual_timesteps": 1024,
+  "actual_timesteps_evidence": "ppo_f2_latest.zip:data.num_timesteps",
+  "training_reward": "upstream F2 dense reward",
+  "evaluation": {}
+}

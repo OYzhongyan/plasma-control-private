@@ -1,0 +1,37 @@
+{
+  "horizon": 16,
+  "episodes_per_split": 1,
+  "scores_not_baseline_performance": true,
+  "evaluation": {
+    "seen": {
+      "shot_id": "15892_400",
+      "seed": 100,
+      "episodes": 1,
+      "mean_task_score": 0.036508668453108926,
+      "min_task_score": 0.036508668453108926,
+      "max_task_score": 0.036508668453108926,
+      "mean_total_score": 0.036508668453108926,
+      "official_max_score": 30.0
+    },
+    "validation": {
+      "shot_id": "14795_400",
+      "seed": 200,
+      "episodes": 1,
+      "mean_task_score": 0.02863708696210418,
+      "min_task_score": 0.02863708696210418,
+      "max_task_score": 0.02863708696210418,
+      "mean_total_score": 0.02863708696210418,
+      "official_max_score": 30.0
+    },
+    "test": {
+      "shot_id": "13705_500",
+      "seed": 300,
+      "episodes": 1,
+      "mean_task_score": 0.06907254848327417,
+      "min_task_score": 0.06907254848327417,
+      "max_task_score": 0.06907254848327417,
+      "mean_total_score": 0.06907254848327417,
+      "official_max_score": 30.0
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "feature_mode": "historical_observation_v1",
+  "history_steps": 4,
+  "include_xpt": true,
+  "action_history_steps": 5,
+  "action_history_dim": 12,
+  "obs_dim": 812,
+  "action_dim": 7,
+  "action_mode": "delta",
+  "action_units": "normalized",
+  "observation_normalization": true,
+  "requires_vecnormalize": true
+}

@@ -1,0 +1,31 @@
+{
+  "pid": 2468796,
+  "command": [
+    "/root/miniforge3/envs/competition_env/bin/python",
+    "-B",
+    "tools/run_baseline_experiment.py",
+    "--experiment-id",
+    "20261109_f2b_history_baseline_10m_seed0",
+    "--total-timesteps",
+    "10000000",
+    "--num-envs",
+    "32",
+    "--base-port",
+    "2223",
+    "--wandb-mode",
+    "offline"
+  ],
+  "cwd": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109",
+  "commit": "10264746549e45aa38b3be02b17e024c3b84cfb8",
+  "started_utc": "2026-11-09T13:46:44.527286+00:00",
+  "expected_requested_timesteps": 10000000,
+  "expected_actual_timesteps": 10002432,
+  "reuse_hfm_ports": [
+    2223,
+    2254
+  ],
+  "no_hfm_restart": true,
+  "transport": "jupyter",
+  "proxy": "none",
+  "preflight_status": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109/experiments/20261109_f2b_history_smoke_1024_seed0/short_verification_status.json"
+}
