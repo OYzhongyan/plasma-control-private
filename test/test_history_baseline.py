@@ -133,7 +133,7 @@ def test_evaluation_restores_training_contract_but_preserves_eval_overrides(tmp_
     from train.evaluate import restore_training_configuration
     with initialize_config_dir(version_base=None,config_dir=str(Path('train/configs').resolve())):
         cfg=compose(config_name='eval')
-    training={'features':{'observation_mode':'historical_observation_v1','history_steps':4},'actions':{'mode':'delta'},'reward_weights':{'ip_score':6.,'score_lower_bound':False},'target':{'default_reference_path':'saved-target.json'},'max_steps':500}
+    training={'save_dir':str(tmp_path),'features':{'observation_mode':'historical_observation_v1','history_steps':4},'actions':{'mode':'delta'},'reward_weights':{'ip_score':6.,'score_lower_bound':False},'target':{'default_reference_path':'saved-target.json'},'max_steps':500}
     with (tmp_path/'configs.pkl').open('wb') as stream: pickle.dump(training,stream)
     restored=restore_training_configuration(cfg,tmp_path/'ppo_f2_latest.zip',overrides=['ports=3333','eval.seed=123'])
     assert restored.target.default_reference_path=='saved-target.json'

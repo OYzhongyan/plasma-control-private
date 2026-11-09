@@ -11,7 +11,7 @@
 - [x] T1: RED tests for history features/state, adapters/metadata and reward; restore F2 components and synchronized consumers. Verify original-source reward parity and train/inference sequence parity.
 - [x] T2: Restore reward CSV writes, mandatory CSV/TensorBoard, correct rollout checkpoint cadence and resume-step flag. Test meaningful local tiny PPO logging.
 - [x] T3: Experiment runner records config/code/environment/status, runs training then seen/held-out validation, saves summaries/plots. Test bookkeeping and failure handling without HFM. Keep owned files disjoint if delegated.
-- [ ] T4: Update README, record upstream provenance, run relevant tests/review, commit and push main to OYzhongyan/plasma-control-private.
+- [x] T4: Update README, record upstream provenance, run relevant tests/review, commit and push main to OYzhongyan/plasma-control-private.
 - [ ] T5: Create a new clone in the requested remote parent; install missing packages in competition_env without proxies/SSH; preserve existing HFM. Short real preflight then detached 10m run. Record PID, commit, start/update/checkpoint evidence and reproduction commands.
 
 ## Review focus
@@ -26,3 +26,7 @@ History reset and first-action padding must match upstream; physical 12D history
 - Independent read-only review: no Critical/Important blockers; wrapper AST matches upstream. Seed routing narrow review confirmed config without seed preserves prior behavior and no seed enters MATLAB init.
 - Ruling: evaluation includes upstream README sensor noise (Ip 2300 A, R .008 m) in addition to delay; explicitly label this stress test. Single fixed target only, no multi-target reference selection in this baseline.
 - Reproducibility repair: per-env power-supply RNG receives env seed +30000; unchanged delay distribution, continuous stream across resets. Test observed RED then GREEN.
+
+- T4 published main b17fad608fd48fcc8822d7899f1408fd43aad6c2; HTTPS clone created at /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-baseline-20261109. Missing scipy 1.17.1 installed without upgrading existing torch/SB3.
+- T5 real preflight: 1024 requested/actual steps on two HFM environments; both PPO rollout collection and actor/critic updates completed; final model and matching normalization saved. Runtime HFM timeout count 0.
+- Found/fixed in real preflight: saved configs.pkl contains save_dir, rejected by Hydra struct during evaluation merge. Reproduced RED with saved runtime field, fixed by merging into an unstructured deep copy; 49 affected tests GREEN. Preserve initial failure log. Use the existing short model for three 16-step/one-episode scoring probes; these are pipeline verification, not benchmark scores. Full baseline remains 10m with final 500-step/3-episode evaluations.

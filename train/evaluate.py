@@ -657,6 +657,8 @@ def resolve_evaluation_normalization(metadata: dict[str, Any], path: Path | None
 def restore_training_configuration(cfg, model_file, *, overrides=None):
     """Recover the saved training contract, keeping evaluation-only defaults."""
     from copy import deepcopy
+    cfg = deepcopy(cfg)
+    OmegaConf.set_struct(cfg, False)
     path = next((directory / "configs.pkl" for directory in
                  (model_file.parent, model_file.parent.parent)
                  if (directory / "configs.pkl").is_file()), None)
