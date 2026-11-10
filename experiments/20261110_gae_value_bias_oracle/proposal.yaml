@@ -1,0 +1,35 @@
+status: CANCELLED
+cancelled_on: '2026-11-10'
+cancelled_by: user
+resume_automatically: false
+implementation_started: false
+simulation_started: false
+training_started: false
+notebook: plasma-control2
+bootstrap_at_step_500: true
+true_terminal_bootstrap: false
+preserve_running_baseline: true
+frozen_policy: true
+frozen_critic: true
+frozen_normalization: true
+gamma: 0.995
+gae_lambda: 0.95
+rollout_steps_for_reconstruction: 256
+episode_sampling_cut: 500
+oracle:
+  available_under_current_constraints: false
+  continuation_after_500_available: false
+  target: continuing_discounted_return_of_frozen_stochastic_policy
+  continuation_after_500_required_for_direct_MC_oracle: true
+  post_500_reference: proposed_hold_last_target_preserve_original_prefix
+  post_500_reference_verified: false
+  snapshot_or_replay_verified: false
+  horizon: pending_tail_error_and_backend_feasibility_check
+  independent_replicates: proposed_16_32_64_after_variance_pilot
+  confidence_interval_required: true
+diagnostic_stages_proposed:
+  - actual_support_and_endpoint_sensitivity_by_episode_position
+  - constant_and_state_dependent_endpoint_perturbations_on_common_data
+  - paired_actor_only_update_and_independent_control_evaluation
+conclusion_scope: bootstrap_sensitivity_and_control_effect_not_true_value_bias_identification
+smoke_artifact_retention: false

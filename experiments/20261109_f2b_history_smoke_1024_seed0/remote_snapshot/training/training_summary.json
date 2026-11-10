@@ -1,6 +1,0 @@
-{
-  "requested_timesteps": 1024,
-  "actual_timesteps": 1024,
-  "num_envs": 2,
-  "rollout_steps": 256
-}

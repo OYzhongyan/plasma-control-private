@@ -404,4 +404,4 @@ experiments/<experiment-id>/
 
 PPO 按完整 rollout 更新，32×256=8192 步；请求 10,000,000 步通常实际完成 **10,002,432 步**。runner 分别记录请求值、预期取整值和从最终模型、PPO CSV 或 checkpoint 获取的实际步数。训练或验证失败会保存 `FAILED` 状态并返回非零退出码；已有运行或完成状态的实验不能覆盖，应使用新的实验 ID。`--dry-run` 不执行训练和验证，其记录可用于随后正式启动。
 
-短测可覆盖 `--total-timesteps`、`--num-envs`、`--base-port`，并用 `--skip-evaluation` 跳过后续验证；这类记录不能作为完整 10m 实验结果。`--eval-port` 默认复用 base port；`--wandb-mode` 支持 `offline`、`online`、`disabled`。比赛评分服务维护在 `grading` 分支，选手训练和推理代码维护在 `main`。
+Smoke 测试使用项目外的临时目录，结束后删除全部测试产物，不保留在 `experiments/` 或 Git 中；实验记录约定见 [experiments/README.md](experiments/README.md)。`--eval-port` 默认复用 base port；`--wandb-mode` 支持 `offline`、`online`、`disabled`。比赛评分服务维护在 `grading` 分支，选手训练和推理代码维护在 `main`。

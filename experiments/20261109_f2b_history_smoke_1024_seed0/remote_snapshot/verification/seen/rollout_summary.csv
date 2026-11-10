@@ -1,2 +1,0 @@
-shot_id,episode,steps,max_steps,survived_full,failure,hfm_timeout,reward_sum,mean_ip_abs_error_ka,max_ip_abs_error_ka,mean_lcfs_rms_cm,max_lcfs_rms_cm,final_lcfs_rms_cm,topology_match_rate,max_coil_margin
-15892_400,0,16,16,True,False,False,2.851989008486271,15.507188687008464,31.65609725848236,11.360869883437962,13.862720066511486,13.862720066511486,0.0,0.8185593837571417

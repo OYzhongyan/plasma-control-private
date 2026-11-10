@@ -1,0 +1,693 @@
+               Reward Support Across Episode Positions:
+          Exact Counts and Their Effect on GAE Critic Targets
+                     Technical analysis for the tokamak control experiments
+
+                                            October 26, 2026
+
+
+                                                 Abstract
+          A fixed-length rollout generally ends at a different position in each episode. Consequently,
+      advantages associated with different episode positions use different numbers of observed rewards.
+      We derive the exact cumulative support count Ct , its periodic structure, and its relation to
+      critic-target error. For the example M = 500, N = 256, and m = 64, the first position uses
+      130 rewards per target on average, whereas the final position uses one. Under a controlled
+      endpoint-error perturbation, their average sensitivity coeﬀicients are approximately 0.0651 and
+      0.995, respectively. All results assume correct bootstrapping at artificial episode time
+      limits. The analysis separates reward support, sample count, target bias, and state coverage so
+      that the effect can be quantified without treating these different quantities as interchangeable.
+
+
+1    Sampling convention and the quantities being counted
+The sampling convention is the one illustrated by Figure 14.1 of the accompanying Tokamak
+Plasma Simulator Guide: rollout windows continue across resets, while GAE recursion stops at
+both rollout boundaries and episode boundaries. The derivation here is self-contained and does
+not require that figure.
+Consider one environment. It produces m episodes of exactly M action steps each, with no early
+failures. Rollouts contain N transitions. The first rollout starts at the first transition of the first
+episode. Episode j is indexed by j = 1, . . . , m, and position within an episode by t = 1, . . . , M . At
+position t, the environment starts in sj,t , takes aj,t , receives rj,t , and reaches sj,t+1 .
+An artificial time limit resets the environment after transition M but does not make the underlying
+control task terminal. Its final state is used for bootstrap; rewards from the reset episode are never
+appended to the old episode’s GAE. A final partial rollout is assumed to be processed, or sampling
+is continued until the containing rollout is complete. Discarding an incomplete final rollout would
+require excluding the discarded samples from the counts below.
+
+             Table 1: Definitions. Counts include the current transition’s reward.
+        Symbol      Meaning
+        m               Number of complete episodes from one environment.
+        M               Actual episode length in transitions, not merely a configured maxi-
+                        mum.
+        N               Rollout length per environment.
+        Kj,t            Number of rewards available to the GAE fragment starting at (j, t).
+        Ct              Sum of those support lengths over all m episodes.
+        K̄t = Ct /m     Average number of available rewards per target at position t.
+        γ, λ            Discount and GAE trace parameters; q = γλ.
+
+
+
+                                                     1
+Reward Support and Critic Error in GAE
+
+
+There are m training samples at every position t, regardless of Ct . Ct counts reward occurrences
+supporting these targets, not independent samples and not additional simulator calls. Counts for
+different positions can reuse the same rewards. A bootstrap value is a prediction and is not counted
+as an observed reward. For 0 < γλ < 1, every available reward has a nonzero coeﬀicient; when
+λ = 0, only the current reward contributes despite the larger available support.
+
+
+2     Exact reward-support count
+2.1   One sample
+
+The zero-based global transition index of (j, t) is
+
+                                       gj,t = (j − 1)M + t − 1.                                   (2.1)
+
+The number of transitions remaining in its rollout, including the current one, is
+
+                                      Bj,t = N − (gj,t mod N ).                                   (2.2)
+
+The number remaining in its episode is Rt = M − t + 1. Therefore,
+                                                                     
+                    Kj,t = min M − t + 1, N − ((j − 1)M + t − 1) mod N .                          (2.3)
+
+The actual rewards used are rj,t , . . . , rj,t+Kj,t −1 . Both boundaries matter: continuing to fill a
+rollout after reset does not extend the preceding episode’s reward support.
+Figure 1 makes the endpoints of these counts explicit. Let aj = (j − 1)M be the episode-start
+index and bj,t = N ⌊gj,t /N ⌋ the containing rollout’s start index. The episode occupies [aj , aj + M )
+and the rollout occupies [bj,t , bj,t + N ). Their common right endpoint for this target is hj,t =
+min(aj + M, bj,t + N ), so Kj,t = hj,t − gj,t . These are half-open intervals of transition indices: the
+endpoint is where a bootstrap state is available, not an extra observed reward.
+
+
+
+
+                                                   2
+Reward Support and Critic Error in GAE
+
+
+
+
+           (a) Rollout ends first: Bj,t <MRtransitions
+                                           t
+
+
+                                          Episode j        (j = 1, . . . , m)
+
+                                           Containing rollout
+
+                                             N transitions
+                                           Current transition
+                aj            bj,t           gj,t = aj + t − 1               bj,t + N                aj + M
+                                                   Bj,t = N − (gj,t mod N )
+                                                                      Rt = M − t + 1
+
+
+                                                               Kj,t = Bj,t
+           Bootstrap at sj,t+Kj,t ; the next rollout can continue episode j.
+
+
+           (b) Episode ends first: Rt < Bj,t
+                               M transitions
+
+                                         Episode j                                  Episode j + 1 (after reset)
+
+                                             Containing rollout spans the reset
+
+                                                       N transitions
+                                           Current transition
+                aj            bj,t           gj,t = aj + t − 1               aj + M                  bj,t + N
+                                                                  Bj,t = N − (gj,t mod N )
+                                                        Rt = M − t + 1
+
+
+                                                               Kj,t = Rt
+           Bootstrap at sj,M +1 , before reset; episode j + 1 rewards are excluded.
+
+                     Kj,t = min{Bj,t , Rt }        observed rewards: rj,t , . . . , rj,t+Kj,t −1
+                                                     X
+                                                     m
+                             Ct (m; M, N )     =           Kj,t       K̄t       =     Ct /m
+                                                     j=1
+
+
+
+Figure 1: Reading the reward-support intervals. Blue denotes episode spans, orange denotes
+rollout spans, and teal denotes the usable reward fragment. Every double-headed arrow measures
+a number of transitions between its two endpoints, including the current transition and excluding
+the right endpoint. The global index gj,t counts transitions from the start of sampling; t is the one-
+based position within episode j. Panels are schematic and independently scaled, not numerical
+examples with a shared scale. If both boundaries coincide, Kj,t = Bj,t = Rt and the episode-
+boundary bootstrap rule applies. The bootstrap value is not counted in Kj,t or Ct .
+
+
+
+
+                                                           3
+Reward Support and Critic Error in GAE
+
+
+2.2   All episodes at the same position
+
+Summing Equation (2.3) gives the desired exact count:
+
+                               X
+                               m
+                                                                               
+             Ct (m; M, N ) =         min M − t + 1, N − ((j − 1)M + t − 1) mod N .             (2.4)
+                               j=1
+
+
+Consequently,
+                          m ≤ Ct ≤ m min(N, M − t + 1),                  CM = m.               (2.5)
+The final position always has one observed reward per target. More episodes increase the number
+of such targets but do not extend any individual target’s observed future beyond the episode
+boundary.
+
+
+3     Periodicity and a closed form
+Let
+                                                         N
+                                       d = gcd(M, N ),     .    L=                       (3.1)
+                                                         d
+Episode starts advance the rollout phase by M mod N . After L episodes, LM is divisible by N ,
+so Kj+L,t = Kj,t . Write m = uL + b, with u = ⌊m/L⌋ and 0 ≤ b < L. Then
+
+                                                X
+                                                b                     X
+                                                                      L
+                                Ct = uSt +            Kj,t ,   St =         Kj,t .             (3.2)
+                                                j=1                   j=1
+
+
+For a fixed t, define
+                                 at = (t − 1) mod d,            c t = d − at .                 (3.3)
+Over one period, the rollout residual lengths visit exactly the set
+
+                                      {ct , ct + d, . . . , ct + (L − 1)d}.                    (3.4)
+
+Their chronological order depends on M , but the full-period sum does not. Let ht count the
+members no larger than Rt :
+                                                           
+                                                 Rt − c t
+                            ht = min L, max 0,              +1    .                    (3.5)
+                                                    d
+
+Summing the arithmetic progression below Rt and clipping the remaining terms to Rt gives
+
+                                                d ht (ht − 1)
+                                St = ht c t +                 + (L − ht )Rt .                  (3.6)
+                                                      2
+
+Equations (3.2)–(3.6) give a closed form for complete periods plus an exact remainder for any finite
+m.
+
+
+3.1   Two useful special cases
+
+If N divides M , episode starts always have the same rollout phase:
+
+                         Ct = m min{M − t + 1, N − ((t − 1) mod N )}.                          (3.7)
+
+Repeating episodes does not average over different phases in this case.
+
+
+                                                          4
+Reward Support and Critic Error in GAE
+
+
+If gcd(M, N ) = 1 and m is a multiple of N , every residual length from 1 to N occurs equally often.
+With kt = min(M − t + 1, N ),
+                                                  kt (kt − 1)
+                                      K̄t = kt −              .                                (3.8)
+                                                      2N
+Far enough from the episode boundary, K̄t = (N +1)/2, rather than N . For d > 1, residual lengths
+occupy a residue class; this can produce small position-dependent oscillations even far from the
+episode endpoint.
+
+
+4     Numerical example: 500-step episodes and 256-step rollouts
+Take M = 500, N = 256, and m = 64. Here d = 4 and L = 64, so the episodes cover one full
+phase period: 64 × 500 = 125 × 256 = 32000 transitions.
+
+                   Table 2: Exact reward support over a complete phase period.
+                                    t     K1,t    K2,t        Ct          K̄t
+                                   1       256     12        8320   130.0000
+                                 100       157    169        8128   127.0000
+                                 256         1     13        8116   126.8125
+                                 257       244     12        8296   129.6250
+                                 400       101    101        5164    80.6875
+                                 450        51     51        2952    46.1250
+                                 499         2      2         128     2.0000
+                                 500         1      1          64     1.0000
+
+The first rollout contains episode 1, steps 1–256. The next contains episode 1, steps 257–500,
+followed by episode 2, steps 1–12. Thus the first position of episode 2 has only 12 rewards available,
+while the first position of episode 1 has 256. Phase averaging redistributes rollout-edge effects, but
+it cannot remove the episode-end constraint: the final position always has support one.
+
+
+5     How observed rewards enter a critic target
+5.1   A fixed-policy estimation problem
+
+Fix a policy π and an old critic Vold while constructing targets. Assume the state is Markov; if the
+task has a time-varying reference, the state must contain the information needed to predict that
+reference. The continuing, discounted value is
+                               "∞                     #
+                                 X
+                  V π (s) = Eπ       γ ℓ rt+ℓ | st = s ,   e(s) = Vold (s) − V π (s).          (5.1)
+                                  ℓ=0
+
+All rewards and values are on the same scale. If reward normalization is used, freeze its statistics
+for the diagnostic experiment.
+A squared-error critic regression fits targets Yt :
+                                                1
+                                        LV (ϕ) = E[(Vϕ (st ) − Yt )2 ].                          (5.2)
+                                                2
+With unlimited conditional data and unrestricted function fitting, its minimizer is E[Yt | st = s].
+Thus a biased target mean is directly a biased regression objective. Finite data, shared-network
+approximation, and incomplete optimization add further error; a coeﬀicient derived below describes
+target sensitivity, not a guarantee of the eventual network error.
+
+                                                         5
+Reward Support and Critic Error in GAE
+
+
+5.2   The simpler K-step target
+
+For the bootstrapped K-step return,
+
+                                    (K)
+                                            X
+                                            K−1
+                                  Yt    =            γ ℓ rt+ℓ + γ K Vold (st+K ),                                      (5.3)
+                                               ℓ=0
+
+Derivation of the target-bias identity. Here E[· | s] abbreviates Eπ [· | st = s]: the starting
+state is fixed, while the current and subsequent actions are sampled from the fixed policy π,
+and transitions follow the environment dynamics. The old critic is held fixed when taking this
+expectation. Let K be a fixed positive integer, and assume the discounted returns are integrable;
+bounded rewards and 0 ≤ γ < 1 are suﬀicient.
+                                                                     P
+Step 1: split the actual infinite return at transition K. Define Gt = ∞     ℓ
+                                                                       ℓ=0 γ rt+ℓ . Reindexing the
+tail gives
+
+                                         X
+                                         K−1                  ∞
+                                                              X
+                                 Gt =          γ ℓ rt+ℓ +         γ ℓ rt+ℓ
+                                         ℓ=0                ℓ=K
+                                         X
+                                         K−1                      ∞
+                                                                  X
+                                                 ℓ            K
+                                     =         γ rt+ℓ + γ                γ u rt+K+u .
+                                         ℓ=0
+                                                                  |u=0     {z      }
+                                                                         Gt+K
+
+
+This is an equality for the realized return on a continuing trajectory. The factor γ K converts a
+return measured from time t + K into units discounted back to time t.
+Step 2: replace the tail by its conditional mean, not by a samplewise equality. Let Ht+K denote the
+observed trajectory history up to and including st+K , before choosing at+K . Under the Markov-
+state and fixed-policy assumptions,
+
+                                    Eπ [Gt+K | Ht+K ] = V π (st+K ).
+
+Since st belongs to this history, the law of iterated expectations gives
+
+                           Eπ [Gt+K | st = s] = Eπ [Eπ [Gt+K | Ht+K ] | st = s]
+                                                 = Eπ [V π (st+K ) | st = s].
+
+Taking conditional expectations in Step 1 therefore yields the K-step Bellman identity:
+                                   "K−1                                #
+                                     X
+                       V (s) = Eπ
+                         π                ℓ        K π
+                                         γ rt+ℓ + γ V (st+K ) st = s .
+                                          ℓ=0
+
+The realized tail Gt+K need not equal V π (st+K ); their conditional means agree. No continuation
+rollout is required to compute the bootstrap target, even though the true continuation is used to
+define its correctness.
+Step 3: subtract the true-value identity from the mean training target. Both expectations use the
+same policy, dynamics, starting state, and horizon. By linearity of conditional expectation, the
+identical reward terms cancel:
+             (K)
+        Eπ [Yt   | st = s] − V π (s)
+                " K−1                              !                                                  !            #
+                    X                                             X
+                                                                  K−1
+           = Eπ         γ ℓ rt+ℓ + γ K Vold (st+K ) −                    γ ℓ rt+ℓ + γ K V π (st+K )       st = s
+                     ℓ=0                                          ℓ=0
+           = γ K Eπ [Vold (st+K ) − V π (st+K ) | st = s].
+
+
+                                                          6
+Reward Support and Critic Error in GAE
+
+
+Using e(x) = Vold (x) − V π (x) gives
+                                     (K)
+                                 E[Yt      | s] − V π (s) = γ K E[e(st+K ) | s].                         (5.4)
+
+The left-hand side is the conditional mean bias of the target, not the error of an individual sampled
+return and not the final fitted critic error. For K = 1, it reduces to E[rt +γVold (st+1 ) | s]−V π (s) =
+γE[e(st+1 ) | s]. There is no −e(s) term here because this is a return target; a TD residual would
+additionally subtract Vold (st ).
+Additional observed rewards postpone the point at which the target substitutes a prediction for
+future experience. If |e(s)| ≤ ε everywhere, the bound follows explicitly from
+                   (K)
+               E[Yt      | s] − V π (s) = γ K |E[e(st+K ) | s]| ≤ γ K E[|e(st+K )| | s] ≤ γ K ε.
+
+
+5.3   Finite GAE and its critic regression target
+
+Define the TD residual and GAE fragment as
+
+                                                                 (K)
+                                                                           X
+                                                                           K−1
+                 δt = rt + γVold (st+1 ) − Vold (st ),         Ât =              q ℓ δt+ℓ ,   q = γλ.   (5.5)
+                                                                            ℓ=0
+
+Every fragment here ends with the appropriate next-state bootstrap. The PPO-style critic target
+                          (K)
+is YtGAE = Vold (st ) + Ât . Collecting the coeﬀicients of each value prediction gives
+
+                                        X
+                                        K−1                         X
+                                                                    K−1
+                           YtGAE =            q rt+ℓ + γ(1 − λ)
+                                               ℓ
+                                                                          q u−1 Vold (st+u )
+                                        ℓ=0                         u=1
+                                              K−1
+                                        + γq    V (s     ).                                              (5.6)
+                                          | {z } old t+K
+                                              βK
+
+Equivalently, it is a mixture of bootstrapped n-step returns:
+                                                    X
+                                                    K−1
+                                                                 (n)                 (K)
+                              YtGAE = (1 − λ)             λn−1 Yt      + λK−1 Yt           .             (5.7)
+                                                    n=1
+
+The mixture weights sum to one. Subtracting the true-value version and taking expectations yields
+the exact target bias
+
+                   bK (s) = E[YtGAE | s] − V π (s)
+                                         X
+                                         K−1
+                           = γ(1 − λ)          q u−1 E[e(st+u ) | s] + γq K−1 E[e(st+K ) | s].           (5.8)
+                                         u=1
+
+This result conditions on state and averages the current action under π. For advantage error
+conditional on (s, a), the corresponding expression also contains −e(s), with future expectations
+conditional on (s, a). The fixed-policy analysis follows the GAE construction in [1]; it does not
+pool targets generated by changing policies as if they shared one true value.
+
+
+6     Quantifying the effect of unequal support
+6.1   Endpoint-error sensitivity
+
+Hold the rewards and intermediate predictions fixed and perturb the endpoint prediction by ε.
+Equation (5.6) gives
+                                        ∆Yt = βK ε,           βK = γq K−1 .                              (6.1)
+
+                                                          7
+Reward Support and Critic Error in GAE
+
+
+For the samples at episode position t, the average sensitivity is
+
+                                                   1 X Kj,t −1
+                                                          m
+                                           β̄t =      γq       .                                 (6.2)
+                                                   m
+                                                         j=1
+
+If each fragment endpoint has the same additive prediction perturbation, while its intermediate
+values remain fixed, the mean target shift is β̄t ε. This is a controlled sensitivity experiment, not
+the assumption that all states of a single shared critic have this perturbation.
+For a complete phase period, Equations (3.5)–(3.6) also give an exact expression for this coeﬀicient:
+                                                                 
+                             γ ct −1 1 − q dht              Rt −1
+                       β̄t =     q             + (L − ht )q         ,        0 < q < 1.          (6.3)
+                             L        1 − qd
+
+For incomplete periods, use the period sum and the actual chronological remainder just as in
+Equation (3.2).
+
+Table 3: Endpoint sensitivity with γ = 0.995, λ = 0.95, M = 500, N = 256, m = 64. A
+perturbation of 10 is in the chosen value units.
+                        t         K̄t              β̄t       Mean target shift for ε = 10
+                       1    130.0000      0.065112                               0.65112
+                     400     80.6875      0.078992                               0.78992
+                     450     46.1250      0.112681                               1.12681
+                     499      2.0000      0.940524                               9.40524
+                     500      1.0000      0.995000                               9.95000
+
+The final position transmits almost the full endpoint prediction error into its regression target. Its
+endpoint sensitivity is approximately 15.3 times that of the first position, averaged over the phase
+period. This comparison isolates the sampling structure; Equation (5.8) remains the expression
+for total bias when intermediate prediction errors are also present.
+
+
+6.2   Why the support distribution, rather than its mean alone, matters
+
+Define the empirical support-length distribution
+
+                                                   1 X
+                                                         m
+                                        pt (k) =       1{Kj,t = k}.                              (6.4)
+                                                   m
+                                                         j=1
+
+
+Then Ct /m = Ept [K], whereas β̄t = γEpt [q K−1 ]. For two length sets (1, 5) and (3, 3), both have
+cumulative support 6, but
+                              γ                    γ
+                                (1 + q 4 ) − γq 2 = (1 − q 2 )2 > 0.                           (6.5)
+                              2                     2
+Consequently, replacing every K with K̄t does not give the correct average sensitivity. Indeed,
+convexity gives
+                                        β̄t ≥ γq K̄t −1 .                                 (6.6)
+Short fragments can dominate endpoint sensitivity even when average reward support is large. In
+particular, the first position’s average support 130 does not mean it behaves like a single 130-step
+estimator.
+
+
+
+
+                                                          8
+Reward Support and Critic Error in GAE
+
+
+
+
+      K t = Ct /m
+                     100
+
+
+                      50
+
+
+                       0
+                             50     100        150        200        250      300       350        400   450   500
+                                                          Episode position t
+
+                      1
+
+
+
+       βt            0.5
+
+
+
+                      0
+                             50     100        150       200         250      300       350        400   450   500
+                                                          Episode position t
+
+Figure 2: Average observed reward support (top) and average endpoint-error sensitivity (bottom)
+over 64 episodes. Small oscillations reflect the four residue classes of the rollout phase. Endpoint
+sensitivity rises sharply near the episode boundary. The bottom curve is a coeﬀicient, not measured
+critic error.
+
+6.3                 A uniform bound on all critic errors
+
+If |e(s)| ≤ ε, Equation (5.8) implies
+                                                        |bK (s)| ≤ αK ε,                                         (6.7)
+where
+                                                           1 − q K−1
+                                            αK = γ(1 − λ)            + γq K−1
+                                                             1−q
+                                                   γ(1 − λ) γλ(1 − γ) K−1
+                                                 =          +           q    .                                   (6.8)
+                                                    1−q          1−q
+For the example parameters, α1 = 0.995 and α∞ ≃ 0.90868. Increasing K reduces this uniform
+bound, but it does not eliminate intermediate-value dependence when λ < 1. If e(s) = c is constant
+across all visited states, the target bias is exactly αK c; if e = 0, the target bias is zero for every
+support length. At λ = 1, αK = γ K ; at λ = 0, αK = γ for every K. These cases distinguish
+endpoint-specific sensitivity from the total influence of a critic whose errors extend across the entire
+trajectory.
+
+
+6.4                 From target error to the critic update
+
+For one sample under a squared loss,
+                                                                       ∂ℓt
+                                   ℓt = 12 (Vϕ (st ) − Yt )2 ,                 = Vϕ (st ) − Yt .                 (6.9)
+                                                                     ∂Vϕ (st )
+
+Holding the current network fixed, a target perturbation produces
+
+                                                 ∆∇ϕ ℓt = −∆Yt ∇ϕ Vϕ (st ).                                     (6.10)
+
+                                                                 9
+Reward Support and Critic Error in GAE
+
+
+A persistently shifted target repeatedly pushes the fitted value in that direction. Shared network
+parameters also couple updates at different states. This equation describes the local squared-loss
+update; value clipping or other optimization modifications can alter the realized gradient.
+
+
+7     Sample count, coverage, and the remaining error
+7.1   More episodes versus longer reward support
+
+For m independent, identically distributed targets at the same state, the sample mean estimator
+satisfies
+                                                                Var(Y (K) | s)
+                            E[(V̂ (s) − V π (s))2 ] = bK (s)2 +                .              (7.1)
+                                                                     m
+For independent butP   nonidentically distributed targets, the corresponding terms are the squared
+mean bias and m−2 j Var(Yj | s); correlated targets also add covariance terms. Increasing m
+reduces sampling noise under the stated independence conditions. It does not automatically remove
+a systematic target bias. Increasing K changes the target itself, including both bias and variance.
+For the final position, increasing m changes CM = m but leaves K̄M = 1 and β̄M = γ unchanged.
+A useful supplementary statistic is the sum of reward coeﬀicients:
+                                          X
+                                          m
+                                            1 − q Kj,t
+                                  Wt =                    ,   0 < q < 1.                        (7.2)
+                                                1−q
+                                          j=1
+
+Wt measures total coeﬀicient weight, not an effective independent sample size. Neither Ct nor Wt
+alone specifies the learned critic’s mean squared error.
+
+
+7.2   Why extending episodes can improve endpoint values
+
+Consider a deterministic chain s1 → · · · → sM → sM +1 , where training always resets at sM +1 .
+Correct bootstrap retains YM = rM + γVold (sM +1 ), but there is no observed outgoing transition
+from sM +1 in this dataset. If all observed Bellman equations are satisfied and the boundary value
+has error c, subtracting the true Bellman equations gives
+
+                                      e(st ) = γe(st+1 ) = γ M −t+1 c .                         (7.3)
+
+Thus small Bellman residuals on the observed chain do not determine the unknown boundary value.
+Extending episodes makes previously unobserved outgoing transitions available and moves the
+unconstrained boundary farther away. States already covered elsewhere can share these constraints
+through learning; what matters is state-transition coverage, not the timestep label by itself.
+A rollout boundary is different: the next rollout normally resumes the same episode, so the outgoing
+data are eventually collected. It limits the current GAE fragment without necessarily creating a
+persistent coverage gap. An episode reset removes the continuation unless other trajectories visit
+the relevant states.
+
+
+8     Implications for the controlled experiment
+The direct, quantifiable effect is:
+
+      Late-episode targets have less observed reward support and greater sensitivity to their
+      final value prediction. Correct bootstrap supplies that prediction but does not supply
+      the missing realized rewards. Longer episodes can both extend some fragments and
+      train the predictions on newly observed continuation states.
+
+                                                     10
+Reward Support and Critic Error in GAE
+
+
+The following measurements separate these mechanisms:
+
+  1. Record Kj,t , Ct , and pt (k) by episode position, together with β̄t . These are sampling-
+     geometry quantities, not critic-error estimates.
+
+  2. Freeze a policy, critic, and normalization statistics; use common long trajectories to compare
+     targets constructed with different rollout/reset cuts. Estimate reference values from indepen-
+     dent continuations where feasible. This separates estimator differences from policy changes
+     during training.
+
+  3. Measure target error and critic error by position, as well as current, intermediate, and end-
+     point prediction errors. A larger β̄t matters most where endpoint errors are substantial or
+     systematically signed.
+
+  4. Compare training runs with the same physical timestep, reference prefix, reward definition,
+     total interaction budget, and correct timeout bootstrap. Longer episodes change the state
+     distribution: the first H steps occupy a fraction H/M of samples when H ≤ M , which should
+     be reported.
+
+At fixed rollout length, increasing M does not remove rollout boundaries. For example, in the first
+episode with N = 256, position 500 has support 1 when M = 500, but support 13 when M ≥ 512,
+because the next rollout boundary is 512. Further extension can improve learned continuation
+values even when it does not increase that particular sample’s immediate support.
+For E synchronized environments with identical episode lengths and phases, all environments have
+the same Kj,t . Pooling m episodes per environment multiplies Ct by E but does not change K̄t
+or β̄t . Variable episode lengths and early failures require the actual cumulative start index in
+Equation (2.3); the fixed-length periodic formulas no longer apply.
+This document assumes the timeout semantics described in [2]: artificial episode boundaries retain
+final-state bootstrap, whereas genuine terminal states have zero continuation value. It makes
+no claim that a particular backend currently enforces these semantics; they are the stipulated
+conditions of this analysis. All numerical tables use M = 500 as a mathematical example, not as
+a measurement of the actual simulator horizon.
+
+
+A Reproducing the counts and sensitivity coeﬀicients
+The following Python fragment uses only the standard library. It verifies the full-period closed
+forms against enumeration and prints the values used above.
+
+from math import gcd
+M, N, m = 500, 256, 64
+gamma, lam = 0.995, 0.95
+q = gamma * lam
+d, L = gcd(M, N), N // gcd(M, N)
+for t in range(1, M + 1):
+    R = M - t + 1
+    K = [min(R, N - ((j*M + t - 1) % N))
+         for j in range(m)]
+    a = (t - 1) % d
+    c = d - a
+    h = min(L, max(0, (R-c)//d + 1))
+    S = h*c + d*h*(h-1)//2 + (L-h)*R
+    beta = gamma/L * (
+
+
+                                                11
+Reward Support and Critic Error in GAE
+
+
+        q**(c-1)*(1-q**(d*h))/(1-q**d)
+        + (L-h)*q**(R-1))
+    assert sum(K) == S # here m == L
+    measured = sum(gamma*q**(k-1) for k in K)/m
+    assert abs(measured-beta) < 1e-12
+    if t in [1, 100, 256, 257, 400, 450, 499, 500]:
+        print(t, sum(K), sum(K)/m, measured)
+
+
+References
+[1] J. Schulman, P. Moritz, S. Levine, M. Jordan, and P. Abbeel. High-Dimensional Continuous
+    Control Using Generalized Advantage Estimation. ICLR, 2016. arXiv:1506.02438.
+
+[2] F. Pardo, A. Tavakoli, V. Levdik, and P. Kormushev. Time Limits in Reinforcement Learning.
+    ICML, PMLR 80:4045–4054, 2018. Paper and proceedings.
+
+
+
+
+                                             12
+

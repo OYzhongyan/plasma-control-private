@@ -16,3 +16,5 @@ __pycache__/
 !/experiments/*/picture/.gitkeep
 /experiments/*/*.log
 /experiments/*/.runner.lock
+# Smoke checks are temporary and are never archived or committed.
+/experiments/*smoke*/
