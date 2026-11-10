@@ -1,0 +1,17 @@
+# Four-frame flux CNN critic: approved design
+
+User approved implementation and a full experiment on 2026-11-10. Compare with `20261109_f2b_history_baseline_10m_seed0`; all non-critic experiment settings must remain identical. Use Notebook plasma-control2, never the running plasma-control pool. No SSH, no proxies, no Git worktrees. Push tested code to the existing private GitHub main as requested.
+
+Actor remains the exact 812→256 Tanh→256 Tanh→7 Gaussian actor, including seven log_std parameters; it trains normally. Preserve identical actor initialization and post-construction sampling RNG relative to the baseline seed. Critic gets the same 812 features plus four delayed flux frames and a validity mask. No trainable feature parameters are shared with actor.
+
+Flux frames reshape `Fx` with C order to 66×65. Shared per-frame encoder: Conv2d(1,16,3,2,1), ReLU, Conv2d(16,32,3,2,1), ReLU, Conv2d(32,64,3,2,1), ReLU, Flatten(5184), Linear(5184,128), ReLU. Mask invalid frame embeddings to zero. Concatenate four embeddings in time order (512), auxiliary Linear(812,128)+ReLU, and four mask values: 644→256 ReLU→128 ReLU→1. Critic trainable parameters 989185; actor 275726.
+
+Observation Dict keys: actor_obs (812,), flux_history (4,66,65), flux_mask (4,), float32. Reuse the existing observation encoder; preserve zero padding and physical-action history exactly. Flux frames see the same observation delay as actor. Use one central global running mean/variance for valid flux pixels, with clipping at the existing clip_obs; do not normalize masks or treat flux as uint8 images. Actor observation and reward normalization exactly match baseline. Save both actor and flux statistics, freeze at evaluation, normalize terminal observations with the same frozen/current statistics.
+
+Implement normalization as a VecNormalize subclass with actor-only norm_obs_keys and scalar flux RMS. Update flux RMS exactly once per step/reset main observation, never for explicit normalize_obs calls or extra terminal observations. Preserve existing normalization behavior and class for non-CNN models.
+
+PPO remains standard SB3 2.8.0: CPU, 32 envs, 256 steps/env, batch1024, 6 epochs, gamma .995, lambda .95, lr1e-4 warmup/cosine, seed0, delta actions, observation delay1, max_steps500, 10m requested (10002432 rounded). Keep 500-step timeout bootstrap; true failure has zero bootstrap. No separate critic warmup, optimizer change or altered clipping. Upstream F2 dense reward, shots15892_400/15892_500, fresh +/-5% signeo/bp/q0, power RNG env_seed+30000 unchanged. W&B offline plus local CSV/TensorBoard. Final eval unchanged: three 500-step episodes each seen15892_400 seed100, validation14795_400 seed200, test13705_500 seed300, same evaluation sensor perturbations.
+
+Training checkpoints retain the CNN critic and Dict schema; evaluation must use the same wrapper. Actor-only export retains the existing 812-input interface and normalization. Saved full-model checkpoint inference must also be supported on A; C's protocol stays unchanged. Default old models remain loadable.
+
+Comparison caveat: the treatment adds flux information as well as CNN representation; it is a critic-only treatment, not an isolated proof that convolutions alone improve performance. Record parameter counts, actor initialization hashes, exact baseline config diff, runtime/provenance, collecting/update timings where available, local curves and formal held-out scores. Smoke outputs must be temporary and removed even on failure.

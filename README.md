@@ -405,3 +405,17 @@ experiments/<experiment-id>/
 PPO 按完整 rollout 更新，32×256=8192 步；请求 10,000,000 步通常实际完成 **10,002,432 步**。runner 分别记录请求值、预期取整值和从最终模型、PPO CSV 或 checkpoint 获取的实际步数。训练或验证失败会保存 `FAILED` 状态并返回非零退出码；已有运行或完成状态的实验不能覆盖，应使用新的实验 ID。`--dry-run` 不执行训练和验证，其记录可用于随后正式启动。
 
 Smoke 测试使用项目外的临时目录，结束后删除全部测试产物，不保留在 `experiments/` 或 Git 中；实验记录约定见 [experiments/README.md](experiments/README.md)。`--eval-port` 默认复用 base port；`--wandb-mode` 支持 `offline`、`online`、`disabled`。比赛评分服务维护在 `grading` 分支，选手训练和推理代码维护在 `main`。
+
+## 9.1 四帧磁通 CNN critic 对照
+
+默认仍为原 MLP critic。以下选项只改变 critic：actor 保持原有 812 维输入和网络，critic 额外编码四帧磁通，训练与第 500 步 bootstrap 使用同一套新观测。完整 checkpoint 保存 CNN；ONNX 导出只保留原有 812 维 actor 和匹配的归一化统计。
+
+```bash
+python tools/run_baseline_experiment.py \
+  --experiment-id 20261110_cnn_flux_critic_10m_seed0 \
+  --critic-type flux_cnn \
+  --baseline-config experiments/20261109_f2b_history_baseline_10m_seed0/remote_snapshot/requested_config.json \
+  --wandb-mode offline
+```
+
+runner 会检查非 critic 配置与基线一致，否则停止。此实验使用独立的 `plasma-control2` Notebook 和工程目录，详见 [实验设计](experiments/20261110_cnn_flux_critic_10m_seed0/DESIGN.md)。

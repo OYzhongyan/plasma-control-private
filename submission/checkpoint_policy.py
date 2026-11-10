@@ -98,6 +98,17 @@ class CheckpointPolicy:
                     if isinstance(rms, dict):
                         spaces = self.model.observation_space.spaces
                         items = [(item, spaces[key].shape) for key, item in rms.items()]
+                        if "actor_obs" in spaces:
+                            if set(rms) != {"actor_obs"}:
+                                raise ValueError("Flux VecNormalize requires actor_obs statistics")
+                            flux_rms = vars(self.normalization).get("flux_rms")
+                            if (flux_rms is None
+                                    or np.asarray(flux_rms.mean).shape != ()
+                                    or np.asarray(flux_rms.var).shape != ()
+                                    or not np.isfinite(flux_rms.count) or flux_rms.count <= 0
+                                    or not np.isfinite(flux_rms.mean)
+                                    or not np.isfinite(flux_rms.var) or flux_rms.var < 0):
+                                raise ValueError("VecNormalize contains invalid flux statistics")
                     else:
                         items = [(rms, self.model.observation_space.shape)]
                     for item, shape in items:
@@ -139,6 +150,9 @@ class CheckpointPolicy:
 
     def status(self):
         shape = self.model.observation_space.shape if self.model is not None else None
+        if self.model is not None and hasattr(self.model.observation_space, "spaces"):
+            actor_space = self.model.observation_space.spaces.get("actor_obs")
+            shape = actor_space.shape if actor_space is not None else None
         return dict(ok=self.ready, model_loaded=self.ready, backend="checkpoint", model_id=self.model_id,
                     normalization_loaded=self.normalization is not None,
                     obs_dim=int(np.prod(shape)) if shape is not None else None,

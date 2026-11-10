@@ -14,7 +14,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from submission.history import (REFERENCE_FEATURE_MODE, OBSERVATION_FEATURE_MODE,
+from submission.history import (REFERENCE_FEATURE_MODE, OBSERVATION_FEATURE_MODE, FLUX_FEATURE_MODE,
     reference_metadata, observation_metadata, validate_observation_metadata)
 from submission.model_bundle import create_bundle
 
@@ -22,13 +22,16 @@ from submission.model_bundle import create_bundle
 class OnnxablePolicy(torch.nn.Module):
     """Minimal wrapper around an SB3 actor-critic policy."""
 
-    def __init__(self, policy):
+    def __init__(self, policy, *, dict_observation=False):
         super().__init__()
         self.policy = policy
+        self.dict_observation = dict_observation
 
     def forward(self, observation):
-        actions, _, _ = self.policy(observation, deterministic=True)
-        return actions
+        if self.dict_observation:
+            observation = {"actor_obs": observation}
+        # Export only the actor. In particular, never run the CNN value branch.
+        return self.policy.get_distribution(observation).get_actions(deterministic=True)
 
 
 def default_out_path() -> Path:
@@ -77,6 +80,8 @@ def _write_vecnormalize_stats_from_object(vecnormalize: object, out_path: Path) 
     obs_rms = getattr(vecnormalize, "obs_rms", None)
     if obs_rms is None:
         raise ValueError("VecNormalize object does not contain obs_rms")
+    if isinstance(obs_rms, dict):
+        obs_rms = obs_rms["actor_obs"]
     values: dict[str, np.ndarray] = {
         "obs_mean": np.asarray(obs_rms.mean, dtype=np.float64),
         "obs_var": np.asarray(obs_rms.var, dtype=np.float64),
@@ -87,6 +92,11 @@ def _write_vecnormalize_stats_from_object(vecnormalize: object, out_path: Path) 
             getattr(vecnormalize, "epsilon", 1e-08), dtype=np.float64
         ),
     }
+    flux_rms = vars(vecnormalize).get("flux_rms")
+    if flux_rms is not None:
+        values.update(flux_mean=np.asarray(flux_rms.mean, dtype=np.float64),
+                      flux_var=np.asarray(flux_rms.var, dtype=np.float64),
+                      flux_count=np.asarray(flux_rms.count, dtype=np.float64))
     ret_rms = getattr(vecnormalize, "ret_rms", None)
     if ret_rms is not None:
         values["ret_mean"] = np.asarray(ret_rms.mean, dtype=np.float64)
@@ -167,6 +177,7 @@ def load_export_metadata(
             action_mode=str(actions.get("mode", "delta")),
             history_steps=int(features.get("history_steps", 4)),
             norm_obs=bool(normalization.get("enabled", True) and normalization.get("norm_obs", True)),
+            critic_type=str(config.get("critic", {}).get("type", "mlp")),
         )
     raise ValueError("Export requires explicit reference_only_v1 or historical_observation_v1 training metadata")
 
@@ -181,7 +192,17 @@ def export_onnx(
             "stable-baselines3 is required to export SB3 models"
         ) from exc
     model = PPO.load(str(model_path), device="cpu")
+    flux = metadata["feature_mode"] == FLUX_FEATURE_MODE
     obs_shape = model.observation_space.shape
+    if flux:
+        validate_observation_metadata(metadata)
+        spaces = getattr(model.observation_space, "spaces", {})
+        if set(spaces) != set(metadata["observation_shapes"]) or any(
+            spaces[key].shape != tuple(shape) or spaces[key].dtype != np.float32
+            for key, shape in metadata["observation_shapes"].items()
+        ):
+            raise ValueError("Model Dict observation space does not match flux metadata")
+        obs_shape = spaces["actor_obs"].shape
     action_shape = model.action_space.shape
     if obs_shape is None:
         raise ValueError("model observation space must have a fixed shape")
@@ -189,6 +210,12 @@ def export_onnx(
         int(action_shape[0]) if action_shape is not None and len(action_shape) else 7
     )
     metadata = dict(metadata)
+    if flux:
+        # The saved checkpoint remains Dict-based. This artifact has the
+        # historical actor input and uses only the matching actor RMS.
+        metadata = observation_metadata(metadata["action_mode"],
+            history_steps=metadata["history_steps"],
+            norm_obs=metadata["observation_normalization"])
     if len(obs_shape) != 1 or int(metadata["obs_dim"]) != int(obs_shape[0]):
         raise ValueError(
             f"Model input {obs_shape} does not match metadata obs_dim={metadata.get('obs_dim')}. "
@@ -200,7 +227,7 @@ def export_onnx(
     metadata["action_dim"] = action_dim
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sample_obs = torch.zeros((1, *obs_shape), dtype=torch.float32, device="cpu")
-    module = OnnxablePolicy(model.policy).to("cpu")
+    module = OnnxablePolicy(model.policy, dict_observation=flux).to("cpu")
     module.eval()
     with torch.no_grad():
         torch.onnx.export(
@@ -255,6 +282,7 @@ def main(argv: list[str] | None = None) -> int:
     out_path = args.out or default_out_path()
     metadata = load_export_metadata(args.model, args.metadata, args.config)
     export_onnx(args.model, out_path, metadata)
+    metadata = json.loads(metadata_path_for_onnx(out_path).read_text(encoding="utf-8"))
     stats = export_vecnormalize_stats(args.model, out_path, args.vecnormalize)
     if metadata.get("requires_vecnormalize"):
         if stats is None:

@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM_COMMIT = "ffda09ab4621ede477ff71247547f8cbc43d133a"
 SPLITS = {"seen": ("15892_400", 100), "validation": ("14795_400", 200), "test": ("13705_500", 300)}
 SOURCE_FILES = ["train/train_ppo.py", "train/wrappers.py", "train/rewards.py", "train/dense_rewards.py", "train/callbacks.py",
+                "train/flux_critic_policy.py", "train/flux_observation.py",
                 "train/references.py", "train/evaluate.py", "train/export_onnx.py", "train/configs/base.yaml",
                 "train/configs/eval.yaml", "submission/history.py", "submission/checkpoint_policy.py",
                 "environment/hfm_simulator.py", "environment/hfm_predictor.py", "environment/power_supply.py",
@@ -100,12 +101,33 @@ def config_record(root, args):
                  "wandb": {"enabled": args.wandb_mode != "disabled"}}
     for key, values in overrides.items():
         base.setdefault(key, {}).update(values)
+    base.setdefault("critic", {})["type"] = getattr(args, "critic_type", "mlp")
     targets = ["configs/xpt_reference_targets.json"]
     target = base.get("target", {})
     for key in ("default_reference_path", "reference_variants_path"):
         if target.get(key):
             targets.append(str(target[key]))
     return base, {name: sha256(root / name) for name in sorted(set(targets)) if (root / name).is_file()}
+
+
+def compare_baseline_config(baseline, candidate):
+    """Permit critic settings only; reject silent changes to the comparison."""
+    differences = []
+    def walk(a, b, prefix=""):
+        if isinstance(a, dict) and isinstance(b, dict):
+            for key in sorted(a.keys() | b.keys()):
+                if not prefix and key == "critic":
+                    continue
+                walk(a.get(key), b.get(key), f"{prefix}.{key}".strip("."))
+        elif a != b:
+            differences.append({"key": prefix, "baseline": a, "candidate": b})
+    walk(baseline, candidate)
+    if differences:
+        raise ValueError("Non-critic baseline settings changed: " + ", ".join(row["key"] for row in differences))
+    return {"non_critic_settings_identical": True,
+            "baseline_critic": baseline.get("critic", {"type": "mlp"}),
+            "candidate_critic": candidate.get("critic", {"type": "mlp"}),
+            "other_differences": []}
 
 
 def hydra_value(value):
@@ -124,6 +146,8 @@ def commands_for(root, exp, args):
              "reset_perturbation.signeo_scale_range=[0.95,1.05]", "reset_perturbation.bp_scale_range=[0.95,1.05]",
              "reset_perturbation.q0_scale_range=[0.95,1.05]", f"wandb.enabled={'false' if args.wandb_mode == 'disabled' else 'true'}",
              "hydra.run.dir=" + hydra_value(training)]
+    if getattr(args, "critic_type", "mlp") != "mlp":
+        train.append("critic.type=" + args.critic_type)
     evaluation = {}
     for split, (shot, seed) in SPLITS.items():
         command = [sys.executable, "train/evaluate.py", "eval.model_path=" + hydra_value(training), f"eval.shots=['{shot}']",
@@ -214,6 +238,9 @@ def write_readme(exp, args, metrics=None):
             "`manifest.json`, `code.patch` and `environment.json`. Hydra saves the resolved training config under "
             "`training/.hydra/config.yaml`, copied to `resolved_config.yaml` after training. Raw logs/checkpoints are under "
             "`training/`, split scoring artifacts under `evaluation/`, and figures under `picture/`. The runner reuses an existing HFM pool.\n")
+    if getattr(args, "critic_type", "mlp") == "flux_cnn":
+        text = text.replace("run a recorded seed-", "replace only the critic with four-frame flux CNN and run a matched seed-")
+        text += "\nCritic: shared per-frame CNN, ordered four-frame fusion, original 812 auxiliary inputs and validity masks. Actor architecture/initialization unchanged. See DESIGN.md and baseline_comparison.json. This treatment adds critic information as well as changing its architecture.\n"
     (exp / "README.md").write_text(text, encoding="utf-8")
 
 
@@ -270,6 +297,8 @@ def parser_and_args(argv):
     parser.add_argument("--base-port", type=int, default=2223)
     parser.add_argument("--eval-port", type=int)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--critic-type", choices=("mlp", "flux_cnn"), default="mlp")
+    parser.add_argument("--baseline-config", type=Path, help="Require exact non-critic equality to an archived requested_config.json")
     parser.add_argument("--wandb-mode", choices=("offline", "online", "disabled"), default="offline")
     parser.add_argument("--skip-evaluation", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -311,6 +340,10 @@ def main(argv=None, *, root=ROOT, executor=None):
     try:
         update("RUNNING")
         config, target_hashes = config_record(root, args)
+        if args.baseline_config:
+            comparison = compare_baseline_config(json.loads(args.baseline_config.read_text(encoding="utf-8")), config)
+            comparison["baseline_config_sha256"] = sha256(args.baseline_config)
+            write_json(exp / "baseline_comparison.json", comparison)
         commands = commands_for(root, exp, args)
         source, patch = provenance(root)
         n_steps = int(config.get("ppo", {}).get("n_steps", 256))
@@ -323,6 +356,7 @@ def main(argv=None, *, root=ROOT, executor=None):
                     "power_supply_seed_rule": "environment seed + 30000; continuous RNG stream across resets",
                     "evaluation_sensor_noise_std": {"Ip": 2300.0, "R": 0.008},
                     "inference_kernel_latency_measured": False}
+        manifest["critic_type"] = args.critic_type
         write_json(exp / "manifest.json", manifest)
         write_json(exp / "environment.json", environment_record())
         write_json(exp / "requested_config.json", config)

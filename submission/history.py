@@ -14,22 +14,33 @@ from train.wrappers import (
 
 REFERENCE_FEATURE_MODE = "reference_only_v1"
 OBSERVATION_FEATURE_MODE = "historical_observation_v1"
+FLUX_FEATURE_MODE = "cnn_flux_critic_v1"
 
 
 def observation_metadata(action_mode: str, *, history_steps: int = 4,
-                         norm_obs: bool = True) -> dict[str, Any]:
+                         norm_obs: bool = True, critic_type: str = "mlp") -> dict[str, Any]:
     """SII-585-THU's physical observation/action-history layout."""
     if action_mode not in {"absolute", "delta"}:
         raise ValueError(f"Invalid action_mode: {action_mode!r}")
     if type(history_steps) is not int or history_steps < 1:
         raise ValueError("history_steps must be a positive integer")
+    if critic_type not in {"mlp", "flux_cnn"}:
+        raise ValueError(f"Invalid critic_type: {critic_type!r}")
+    if critic_type == "flux_cnn" and (action_mode != "delta" or history_steps != 4):
+        raise ValueError("flux_cnn requires four-frame delta-action history")
     action_dim = 12 if action_mode == "delta" else 7
-    return dict(version=2, feature_mode=OBSERVATION_FEATURE_MODE,
+    metadata = dict(version=2, feature_mode=OBSERVATION_FEATURE_MODE,
                 history_steps=history_steps, include_xpt=True,
                 action_history_steps=5, action_history_dim=action_dim,
                 obs_dim=188 * history_steps + 5 * action_dim,
                 action_dim=7, action_mode=action_mode, action_units="normalized",
                 observation_normalization=bool(norm_obs), requires_vecnormalize=bool(norm_obs))
+    if critic_type == "flux_cnn":
+        metadata.update(feature_mode=FLUX_FEATURE_MODE,
+            actor_feature_mode=OBSERVATION_FEATURE_MODE,
+            observation_shapes={"actor_obs": [812], "flux_history": [4, 66, 65], "flux_mask": [4]},
+            observation_dtype="float32", flux_order="C")
+    return metadata
 
 
 def validate_observation_metadata(metadata: dict[str, Any]) -> None:
@@ -37,7 +48,8 @@ def validate_observation_metadata(metadata: dict[str, Any]) -> None:
         return validate_reference_metadata(metadata)
     expected = observation_metadata(metadata.get("action_mode"),
         history_steps=metadata.get("history_steps"),
-        norm_obs=metadata.get("observation_normalization", True))
+        norm_obs=metadata.get("observation_normalization", True),
+        critic_type="flux_cnn" if metadata.get("feature_mode") == FLUX_FEATURE_MODE else "mlp")
     for key, value in expected.items():
         actual = metadata.get(key)
         same_type = (isinstance(actual, bool) if isinstance(value, bool)
@@ -151,8 +163,13 @@ class CheckpointPolicyAdapter:
         self.actions = wrappers.NormalizedAction7DTo12DWrapper(self.buffer, action_mode=mode)
         features = config.get("features", {})
         feature_mode = metadata.get("feature_mode", features.get("observation_mode"))
-        wrapper = (wrappers.ObservationWrapper if feature_mode == OBSERVATION_FEATURE_MODE
-                   else wrappers.ReferenceObservationWrapper)
+        if feature_mode == FLUX_FEATURE_MODE:
+            validate_observation_metadata(metadata)
+            from train.flux_observation import FluxObservationWrapper
+            wrapper = FluxObservationWrapper
+        else:
+            wrapper = (wrappers.ObservationWrapper if feature_mode == OBSERVATION_FEATURE_MODE
+                       else wrappers.ReferenceObservationWrapper)
         self.observations = wrapper(
             self.buffer, obs_history_step=int(metadata.get("history_steps", features.get("history_steps", 0))),
             include_xpt=True, action_mode=mode)

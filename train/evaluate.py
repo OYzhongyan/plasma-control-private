@@ -27,7 +27,7 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 
 ROOT = Path(__file__).resolve().parents[1]
 TRAIN_V2 = Path(__file__).resolve().parent
@@ -147,6 +147,9 @@ def make_eval_env(
             )
         observation_wrapper = (ReferenceObservationWrapper
             if cfg.features.get("observation_mode") == "reference_only_v1" else ObservationWrapper)
+        if cfg.get("critic", {}).get("type", "mlp") == "flux_cnn":
+            from train.flux_observation import FluxObservationWrapper
+            observation_wrapper = FluxObservationWrapper
         env = observation_wrapper(
             env,
             obs_history_step=int(cfg.features.history_steps),
@@ -634,15 +637,25 @@ def resolve_model_paths(
 
 def configure_model_interface(cfg: DictConfig, model: Any, model_file: Path) -> dict[str, Any]:
     from train.export_onnx import load_export_metadata
-    from submission.history import validate_observation_metadata
+    from submission.history import FLUX_FEATURE_MODE, OBSERVATION_FEATURE_MODE, validate_observation_metadata
 
     metadata = load_export_metadata(model_file)
     validate_observation_metadata(metadata)
-    if model.observation_space.shape != (int(metadata["obs_dim"]),) or model.action_space.shape != (7,):
+    flux = metadata["feature_mode"] == FLUX_FEATURE_MODE
+    if flux:
+        spaces = getattr(model.observation_space, "spaces", {})
+        valid_obs = set(spaces) == set(metadata["observation_shapes"]) and all(
+            spaces[key].shape == tuple(shape) and spaces[key].dtype == np.float32
+            for key, shape in metadata["observation_shapes"].items())
+    else:
+        valid_obs = model.observation_space.shape == (int(metadata["obs_dim"]),)
+    if not valid_obs or model.action_space.shape != (7,):
         raise ValueError("Evaluation model dimensions disagree with training observation metadata")
-    cfg.features.observation_mode = metadata["feature_mode"]
-    cfg.features.history_steps = int(metadata["history_steps"])
-    cfg.actions.mode = metadata["action_mode"]
+    with open_dict(cfg):
+        cfg.critic = OmegaConf.merge(cfg.get("critic", {}), {"type": "flux_cnn" if flux else "mlp"})
+        cfg.features.observation_mode = OBSERVATION_FEATURE_MODE if flux else metadata["feature_mode"]
+        cfg.features.history_steps = int(metadata["history_steps"])
+        cfg.actions.mode = metadata["action_mode"]
     return metadata
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import pickle
 import json
 import sys
+import hashlib
 from pathlib import Path
 from typing import Any
 import gymnasium as gym
@@ -41,6 +42,35 @@ def configure_training_logger(directory):
     """Keep PPO scalars locally, independently of W&B availability."""
     from stable_baselines3.common.logger import configure
     return configure(str(directory), ["stdout", "csv", "tensorboard"])
+
+
+def critic_components(critic_type="mlp"):
+    """Select only the opt-in critic's observation/policy implementations."""
+    from stable_baselines3.common.vec_env import VecNormalize
+    if critic_type == "mlp":
+        return ObservationWrapper, VecNormalize, None
+    if critic_type == "flux_cnn":
+        from train.flux_observation import FluxObservationWrapper, FluxVecNormalize
+        from train.flux_critic_policy import FluxCriticPolicy
+        return FluxObservationWrapper, FluxVecNormalize, FluxCriticPolicy
+    raise ValueError(f"Unsupported critic type: {critic_type!r}")
+
+
+def model_architecture_record(policy, critic_type):
+    """Record initial actor identity without consuming training RNG."""
+    import torch
+    actor = {name: value for name, value in policy.named_parameters()
+             if name.startswith(("mlp_extractor.policy_net.", "action_net.")) or name == "log_std"}
+    digest = hashlib.sha256()
+    for name, value in sorted(actor.items()):
+        digest.update(name.encode())
+        digest.update(value.detach().cpu().contiguous().numpy().tobytes())
+    actor_count = sum(value.numel() for value in actor.values())
+    total = sum(value.numel() for value in policy.parameters())
+    return {"critic_type": critic_type, "actor_parameters": actor_count,
+            "critic_parameters": total - actor_count, "total_parameters": total,
+            "initial_actor_sha256": digest.hexdigest(),
+            "sampling_rng_sha256": hashlib.sha256(torch.get_rng_state().numpy().tobytes()).hexdigest()}
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -154,6 +184,7 @@ def make_env(
     delay_step: int = 0,
     delay_noise_std: dict[str, float] | None = None,
     seed: int = 0,
+    critic_type: str = "mlp",
 ):
 
     def _init() -> gym.Env:
@@ -190,7 +221,8 @@ def make_env(
             env = ObservationDelayNoiseWrapper(
                 env, delay_steps=delay_step, noise_std=delay_noise_std, seed=seed + 20_000,
             )
-        env = ObservationWrapper(
+        observation_wrapper, _, _ = critic_components(critic_type)
+        env = observation_wrapper(
             env,
             obs_history_step=obs_history_step,
             include_xpt=True,
@@ -370,11 +402,12 @@ def run_smoke_rollout(cfg: DictConfig) -> int:
         delay_step=int(cfg.features.get("delay_step", 0) or 0),
         delay_noise_std=cfg.features.get("delay_noise_std", None),
         seed=env_spec["seed"],
+        critic_type=str(cfg.get("critic", {}).get("type", "mlp")),
     )()
     try:
         obs, info = env.reset(seed=int(cfg.ppo["seed"]))
         print(
-            f"F2 reset ok: shot_id={info['shot_id']}, port={env_spec['port']}, reference_mode={info.get('reference_mode')}, obs_shape={obs.shape}"
+            f"F2 reset ok: shot_id={info['shot_id']}, port={env_spec['port']}, reference_mode={info.get('reference_mode')}, obs_shape={getattr(obs, 'shape', None)}"
         )
         for step in range(100):
             action = np.zeros(env.action_space.shape, dtype=env.action_space.dtype)
@@ -428,6 +461,8 @@ def run_training(cfg: DictConfig) -> int:
     max_steps = cfg.max_steps
     save_dir = cfg.save_dir
     ppo = cfg.ppo
+    critic_type = str(cfg.get("critic", {}).get("type", "mlp"))
+    _, normalization_class, critic_policy = critic_components(critic_type)
     save_dir.mkdir(parents=True, exist_ok=True)
     with open(save_dir / "configs.pkl", "wb") as f:
         pickle.dump(cfg, f)
@@ -437,6 +472,7 @@ def run_training(cfg: DictConfig) -> int:
                 action_mode=str(cfg.actions.mode),
                 history_steps=int(cfg.features.history_steps),
                 norm_obs=bool(cfg.vecnormalize.enabled and cfg.vecnormalize.norm_obs),
+                critic_type=critic_type,
             ),
             indent=2,
         )
@@ -460,6 +496,7 @@ def run_training(cfg: DictConfig) -> int:
             delay_step=int(cfg.features.get("delay_step", 0) or 0),
             delay_noise_std=cfg.features.get("delay_noise_std", None),
             seed=env_spec["seed"],
+            critic_type=critic_type,
         )
         for env_spec in env_specs
     ]
@@ -488,7 +525,7 @@ def run_training(cfg: DictConfig) -> int:
             vec_env.training = True
             vec_env.norm_reward = bool(vecnormalize_cfg.get("norm_reward", True))
         else:
-            vec_env = VecNormalize(
+            vec_env = normalization_class(
                 vec_env,
                 norm_obs=bool(vecnormalize_cfg.norm_obs),
                 norm_reward=bool(vecnormalize_cfg.norm_reward),
@@ -546,7 +583,10 @@ def run_training(cfg: DictConfig) -> int:
         )
         print(f"resumed: {resume_path} with PPO overrides from train config")
     else:
-        model = PPO(policy, vec_env, **ppo_kwargs)
+        model = PPO(critic_policy or policy, vec_env, **ppo_kwargs)
+    (save_dir / "architecture.json").write_text(
+        json.dumps(model_architecture_record(model.policy, critic_type), indent=2) + "\n",
+        encoding="utf-8")
     model.set_logger(configure_training_logger(save_dir / "logs" / "ppo"))
     callbacks = []
     reward_log_interval = int(cfg.num_envs * ppo.n_steps)

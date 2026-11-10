@@ -51,6 +51,8 @@ reset_perturbation:
   q0_scale_range:
   - 0.95
   - 1.05
+critic:
+  type: mlp
 ppo:
   total_timesteps: 10000000
   policy: MlpPolicy

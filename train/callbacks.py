@@ -89,12 +89,20 @@ def find_vecnormalize(env: Any):
 def save_vecnormalize_stats(vecnormalize: Any, path: str | Path) -> None:
     """Save lightweight VecNormalize statistics for inspection/export tooling."""
 
+    obs_rms = vecnormalize.obs_rms
+    if isinstance(obs_rms, dict):
+        obs_rms = obs_rms["actor_obs"]
     values: dict[str, Any] = {
-        "obs_mean": np.asarray(vecnormalize.obs_rms.mean, dtype=np.float64),
-        "obs_var": np.asarray(vecnormalize.obs_rms.var, dtype=np.float64),
+        "obs_mean": np.asarray(obs_rms.mean, dtype=np.float64),
+        "obs_var": np.asarray(obs_rms.var, dtype=np.float64),
         "clip_obs": np.asarray(vecnormalize.clip_obs, dtype=np.float64),
         "epsilon": np.asarray(vecnormalize.epsilon, dtype=np.float64),
     }
+    flux_rms = vars(vecnormalize).get("flux_rms")
+    if flux_rms is not None:
+        values.update(flux_mean=np.asarray(flux_rms.mean, dtype=np.float64),
+                      flux_var=np.asarray(flux_rms.var, dtype=np.float64),
+                      flux_count=np.asarray(flux_rms.count, dtype=np.float64))
     if getattr(vecnormalize, "ret_rms", None) is not None:
         values["ret_mean"] = np.asarray(vecnormalize.ret_rms.mean, dtype=np.float64)
         values["ret_var"] = np.asarray(vecnormalize.ret_rms.var, dtype=np.float64)
