@@ -1,0 +1,20 @@
+{
+  "captured_utc": "2026-11-10T14:04:20.396283+00:00",
+  "remote_root": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic",
+  "notebook_hostname": "plasma-control2--9bd1bb22a226-73sgrdbv3i",
+  "files": {
+    "status.json": "d3fb41c1bf697919db97f8937a648174c1aaa2705e347ca8aab3091344f2d73b",
+    "launch.json": "0b3e496e1437fba66cd084ff58bd528ba30c6dc45bf3a24892c45123ad026a19",
+    "manifest.json": "baa549e103354ad5ab62615c63f115e17bca52a85a3b59f9f47680ed6f02c639",
+    "requested_config.json": "cf396c9911600856667fca9a523bedb611f0b89720fcd7e45291109773cb466d",
+    "environment.json": "81c45ef56916a1631f8fe5198146d25628de381f1d94356f8d51c5f2cc170941",
+    "commands.json": "8343fd19828c45274baab62edf98abe43aaebf8a59e33b1097093e0457681b54",
+    "baseline_comparison.json": "b34bd8b93df46bcb39d40588eb43e7582190f3c9b680958024ae3807afdf76ef",
+    "training/architecture.json": "86cab96ad88003823c177cff477fcac11e90f035d64871fef429cc4ada595308",
+    "training/f2_features.metadata.json": "ea2361656c82baf7d7fd7c492443b2380675c30599bbfafa3f099f6e8ecd1185",
+    "training/.hydra/config.yaml": "2ee3876a8598e55bd587b590c916d75892f08388c7cdd97adb71f81a81c8299e",
+    "training/logs/ppo/progress.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "training/monitor.csv": "8b44fe3684d17ad3805c8c9d7d4e4c0fc3ce2057f17b72524a11b7a71d7c3cf6"
+  },
+  "smoke_artifacts_retained": false
+}

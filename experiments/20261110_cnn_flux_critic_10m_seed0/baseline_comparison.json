@@ -1,0 +1,11 @@
+{
+  "non_critic_settings_identical": true,
+  "baseline_critic": {
+    "type": "mlp"
+  },
+  "candidate_critic": {
+    "type": "flux_cnn"
+  },
+  "other_differences": [],
+  "baseline_config_sha256": "b9425b3dd4aef45b04a90712c8728a05b63197d1bd57590e4a15ecce77cbc9e8"
+}

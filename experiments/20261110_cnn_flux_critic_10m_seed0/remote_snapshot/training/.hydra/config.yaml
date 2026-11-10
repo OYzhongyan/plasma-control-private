@@ -1,0 +1,104 @@
+ports: '2223'
+num_envs: 32
+max_steps: 500
+shot_id: '15892_400'
+shot_groups:
+  limiter_start:
+  - '15892_400'
+  - '15892_500'
+output_dir: f2b_direct
+smoke_rollout: false
+target:
+  reference_mode: trajectory
+  reference_variants_enabled: false
+  default_reference_path: null
+  reference_variants_path: null
+env_config: configs/env_default.yaml
+features:
+  observation_mode: historical_observation_v1
+  history_steps: 4
+  noise: false
+  delay_step: 1
+  delay_noise_std: {}
+actions:
+  mode: delta
+reward_weights:
+  use_competition_score: false
+  ip_score: 6.0
+  lcfs_score: 6.0
+  main_x_dist_score: 4.0
+  main_x_psi_score: 4.0
+  second_x_psi_score: 3.0
+  second_x_dist_score: 4.0
+  strike_dist_score: 3.0
+  failure_penalty: -5.0
+  coil_current_exceed_limit_penalty: -5.0
+  score_lower_bound: false
+reset_perturbation:
+  enabled: true
+  apply_mode: all
+  fix_reset_params: false
+  signeo_scale_range:
+  - 0.95
+  - 1.05
+  bp_scale_range:
+  - 0.95
+  - 1.05
+  q0_scale_range:
+  - 0.95
+  - 1.05
+critic:
+  type: flux_cnn
+ppo:
+  total_timesteps: 10000000
+  policy: MlpPolicy
+  learning_rate: 0.0001
+  n_steps: 256
+  batch_size: 1024
+  n_epochs: 6
+  gamma: 0.995
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  normalize_advantage: true
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.03
+  use_sde: false
+  sde_sample_freq: -1
+  net_arch:
+  - 256
+  - 256
+  activation_fn: tanh
+  log_std_init: -1.0
+  verbose: 1
+  device: cpu
+  progress_bar: true
+  seed: 0
+  lr_anneal: true
+  warmup_updates: 10
+vecnormalize:
+  enabled: true
+  norm_obs: true
+  norm_reward: true
+  clip_obs: 10.0
+  clip_reward: 10.0
+  gamma: null
+  epsilon: 1.0e-08
+  load_path: null
+  save: true
+checkpoint:
+  enabled: true
+  save_freq: 10
+  save_vecnormalize: true
+resume:
+  enabled: false
+  model_path: null
+  vecnormalize_path: null
+  reset_num_timesteps: true
+wandb:
+  enabled: true
+  project: f2_control
+  entity: null
+  tags: []

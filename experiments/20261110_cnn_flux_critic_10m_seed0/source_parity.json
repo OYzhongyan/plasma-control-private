@@ -1,0 +1,13 @@
+{
+  "commit": "8a5b9db34a003291bdfa6d1f852eae3c89f3a353",
+  "unchanged_noncritic_sources": {
+    "train/dense_rewards.py": "d88930c9b976ba534b89d69b63e31ed9cac86ea188bd9e398d32cf129afdbf43",
+    "train/rewards.py": "d5850ffe852610f28a408556a735968b61a1d5eee318c35020e09a6ce69b3fdc",
+    "train/references.py": "bcd0e932531d405306f972a8d3b0a8926525130082a1f42c6f857e530ce9bba6",
+    "environment/hfm_simulator.py": "42c661972579c00097fa876a162b3e9458be37b6970628b84828ef0a1150a73e",
+    "environment/hfm_predictor.py": "e5c231c3a0ffee9cc2b073fe47e4635725b8a04035721c83b78304b990410771",
+    "environment/power_supply.py": "bd3db1caf5901b1e96c85b4ff06ee4136ead49bc8dd931abda8745315871dd47",
+    "environment/xpt_utils.py": "76702dc92074603183a6606103fe6a1172bc2ead2fb0ca2c7e528d9f79f6014b",
+    "configs/env_default.yaml": "3520048e8fb7e24542ba02e32ffdff892667983ce9096cecc880ea56976092fd"
+  }
+}

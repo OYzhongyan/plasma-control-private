@@ -1,0 +1,31 @@
+{
+  "pid": 3690091,
+  "command": [
+    "/root/miniforge3/envs/competition_env/bin/python",
+    "-B",
+    "tools/run_baseline_experiment.py",
+    "--experiment-id",
+    "20261110_cnn_flux_critic_10m_seed0",
+    "--critic-type",
+    "flux_cnn",
+    "--baseline-config",
+    "experiments/20261109_f2b_history_baseline_10m_seed0/remote_snapshot/requested_config.json",
+    "--total-timesteps",
+    "10000000",
+    "--num-envs",
+    "32",
+    "--base-port",
+    "2223",
+    "--wandb-mode",
+    "offline"
+  ],
+  "cwd": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic",
+  "notebook_hostname": "plasma-control2--9bd1bb22a226-73sgrdbv3i",
+  "started_utc": "2026-11-10T14:03:31.531501+00:00",
+  "commit": "8a5b9db34a003291bdfa6d1f852eae3c89f3a353",
+  "requested_timesteps": 10000000,
+  "rounded_timesteps": 10002432,
+  "separate_from_baseline_notebook": true,
+  "smoke_artifacts_retained": false,
+  "reuse_idle_notebook2_hfm": true
+}

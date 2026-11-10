@@ -1,0 +1,57 @@
+{
+  "torch": {
+    "baseline": "2.10.0+cu128",
+    "cnn": "2.10.0+cu128",
+    "equal": true
+  },
+  "stable-baselines3": {
+    "baseline": "2.8.0",
+    "cnn": "2.8.0",
+    "equal": true
+  },
+  "gymnasium": {
+    "baseline": "1.2.3",
+    "cnn": "1.2.3",
+    "equal": true
+  },
+  "numpy": {
+    "baseline": "2.4.4",
+    "cnn": "2.4.4",
+    "equal": true
+  },
+  "scipy": {
+    "baseline": "1.17.1",
+    "cnn": "1.17.1",
+    "equal": true
+  },
+  "hydra-core": {
+    "baseline": "1.3.7",
+    "cnn": "1.3.7",
+    "equal": true
+  },
+  "omegaconf": {
+    "baseline": "2.3.1",
+    "cnn": "2.3.1",
+    "equal": true
+  },
+  "wandb": {
+    "baseline": "0.30.0",
+    "cnn": "0.30.0",
+    "equal": true
+  },
+  "tensorboard": {
+    "baseline": "2.21.0",
+    "cnn": "2.21.0",
+    "equal": true
+  },
+  "matplotlib": {
+    "baseline": "3.10.9",
+    "cnn": "3.10.9",
+    "equal": true
+  },
+  "pandas": {
+    "baseline": "3.0.2",
+    "cnn": "3.0.2",
+    "equal": true
+  }
+}

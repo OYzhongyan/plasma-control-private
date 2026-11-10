@@ -1,0 +1,64 @@
+{
+  "checked_utc": "2026-11-10T14:06:28.487001+00:00",
+  "hostname": "plasma-control2--9bd1bb22a226-73sgrdbv3i",
+  "experiment": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0",
+  "status.json": {
+    "pid": 3690091,
+    "child_pid": 3690338,
+    "phase": "TRAINING",
+    "returncode": null,
+    "updated_utc": "2026-11-10T14:03:31.683149+00:00"
+  },
+  "processes": {
+    "pid": {
+      "pid": 3690091,
+      "exists": true,
+      "expected_command": true,
+      "state": "S"
+    },
+    "child_pid": {
+      "pid": 3690338,
+      "exists": true,
+      "expected_command": true,
+      "state": "S"
+    }
+  },
+  "hfm_connections": [
+    2252,
+    2237,
+    2251,
+    2228,
+    2242,
+    2239,
+    2224,
+    2240,
+    2246,
+    2233,
+    2234,
+    2230,
+    2244,
+    2225,
+    2227,
+    2247,
+    2229,
+    2226,
+    2254,
+    2245,
+    2248,
+    2223,
+    2238,
+    2253,
+    2236,
+    2231,
+    2249,
+    2250,
+    2243,
+    2232,
+    2235,
+    2241
+  ],
+  "ppo_rows": 0,
+  "ppo_latest": {},
+  "finished_episodes": 6,
+  "full_run_first_ppo_summary_pending": true
+}
