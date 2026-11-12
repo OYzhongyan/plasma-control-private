@@ -1,0 +1,58 @@
+{
+  "checked_utc": "2026-11-12T08:24:34.531908+00:00",
+  "project_url": "https://wandb.ai/plasma-control/f2_control",
+  "runs": [
+    {
+      "run_id": "fe956gco",
+      "source_run_id": "fe956gco",
+      "url": "https://wandb.ai/plasma-control/f2_control/runs/fe956gco",
+      "name": "20261109_f2b_history_baseline_10m_seed0-resume-20261112",
+      "state": "running",
+      "group": "20261109_f2b_history_baseline_10m_seed0",
+      "history_sample_count": 3,
+      "summary_metric_count": 42,
+      "global_step": 2342912,
+      "mean_episode_reward": 675.3409,
+      "history_sample_steps": [
+        0,
+        24,
+        2310144
+      ]
+    },
+    {
+      "run_id": "47903a5a",
+      "source_run_id": "bhy4hnpy",
+      "url": "https://wandb.ai/plasma-control/f2_control/runs/47903a5a",
+      "original_csv_files_uploaded": [
+        "progress.csv",
+        "reward_components.csv"
+      ],
+      "name": "20261109_f2b_history_baseline_10m_seed0-initial",
+      "state": "failed",
+      "group": "20261109_f2b_history_baseline_10m_seed0",
+      "history_sample_count": 3,
+      "summary_metric_count": 42,
+      "global_step": 2203648,
+      "mean_episode_reward": 676.47943,
+      "history_sample_steps": [
+        291,
+        317,
+        325
+      ]
+    }
+  ],
+  "sync_interval_seconds": 300,
+  "transport": "Inspire Jupyter snapshots -> local direct W&B upload; no SSH or proxy",
+  "requires_local_computer_running": true,
+  "training_logging_mode": "offline; CSV and TensorBoard preserved independently",
+  "historical_recovery": {
+    "source_run_id": "bhy4hnpy",
+    "canonical_run_id": "47903a5a",
+    "audit_run_excluded": "bhy4hnpy",
+    "incomplete_cached_tail_bytes": 550,
+    "source_files_unchanged": true,
+    "complete_csv_uploaded": true,
+    "wandb_last_global_step": 2203648,
+    "csv_last_global_step": 2211840
+  }
+}

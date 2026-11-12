@@ -39,7 +39,7 @@ tensorboard \
 
 该目录会显示原始训练及 `resume_20261112_01/logs/ppo` 两段曲线。在启智的 Notebook 端口预览中访问 6006。两段使用累计 global step；CNN 续训从较早 checkpoint 开始，两段之间会有少量步数重叠，应分别查看。
 
-原 TensorBoard 已读出真实标量，不只是文件存在；样本和计数见 `curves_before_resume.json`。续训已完成第一次 8192 转移 rollout，并写入新的 PPO 标量；新数据核验见 `curves_after_resume.json`。W&B 当前为 **offline**，历史文件保存在共享存储，尚未同步至 W&B 网页。
+原 TensorBoard 已读出真实标量，不只是文件存在；样本和计数见 `curves_before_resume.json`。续训已完成第一次 8192 转移 rollout，并写入新的 PPO 标量；新数据核验见 `curves_after_resume.json`。训练仍以 **offline** 模式保存，现已补传至 [W&B 项目](https://wandb.ai/plasma-control/f2_control)。原始训练为 [47903a5a](https://wandb.ai/plasma-control/f2_control/runs/47903a5a)，本次续训为 [fe956gco](https://wandb.ai/plasma-control/f2_control/runs/fe956gco)，按实验 ID 分组。已读取网页端历史和 summary，核验时间及步数见 `wandb_sync.json`。本地后台通过 Jupyter 拉取增量并直接上传，约每 5 分钟同步；本地电脑需保持开机，关闭电脑只会暂停网页更新，启智训练、CSV 和 TensorBoard 仍独立保存。没有使用 SSH 或网络代理，登录密钥不写入代码或实验记录。 中断前 baseline 的 W&B 文件尾部有 550 字节未完成记录，只在本地副本截取完整前缀上传，原文件保留；网页曲线截至 2,203,648 步，完整 CSV 截至 2,211,840 步，已作为 run 文件附上。重复导入记录 `bhy4hnpy` 标为审计用途，不纳入实验对比。 旧 run 的 failed 状态保留了实例中断事实，不能据此判断当前续训状态。
 
 续训初期 `rollout/ep_rew_mean` 会沿用 checkpoint 的 episode 缓存；`reward_components` 首个日志窗口可能不足 8192 步，不能据首个点判断恢复后的控制效果。需等待新 episode 和完整日志窗口再分析。
 

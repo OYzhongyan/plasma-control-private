@@ -58,3 +58,5 @@ Smoke 仅临时用于联调，结束后删除全部产物，不作为正式实�
 ## 2026-11-12 中断恢复
 
 已从 2,211,840 步 checkpoint 恢复，累计目标仍为 10m。原日志和模型保留，新输出位于 `training/resume_20261112_01/`。恢复点、检查结果、实际命令及 TensorBoard 查看方法见 [本次续训记录](resumes/20261112_01/README.md)。
+
+W&B 网页已同步：[原始训练](https://wandb.ai/plasma-control/f2_control/runs/47903a5a)、[续训](https://wandb.ai/plasma-control/f2_control/runs/fe956gco)。同步方式、运行条件与历史文件恢复边界见本次续训记录及 `wandb_sync.json`。

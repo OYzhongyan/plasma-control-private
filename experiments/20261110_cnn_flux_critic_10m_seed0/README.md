@@ -49,3 +49,5 @@ python tools/run_baseline_experiment.py \
 ## 2026-11-12 中断恢复
 
 已从 901,120 步 checkpoint 恢复，累计目标仍为 10m。原日志和模型保留，新输出位于 `training/resume_20261112_01/`。恢复点、检查结果、实际命令及 TensorBoard 查看方法见 [本次续训记录](resumes/20261112_01/README.md)。
+
+W&B 网页已同步：[原始训练](https://wandb.ai/plasma-control/f2_control/runs/e8krvvdn)、[续训](https://wandb.ai/plasma-control/f2_control/runs/8v9d9wzw)。同步方式、运行条件与历史文件恢复边界见本次续训记录及 `wandb_sync.json`。
