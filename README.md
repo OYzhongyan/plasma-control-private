@@ -419,3 +419,11 @@ python tools/run_baseline_experiment.py \
 ```
 
 runner 会检查非 critic 配置与基线一致，否则停止。此实验使用独立的 `plasma-control2` Notebook 和工程目录，详见 [实验设计](experiments/20261110_cnn_flux_critic_10m_seed0/DESIGN.md)。
+
+## 9.2 中断后续训
+
+使用 `resume.enabled=true`，并将 `resume.model_path` 和 `resume.vecnormalize_path` 指向同一步的 checkpoint ZIP 与 `_vecnormalize.pkl`。使用新的 `hydra.run.dir` 保存本次续训，保留原 CSV、TensorBoard 和 checkpoint。
+
+若希望接着原累计步数训练到 10m，设置 `resume.reset_num_timesteps=false` 和 `+resume.target_total_timesteps=10000000`。此时仅采集尚缺的步数，学习率仍按原 10m 总进度调度。未指定累计目标时，`ppo.total_timesteps` 保持 SB3 的追加步数含义。
+
+Checkpoint 包含网络、优化器和累计步数，匹配的归一化文件包含统计量；HFM 状态及完整随机流没有保存，实例重建后需重新 reset，不能逐步复现中断前的后续轨迹。

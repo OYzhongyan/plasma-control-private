@@ -4,6 +4,27 @@ import math
 from typing import Callable
 
 
+def remaining_learning_timesteps(
+    requested_timesteps: int,
+    checkpoint_timesteps: int = 0,
+    *,
+    target_total_timesteps: int | None = None,
+    reset_num_timesteps: bool = True,
+) -> int:
+    """Keep SB3's additional-step default; optionally stop at a global target."""
+    if target_total_timesteps is None:
+        return int(requested_timesteps)
+    if reset_num_timesteps:
+        raise ValueError("An absolute resume target requires reset_num_timesteps=false")
+    target = int(target_total_timesteps)
+    if target <= 0:
+        raise ValueError("Resume target_total_timesteps must be positive")
+    remaining = target - int(checkpoint_timesteps)
+    if remaining <= 0:
+        raise ValueError("Checkpoint already reached the absolute resume target")
+    return remaining
+
+
 def warmup_cosine_schedule(
     initial_lr: float,
     timesteps_per_update: int,

@@ -27,7 +27,7 @@ from train.callbacks import (
 from train.references import build_reference, default_reference_path
 from train.rewards import SemifinalDenseReward
 from train.wrappers import *
-from train.utils import warmup_cosine_schedule
+from train.utils import remaining_learning_timesteps, warmup_cosine_schedule
 from submission.history import observation_metadata
 
 
@@ -423,6 +423,15 @@ def run_smoke_rollout(cfg: DictConfig) -> int:
 
 
 def run_training(cfg: DictConfig) -> int:
+    resume_cfg = cfg.resume
+    resume_target = resume_cfg.get("target_total_timesteps", None)
+    if resume_target is not None:
+        if not bool(resume_cfg.enabled):
+            raise ValueError("resume.target_total_timesteps requires resume.enabled=true")
+        remaining_learning_timesteps(
+            int(cfg.ppo.total_timesteps), target_total_timesteps=resume_target,
+            reset_num_timesteps=bool(resume_cfg.get("reset_num_timesteps", True)),
+        )
     try:
         from stable_baselines3 import PPO
         from stable_baselines3.common.callbacks import CallbackList
@@ -548,7 +557,9 @@ def run_training(cfg: DictConfig) -> int:
     warmup_updates = int(ppo.warmup_updates)
     n_envs = len(env_fns)
     n_steps = int(ppo_kwargs.get("n_steps", 2048))
-    total_timesteps = int(ppo.total_timesteps)
+    # In absolute-target mode the scheduler and SB3 progress share the
+    # original global horizon; learn() below receives only the remaining steps.
+    total_timesteps = int(ppo.total_timesteps if resume_target is None else resume_target)
     timesteps_per_update = n_steps * n_envs
     initial_lr = float(ppo_kwargs["learning_rate"])
     lr_schedule = warmup_cosine_schedule(
@@ -606,9 +617,17 @@ def run_training(cfg: DictConfig) -> int:
             )
         )
     reset_num_timesteps = bool(resume_cfg.get("reset_num_timesteps", True))
+    starting_timesteps = int(model.num_timesteps)
+    learn_timesteps = remaining_learning_timesteps(
+        int(ppo.total_timesteps), starting_timesteps,
+        target_total_timesteps=resume_target,
+        reset_num_timesteps=reset_num_timesteps,
+    )
+    if resume_target is not None:
+        print(f"resume budget: start={starting_timesteps}, remaining={learn_timesteps}, global_target={total_timesteps}")
     try:
         model.learn(
-            total_timesteps=int(ppo.total_timesteps),
+            total_timesteps=learn_timesteps,
             callback=callbacks if callbacks else None,
             progress_bar=bool(ppo.progress_bar),
             reset_num_timesteps=reset_num_timesteps,
@@ -627,6 +646,8 @@ def run_training(cfg: DictConfig) -> int:
         (save_dir / "training_summary.json").write_text(
             json.dumps({"requested_timesteps": total_timesteps,
                         "actual_timesteps": int(model.num_timesteps),
+                        "starting_timesteps": starting_timesteps,
+                        "learn_timesteps": learn_timesteps,
                         "num_envs": n_envs, "rollout_steps": n_steps}, indent=2) + "\n",
             encoding="utf-8",
         )
