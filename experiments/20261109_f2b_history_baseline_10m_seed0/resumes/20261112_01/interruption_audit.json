@@ -1,0 +1,122 @@
+{
+  "experiment": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0",
+  "progress_rows": 270,
+  "latest_progress": {
+    "time/time_elapsed": "173468",
+    "reward_components/reward": "1.387840327788026",
+    "reward_components/strike_dist_score": "1.3752240987820843",
+    "reward_components/failure_penalty": "-0.008547008547008548",
+    "reward_components/main_x_valid_ratio": "1.0",
+    "rollout/ep_rew_mean": "676.6097412109375",
+    "reward_components/hfm_timeout_rate": "0.0",
+    "reward_components/ip_error_mask": "1.0",
+    "time/total_timesteps": "2211840",
+    "reward_components/second_x_dist_score": "1.0235661982312463",
+    "reward_components/second_x_valid_ratio": "0.9894814090019569",
+    "reward_components/main_x_psi_score": "1.6602178916468058",
+    "reward_components/strike_valid_ratio": "0.9812255381604696",
+    "reward_components/main_x_dist_score": "1.42570858555737",
+    "reward_components/ip_abs_error": "4957.975626483305",
+    "reward_components/coil_current_exceeded": "0.00024455857177794083",
+    "reward_components/competition_score": "0.4779642769924457",
+    "reward_components/hfm_timeout_count": "0.0",
+    "time/fps": "12",
+    "reward_components/second_x_psi_score": "1.3429205958029014",
+    "time/iterations": "270",
+    "reward_components/ip_relative_error": "0.01212483840847643",
+    "reward_components/lcfs_error_cm": "2.592272011931945",
+    "reward_components/topology_score": "0.9624510763209393",
+    "rollout/ep_len_mean": "496.62",
+    "reward_components/ip_score": "1.7575870678602026",
+    "reward_components/coil_margin": "0.9244839341301433",
+    "reward_components/soft_ip_error_mask": "1.0",
+    "reward_components/lcfs_score": "1.1866297488922057",
+    "train/clip_range": "0.2",
+    "train/n_updates": "1600",
+    "train/clip_fraction": "0.24517822265625",
+    "train/policy_gradient_loss": "-0.0029609217720765932",
+    "train/approx_kl": "0.022453194",
+    "train/std": "0.3057718575000763",
+    "train/entropy_loss": "-1.6319029182195663",
+    "train/explained_variance": "0.9981720447540283",
+    "train/loss": "0.0019267296884208918",
+    "train/value_loss": "0.0016016253187747982",
+    "train/learning_rate": "8.912684950991291e-05"
+  },
+  "progress_mtime_utc": "2026-11-11T13:58:36.024706+00:00",
+  "latest_checkpoints": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps.zip",
+      "filename_steps": 2211840,
+      "size": 7082742,
+      "mtime_utc": "2026-11-11T13:58:36.021236+00:00",
+      "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps_vecnormalize.pkl",
+      "vecnormalize_exists": true,
+      "stats": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps_vecnormalize_stats.npz",
+      "stats_exists": true,
+      "num_timesteps": 2211840,
+      "n_updates": 1600,
+      "n_steps": 256,
+      "n_envs": 32,
+      "zip_crc_valid": true
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2129920_steps.zip",
+      "filename_steps": 2129920,
+      "size": 7082742,
+      "mtime_utc": "2026-11-11T12:29:39.387895+00:00",
+      "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2129920_steps_vecnormalize.pkl",
+      "vecnormalize_exists": true,
+      "stats": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2129920_steps_vecnormalize_stats.npz",
+      "stats_exists": true,
+      "num_timesteps": 2129920,
+      "n_updates": 1540,
+      "n_steps": 256,
+      "n_envs": 32,
+      "zip_crc_valid": true
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2048000_steps.zip",
+      "filename_steps": 2048000,
+      "size": 7082742,
+      "mtime_utc": "2026-11-11T11:03:50.194475+00:00",
+      "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2048000_steps_vecnormalize.pkl",
+      "vecnormalize_exists": true,
+      "stats": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2048000_steps_vecnormalize_stats.npz",
+      "stats_exists": true,
+      "num_timesteps": 2048000,
+      "n_updates": 1480,
+      "n_steps": 256,
+      "n_envs": 32,
+      "zip_crc_valid": true
+    }
+  ],
+  "tensorboard_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/logs/ppo/events.out.tfevents.1794232047.plasma-control--51f165d403fe-enlquu3psm.2469008.0",
+      "bytes": 654240,
+      "mtime_utc": "2026-11-11T13:58:36.027356+00:00"
+    }
+  ],
+  "wandb_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/wandb/wandb/offline-run-20261109_134647-bhy4hnpy/run-bhy4hnpy.wandb",
+      "bytes": 15433728
+    }
+  ],
+  "csv_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/monitor.csv",
+      "bytes": 171756
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/logs/reward_components.csv",
+      "bytes": 103970
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/logs/ppo/progress.csv",
+      "bytes": 160140
+    }
+  ],
+  "audit_utc": "2026-11-12T06:23:01.733960+00:00"
+}

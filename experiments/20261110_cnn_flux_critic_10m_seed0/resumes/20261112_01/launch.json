@@ -1,0 +1,13 @@
+{
+  "started_utc": "2026-11-12T06:39:05.288413+00:00",
+  "hostname": "plasma-control2--9bd1bb22a226-teu3gibxna",
+  "runner_pid": 1103930,
+  "root": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic",
+  "driver": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/resumes/20261112_01/continuation_driver.py",
+  "driver_sha256": "8d7c28990e49ba7bc3f676bb336a63c4ec28cd8fe44f70bf1791c3ba0b6b8a9e",
+  "command": [
+    "/root/miniforge3/envs/competition_env/bin/python",
+    "-B",
+    "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/resumes/20261112_01/continuation_driver.py"
+  ]
+}

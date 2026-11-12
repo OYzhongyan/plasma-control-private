@@ -1,0 +1,122 @@
+{
+  "experiment": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0",
+  "progress_rows": 113,
+  "latest_progress": {
+    "reward_components/soft_ip_error_mask": "1.0",
+    "reward_components/main_x_psi_score": "1.6037561869477275",
+    "reward_components/strike_dist_score": "1.2632732603905392",
+    "reward_components/main_x_dist_score": "0.5786368917599868",
+    "reward_components/coil_margin": "0.877802513791699",
+    "reward_components/ip_relative_error": "0.010212308205569454",
+    "rollout/ep_rew_mean": "549.3883056640625",
+    "reward_components/reward": "1.1172841402180747",
+    "reward_components/coil_current_exceeded": "0.0002446183953033268",
+    "reward_components/hfm_timeout_rate": "0.0",
+    "reward_components/ip_error_mask": "1.0",
+    "reward_components/main_x_valid_ratio": "1.0",
+    "reward_components/lcfs_error_cm": "3.342045658546575",
+    "reward_components/strike_valid_ratio": "0.9654697822363592",
+    "reward_components/ip_score": "1.795753959838075",
+    "reward_components/second_x_dist_score": "1.1274617861477447",
+    "time/iterations": "113",
+    "time/fps": "10",
+    "reward_components/lcfs_score": "0.9728109342661677",
+    "reward_components/competition_score": "0.34149856339569157",
+    "reward_components/second_x_psi_score": "0.23991853736956434",
+    "time/time_elapsed": "86179",
+    "reward_components/second_x_valid_ratio": "0.980976266209934",
+    "reward_components/topology_score": "0.9436016638120871",
+    "reward_components/hfm_timeout_count": "0.0",
+    "rollout/ep_len_mean": "498.23",
+    "time/total_timesteps": "925696",
+    "reward_components/ip_abs_error": "4255.737119692713",
+    "reward_components/failure_penalty": "-0.009768009768009768",
+    "train/explained_variance": "0.9994103908538818",
+    "train/value_loss": "0.0005595873553829733",
+    "train/learning_rate": "9.82588828311152e-05",
+    "train/std": "0.3364967703819275",
+    "train/policy_gradient_loss": "-0.006390956715525438",
+    "train/entropy_loss": "-2.307452440261841",
+    "train/n_updates": "672",
+    "train/clip_fraction": "0.18062337239583334",
+    "train/approx_kl": "0.0189935",
+    "train/loss": "-0.010163143277168274",
+    "train/clip_range": "0.2"
+  },
+  "progress_mtime_utc": "2026-11-11T13:59:57.569883+00:00",
+  "latest_checkpoints": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps.zip",
+      "filename_steps": 901120,
+      "size": 21769256,
+      "mtime_utc": "2026-11-11T13:32:43.683476+00:00",
+      "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps_vecnormalize.pkl",
+      "vecnormalize_exists": true,
+      "stats": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps_vecnormalize_stats.npz",
+      "stats_exists": true,
+      "num_timesteps": 901120,
+      "n_updates": 654,
+      "n_steps": 256,
+      "n_envs": 32,
+      "zip_crc_valid": true
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_819200_steps.zip",
+      "filename_steps": 819200,
+      "size": 21769354,
+      "mtime_utc": "2026-11-11T12:01:36.302390+00:00",
+      "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_819200_steps_vecnormalize.pkl",
+      "vecnormalize_exists": true,
+      "stats": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_819200_steps_vecnormalize_stats.npz",
+      "stats_exists": true,
+      "num_timesteps": 819200,
+      "n_updates": 594,
+      "n_steps": 256,
+      "n_envs": 32,
+      "zip_crc_valid": true
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_737280_steps.zip",
+      "filename_steps": 737280,
+      "size": 21772893,
+      "mtime_utc": "2026-11-11T10:29:49.603195+00:00",
+      "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_737280_steps_vecnormalize.pkl",
+      "vecnormalize_exists": true,
+      "stats": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_737280_steps_vecnormalize_stats.npz",
+      "stats_exists": true,
+      "num_timesteps": 737280,
+      "n_updates": 534,
+      "n_steps": 256,
+      "n_envs": 32,
+      "zip_crc_valid": true
+    }
+  ],
+  "tensorboard_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/logs/ppo/events.out.tfevents.1794319418.plasma-control2--9bd1bb22a226-73sgrdbv3i.3690338.0",
+      "bytes": 273289,
+      "mtime_utc": "2026-11-11T13:59:57.572491+00:00"
+    }
+  ],
+  "wandb_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/wandb/wandb/offline-run-20261110_140334-e8krvvdn/run-e8krvvdn.wandb",
+      "bytes": 7465076
+    }
+  ],
+  "csv_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/monitor.csv",
+      "bytes": 91741
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/logs/reward_components.csv",
+      "bytes": 45167
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/logs/ppo/progress.csv",
+      "bytes": 68628
+    }
+  ],
+  "audit_utc": "2026-11-12T06:23:01.733960+00:00"
+}

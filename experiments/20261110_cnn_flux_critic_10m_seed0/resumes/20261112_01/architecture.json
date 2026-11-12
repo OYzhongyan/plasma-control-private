@@ -1,0 +1,8 @@
+{
+  "critic_type": "flux_cnn",
+  "actor_parameters": 275726,
+  "critic_parameters": 989185,
+  "total_parameters": 1264911,
+  "initial_actor_sha256": "5173f26a52d23ee6c7e55d4528f4f6b978123331192d7260bc4ce50d1c55d89d",
+  "sampling_rng_sha256": "b1f14ad75d0a5a0f7ea043f942f4a03eb0f651d4e1aa9e58f22b66abae679ce8"
+}

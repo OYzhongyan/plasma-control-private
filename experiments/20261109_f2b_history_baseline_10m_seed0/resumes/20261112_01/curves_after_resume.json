@@ -1,0 +1,91 @@
+{
+  "checked_utc": "2026-11-12T06:49:55.799753+00:00",
+  "experiment": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0",
+  "files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/logs/ppo/events.out.tfevents.1794232047.plasma-control--51f165d403fe-enlquu3psm.2469008.0",
+      "bytes": 654240,
+      "scalar_tags": 36,
+      "series": {
+        "rollout/ep_rew_mean": {
+          "points": 270,
+          "last_step": 2211840,
+          "last_value": 676.6097412109375,
+          "last_wall_time": 1794405516.0262833
+        },
+        "rollout/ep_len_mean": {
+          "points": 270,
+          "last_step": 2211840,
+          "last_value": 496.6199951171875,
+          "last_wall_time": 1794405516.0262299
+        },
+        "reward_components/ip_relative_error": {
+          "points": 270,
+          "last_step": 2211840,
+          "last_value": 0.012124838307499886,
+          "last_wall_time": 1794405516.0252838
+        },
+        "reward_components/lcfs_error_cm": {
+          "points": 270,
+          "last_step": 2211840,
+          "last_value": 2.5922720432281494,
+          "last_wall_time": 1794405516.0252972
+        },
+        "train/learning_rate": {
+          "points": 269,
+          "last_step": 2211840,
+          "last_value": 8.912685007089749e-05,
+          "last_wall_time": 1794405516.0269299
+        },
+        "train/explained_variance": {
+          "points": 269,
+          "last_step": 2211840,
+          "last_value": 0.9981720447540283,
+          "last_wall_time": 1794405516.026922
+        }
+      }
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/resume_20261112_01/logs/ppo/events.out.tfevents.1794465579.plasma-control--51f165d403fe-oiykomoljr.1090883.0",
+      "bytes": 1965,
+      "scalar_tags": 26,
+      "series": {
+        "rollout/ep_rew_mean": {
+          "points": 1,
+          "last_step": 2220032,
+          "last_value": 676.6097412109375,
+          "last_wall_time": 1794465937.2413049
+        },
+        "rollout/ep_len_mean": {
+          "points": 1,
+          "last_step": 2220032,
+          "last_value": 496.6199951171875,
+          "last_wall_time": 1794465937.2412248
+        },
+        "reward_components/ip_relative_error": {
+          "points": 1,
+          "last_step": 2220032,
+          "last_value": 0.002033218275755644,
+          "last_wall_time": 1794465937.239119
+        },
+        "reward_components/lcfs_error_cm": {
+          "points": 1,
+          "last_step": 2220032,
+          "last_value": 9.80678939819336,
+          "last_wall_time": 1794465937.2391353
+        }
+      }
+    }
+  ],
+  "wandb_mode": "offline",
+  "wandb_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/wandb/resume_20261112_01/wandb/offline-run-20261112_063935-fe956gco/run-fe956gco.wandb",
+      "bytes": 32768
+    },
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/wandb/wandb/offline-run-20261109_134647-bhy4hnpy/run-bhy4hnpy.wandb",
+      "bytes": 15433728
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "pid": 3690091,
+  "child_pid": 3690338,
+  "phase": "FAILED",
+  "returncode": 1,
+  "updated_utc": "2026-11-11T14:15:40.278629+00:00",
+  "error": "Training child failed"
+}

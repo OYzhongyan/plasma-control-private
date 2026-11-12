@@ -1,0 +1,18 @@
+{
+  "model": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps.zip",
+  "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps_vecnormalize.pkl",
+  "model_sha256": "2f247173b251ccaa559202d2ca7c70ec6c53ee2359601837a035116634cafe61",
+  "vecnormalize_sha256": "aabdaf7f5fbbc60e9b55b4097a5782d8c5ca8431cfbea9004ce1344661e83d90",
+  "starting_timesteps": 2211840,
+  "n_updates": 1600,
+  "optimizer_state_entries": 13,
+  "actor_normalization_count": 2211872.0001,
+  "architecture": {
+    "critic_type": "mlp",
+    "actor_parameters": 275726,
+    "critic_parameters": 274177,
+    "total_parameters": 549903,
+    "initial_actor_sha256": "4dd94edcd443e3dd96c72fa79e767f13a565730eb9ab2b322abacd59aefd8e45",
+    "sampling_rng_sha256": "b1f14ad75d0a5a0f7ea043f942f4a03eb0f651d4e1aa9e58f22b66abae679ce8"
+  }
+}

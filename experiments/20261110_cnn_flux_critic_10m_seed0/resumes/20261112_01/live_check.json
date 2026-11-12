@@ -1,0 +1,61 @@
+{
+  "captured_utc": "2026-11-12T06:46:59.110717+00:00",
+  "hostname": "plasma-control2--9bd1bb22a226-teu3gibxna",
+  "new_tensorboard_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/resume_20261112_01/logs/ppo/events.out.tfevents.1794465559.plasma-control2--9bd1bb22a226-teu3gibxna.1117270.0",
+      "bytes": 1939
+    }
+  ],
+  "new_wandb_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/wandb/resume_20261112_01/wandb/offline-run-20261112_063915-8v9d9wzw/run-8v9d9wzw.wandb",
+      "bytes": 32768
+    }
+  ],
+  "processes": {
+    "pid": {
+      "pid": 1103930,
+      "command": "/root/miniforge3/envs/competition_env/bin/python -B /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/resumes/20261112_01/continuation_driver.py ",
+      "state": "S"
+    },
+    "child_pid": {
+      "pid": 1117270,
+      "command": "/root/miniforge3/envs/competition_env/bin/python /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/train/train_ppo.py ppo.device=cpu ppo.seed=0 ppo.batch_size=1024 num_envs=32 ports='2223' max_steps=500 shot_id='15892_400' shot_groups.limiter_start=['15892_400','15892_500'] actions.mode=delta features.observation_mode=historical_observation_v1 features.history_steps=4 features.delay_step=1 reset_perturbation.enabled=true reset_perturbation.fix_reset_params=false reset_perturbation.apply_mode=all reset_perturbation.signeo_scale_range=[0.95,1.05] reset_perturbation.bp_scale_range=[0.95,1.05] reset_perturbation.q0_scale_range=[0.95,1.05] wandb.enabled=true critic.type=flux_cnn ppo.total_timesteps=10000000 resume.enabled=true resume.reset_num_timesteps=false +resume.target_total_timesteps=10000000 resume.model_path=\"/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps.zip\" resume.vecnormalize_path=\"/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps_vecnormalize.pkl\" hydra.run.dir=\"/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/resume_20261112_01\" ",
+      "state": "S"
+    }
+  },
+  "new_ppo_rows": 1,
+  "new_latest_progress": {
+    "time/total_timesteps": "909312",
+    "reward_components/lcfs_error_cm": "9.805897445494725",
+    "reward_components/failure_penalty": "0.0",
+    "reward_components/ip_error_mask": "1.0",
+    "reward_components/coil_margin": "0.8113267440371807",
+    "reward_components/main_x_psi_score": "1.7529676462292915e-06",
+    "reward_components/second_x_psi_score": "4.404573171950685e-06",
+    "reward_components/main_x_valid_ratio": "1.0",
+    "reward_components/coil_current_exceeded": "0.0",
+    "rollout/ep_rew_mean": "546.8899536132812",
+    "rollout/ep_len_mean": "498.36",
+    "reward_components/ip_score": "1.9591932524975624",
+    "reward_components/main_x_dist_score": "0.046367754705931075",
+    "reward_components/strike_valid_ratio": "0.5",
+    "reward_components/second_x_dist_score": "0.008524847566843515",
+    "reward_components/reward": "0.21048293573547563",
+    "time/time_elapsed": "277",
+    "reward_components/ip_relative_error": "0.002040337375121877",
+    "reward_components/hfm_timeout_count": "0.0",
+    "reward_components/lcfs_score": "0.10903489928131982",
+    "reward_components/ip_abs_error": "1016.0880128106946",
+    "time/fps": "29",
+    "reward_components/hfm_timeout_rate": "0.0",
+    "reward_components/competition_score": "0.09591932524975624",
+    "reward_components/second_x_valid_ratio": "0.5",
+    "reward_components/strike_dist_score": "5.5329246817389525e-06",
+    "time/iterations": "1",
+    "reward_components/topology_score": "0.0",
+    "reward_components/soft_ip_error_mask": "1.0"
+  },
+  "new_completed_episodes": 0
+}

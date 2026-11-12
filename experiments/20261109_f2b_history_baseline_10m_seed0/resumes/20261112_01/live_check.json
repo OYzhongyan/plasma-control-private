@@ -1,0 +1,61 @@
+{
+  "captured_utc": "2026-11-12T06:47:01.841459+00:00",
+  "hostname": "plasma-control--51f165d403fe-oiykomoljr",
+  "new_tensorboard_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/resume_20261112_01/logs/ppo/events.out.tfevents.1794465579.plasma-control--51f165d403fe-oiykomoljr.1090883.0",
+      "bytes": 1965
+    }
+  ],
+  "new_wandb_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/wandb/resume_20261112_01/wandb/offline-run-20261112_063935-fe956gco/run-fe956gco.wandb",
+      "bytes": 32768
+    }
+  ],
+  "processes": {
+    "pid": {
+      "pid": 1086091,
+      "command": "/root/miniforge3/envs/competition_env/bin/python -B /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/resumes/20261112_01/continuation_driver.py ",
+      "state": "S"
+    },
+    "child_pid": {
+      "pid": 1090883,
+      "command": "/root/miniforge3/envs/competition_env/bin/python /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/train/train_ppo.py ppo.device=cpu ppo.seed=0 ppo.batch_size=1024 num_envs=32 ports='2223' max_steps=500 shot_id='15892_400' shot_groups.limiter_start=['15892_400','15892_500'] actions.mode=delta features.observation_mode=historical_observation_v1 features.history_steps=4 features.delay_step=1 reset_perturbation.enabled=true reset_perturbation.fix_reset_params=false reset_perturbation.apply_mode=all reset_perturbation.signeo_scale_range=[0.95,1.05] reset_perturbation.bp_scale_range=[0.95,1.05] reset_perturbation.q0_scale_range=[0.95,1.05] wandb.enabled=true ppo.total_timesteps=10000000 resume.enabled=true resume.reset_num_timesteps=false +resume.target_total_timesteps=10000000 resume.model_path=\"/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps.zip\" resume.vecnormalize_path=\"/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps_vecnormalize.pkl\" hydra.run.dir=\"/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/resume_20261112_01\" ",
+      "state": "S"
+    }
+  },
+  "new_ppo_rows": 1,
+  "new_latest_progress": {
+    "reward_components/main_x_dist_score": "0.04638211026381009",
+    "reward_components/ip_score": "1.9593356362551144",
+    "reward_components/competition_score": "0.09593356362551143",
+    "time/time_elapsed": "357",
+    "reward_components/strike_dist_score": "5.5329819529644774e-06",
+    "reward_components/hfm_timeout_count": "0.0",
+    "reward_components/second_x_psi_score": "4.2966485786321215e-06",
+    "reward_components/coil_margin": "0.8110805150620468",
+    "reward_components/ip_relative_error": "0.0020332181872442807",
+    "reward_components/topology_score": "0.0",
+    "reward_components/second_x_valid_ratio": "0.5",
+    "reward_components/strike_valid_ratio": "0.5",
+    "rollout/ep_len_mean": "496.62",
+    "reward_components/second_x_dist_score": "0.008518293937474285",
+    "reward_components/reward": "0.21049551054586949",
+    "rollout/ep_rew_mean": "676.6097412109375",
+    "reward_components/hfm_timeout_rate": "0.0",
+    "reward_components/ip_error_mask": "1.0",
+    "time/fps": "22",
+    "reward_components/failure_penalty": "0.0",
+    "reward_components/coil_current_exceeded": "0.0",
+    "reward_components/lcfs_error_cm": "9.806789640602576",
+    "time/iterations": "1",
+    "reward_components/lcfs_score": "0.1090131005764422",
+    "time/total_timesteps": "2220032",
+    "reward_components/ip_abs_error": "1012.5426572476517",
+    "reward_components/soft_ip_error_mask": "1.0",
+    "reward_components/main_x_psi_score": "1.7765165245789058e-06",
+    "reward_components/main_x_valid_ratio": "1.0"
+  },
+  "new_completed_episodes": 0
+}

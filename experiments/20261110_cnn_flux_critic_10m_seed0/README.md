@@ -45,3 +45,7 @@ python tools/run_baseline_experiment.py \
 ## 验证
 
 本地相关回归测试 148 passed、4 skipped；启智匹配 baseline 的 SB3 2.8.0 环境中，新增相关测试 37 passed。验证包括原 actor 特征及归一化一致性、磁通排列和掩码、实际 SB3 rollout 中的截断 bootstrap、PPO 更新与存取、完整 checkpoint 推理及 actor-only ONNX 导出。独立代码审查未发现阻断问题。真实 HFM 临时训练、权重保存/载入及三个 shot 的评估链路均通过；临时产物已全部删除。正式启动证据见 `remote_snapshot/launch.json`、`remote_snapshot/training/architecture.json` 和 `remote_snapshot/live_hfm_check.json`。
+
+## 2026-11-12 中断恢复
+
+已从 901,120 步 checkpoint 恢复，累计目标仍为 10m。原日志和模型保留，新输出位于 `training/resume_20261112_01/`。恢复点、检查结果、实际命令及 TensorBoard 查看方法见 [本次续训记录](resumes/20261112_01/README.md)。

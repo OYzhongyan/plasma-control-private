@@ -1,0 +1,327 @@
+{
+  "first_checked_utc": "2026-11-12T06:40:50.331031+00:00",
+  "second_checked_utc": "2026-11-12T06:41:55.132747+00:00",
+  "all_32_servers_advancing": true,
+  "servers": [
+    {
+      "port": 2223,
+      "pid": 27703,
+      "cpu_ticks_delta": 7813,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2224,
+      "pid": 27791,
+      "cpu_ticks_delta": 7547,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2225,
+      "pid": 27917,
+      "cpu_ticks_delta": 7876,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2226,
+      "pid": 28493,
+      "cpu_ticks_delta": 7804,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2227,
+      "pid": 28601,
+      "cpu_ticks_delta": 8096,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2228,
+      "pid": 28941,
+      "cpu_ticks_delta": 7937,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2229,
+      "pid": 29433,
+      "cpu_ticks_delta": 7887,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2230,
+      "pid": 30046,
+      "cpu_ticks_delta": 7825,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2231,
+      "pid": 31114,
+      "cpu_ticks_delta": 7725,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2232,
+      "pid": 31884,
+      "cpu_ticks_delta": 7166,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2233,
+      "pid": 32129,
+      "cpu_ticks_delta": 6880,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2234,
+      "pid": 33275,
+      "cpu_ticks_delta": 6889,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2235,
+      "pid": 36745,
+      "cpu_ticks_delta": 6735,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2236,
+      "pid": 40072,
+      "cpu_ticks_delta": 6729,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2237,
+      "pid": 43437,
+      "cpu_ticks_delta": 7117,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2238,
+      "pid": 46790,
+      "cpu_ticks_delta": 9764,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2239,
+      "pid": 50851,
+      "cpu_ticks_delta": 8746,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2240,
+      "pid": 54282,
+      "cpu_ticks_delta": 8806,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2241,
+      "pid": 57656,
+      "cpu_ticks_delta": 9259,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2242,
+      "pid": 61136,
+      "cpu_ticks_delta": 8781,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2243,
+      "pid": 65047,
+      "cpu_ticks_delta": 8639,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2244,
+      "pid": 66873,
+      "cpu_ticks_delta": 8531,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2245,
+      "pid": 67288,
+      "cpu_ticks_delta": 8448,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2246,
+      "pid": 67532,
+      "cpu_ticks_delta": 8459,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2247,
+      "pid": 71760,
+      "cpu_ticks_delta": 8118,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2248,
+      "pid": 75136,
+      "cpu_ticks_delta": 7496,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2249,
+      "pid": 78414,
+      "cpu_ticks_delta": 10304,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2250,
+      "pid": 81739,
+      "cpu_ticks_delta": 8547,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2251,
+      "pid": 85215,
+      "cpu_ticks_delta": 9521,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2252,
+      "pid": 88784,
+      "cpu_ticks_delta": 9548,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2253,
+      "pid": 92186,
+      "cpu_ticks_delta": 8208,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    },
+    {
+      "port": 2254,
+      "pid": 95560,
+      "cpu_ticks_delta": 11381,
+      "latest_received_commands": [
+        "Received command: STEP",
+        "Received command: STEP",
+        "Received command: STEP"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "critic_type": "mlp",
+  "actor_parameters": 275726,
+  "critic_parameters": 274177,
+  "total_parameters": 549903,
+  "initial_actor_sha256": "4dd94edcd443e3dd96c72fa79e767f13a565730eb9ab2b322abacd59aefd8e45",
+  "sampling_rng_sha256": "b1f14ad75d0a5a0f7ea043f942f4a03eb0f651d4e1aa9e58f22b66abae679ce8"
+}

@@ -1,0 +1,56 @@
+{
+  "checked_utc": "2026-11-12T06:31:28.301037+00:00",
+  "experiment": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0",
+  "files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/logs/ppo/events.out.tfevents.1794319418.plasma-control2--9bd1bb22a226-73sgrdbv3i.3690338.0",
+      "bytes": 273289,
+      "scalar_tags": 36,
+      "series": {
+        "rollout/ep_rew_mean": {
+          "points": 113,
+          "last_step": 925696,
+          "last_value": 549.3883056640625,
+          "last_wall_time": 1794405597.5714788
+        },
+        "rollout/ep_len_mean": {
+          "points": 113,
+          "last_step": 925696,
+          "last_value": 498.2300109863281,
+          "last_wall_time": 1794405597.5714242
+        },
+        "reward_components/ip_relative_error": {
+          "points": 113,
+          "last_step": 925696,
+          "last_value": 0.010212307795882225,
+          "last_wall_time": 1794405597.570225
+        },
+        "reward_components/lcfs_error_cm": {
+          "points": 113,
+          "last_step": 925696,
+          "last_value": 3.342045545578003,
+          "last_wall_time": 1794405597.5702384
+        },
+        "train/learning_rate": {
+          "points": 112,
+          "last_step": 925696,
+          "last_value": 9.825888264458627e-05,
+          "last_wall_time": 1794405597.5718818
+        },
+        "train/explained_variance": {
+          "points": 112,
+          "last_step": 925696,
+          "last_value": 0.9994103908538818,
+          "last_wall_time": 1794405597.571824
+        }
+      }
+    }
+  ],
+  "wandb_mode": "offline",
+  "wandb_files": [
+    {
+      "path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/wandb/wandb/offline-run-20261110_140334-e8krvvdn/run-e8krvvdn.wandb",
+      "bytes": 7465076
+    }
+  ]
+}

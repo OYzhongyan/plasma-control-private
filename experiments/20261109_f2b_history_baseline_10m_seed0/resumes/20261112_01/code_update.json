@@ -1,0 +1,31 @@
+{
+  "updated_utc": "2026-11-12T06:38:08.242809+00:00",
+  "hostname": "plasma-control--51f165d403fe-oiykomoljr",
+  "old_commit": "10264746549e45aa38b3be02b17e024c3b84cfb8",
+  "recovery_commit": "94c517eedff5ea36c0e6a7d689b0bc18c1154978",
+  "archived_generated_records": [
+    "README.md",
+    "experiments/20261109_f2b_history_baseline_10m_seed0/PLAN.md",
+    "experiments/20261109_f2b_history_baseline_10m_seed0/README.md",
+    "experiments/20261110_gae_value_bias_oracle/provenance.json"
+  ],
+  "unchanged_physical_feature_reward_scoring_sources": {
+    "configs/env_default.yaml": "3520048e8fb7e24542ba02e32ffdff892667983ce9096cecc880ea56976092fd",
+    "environment/hfm_predictor.py": "e5c231c3a0ffee9cc2b073fe47e4635725b8a04035721c83b78304b990410771",
+    "environment/hfm_simulator.py": "42c661972579c00097fa876a162b3e9458be37b6970628b84828ef0a1150a73e",
+    "environment/power_supply.py": "bd3db1caf5901b1e96c85b4ff06ee4136ead49bc8dd931abda8745315871dd47",
+    "environment/xpt_utils.py": "76702dc92074603183a6606103fe6a1172bc2ead2fb0ca2c7e528d9f79f6014b",
+    "evaluation/eval/score/__init__.py": "05f0fb00bf3a5ec17c2ad389bb13e50e2fc5a5d9728ebb774d1848f45f27beed",
+    "evaluation/eval/score/config.py": "fb7df19e9618668771d552daf53ba8f439d0724ecf6468f7293a2d82c3b3fc10",
+    "evaluation/eval/score/evaluate_core.py": "bd4c6dfd6aa54bbc254be75f54e2f3079097ce0b3168e06250f48b1b6348057c",
+    "evaluation/eval/score/metrics.py": "f66d2f6e5d6a2e53f31ce235c463cec2d81a36a0e29c765db9a2753563281dc0",
+    "evaluation/eval/score/penalties.py": "1f95f6336fdcf5bb4df46f303938560c7640d83bebda403875ebae34bdde4269",
+    "evaluation/eval/score/scoring.py": "582ff2c4b3955e197da854c5f753a7f3358dc722591d204c3041632d056a40ed",
+    "evaluation/eval/score/tasks.py": "d4641941dc63349067dfe37ffee32026a822b5b96f30152e78629b3c24ff54e7",
+    "train/dense_rewards.py": "d88930c9b976ba534b89d69b63e31ed9cac86ea188bd9e398d32cf129afdbf43",
+    "train/references.py": "bcd0e932531d405306f972a8d3b0a8926525130082a1f42c6f857e530ce9bba6",
+    "train/rewards.py": "d5850ffe852610f28a408556a735968b61a1d5eee318c35020e09a6ce69b3fdc",
+    "train/wrappers.py": "a7a70a474290265058c009a1567fe375b1a29eb93131639576999862a8027d4b"
+  },
+  "source_diff": ""
+}

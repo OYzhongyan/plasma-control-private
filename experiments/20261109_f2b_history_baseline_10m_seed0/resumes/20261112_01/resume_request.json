@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-12T06:39:29.164591+00:00",
+  "model_path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps.zip",
+  "vecnormalize_path": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/checkpoints/ppo_f2_2211840_steps_vecnormalize.pkl",
+  "starting_timesteps": 2211840,
+  "target_total_timesteps": 10000000,
+  "remaining_timesteps": 7788160,
+  "expected_rounded_timesteps": 10002432,
+  "critic_type": "mlp",
+  "original_logs_and_models_preserved": true,
+  "simulation_state_and_random_stream_reinitialized": true,
+  "checkpoint_saved_before_last_rollout_update": true,
+  "recovery_commit": "94c517eedff5ea36c0e6a7d689b0bc18c1154978"
+}

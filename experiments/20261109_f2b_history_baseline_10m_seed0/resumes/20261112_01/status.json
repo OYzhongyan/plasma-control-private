@@ -1,0 +1,10 @@
+{
+  "pid": 1086091,
+  "child_pid": 1090883,
+  "phase": "TRAINING",
+  "segment": "20261112_01",
+  "training_directory": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0/training/resume_20261112_01",
+  "starting_timesteps": 2211840,
+  "target_total_timesteps": 10000000,
+  "updated_utc": "2026-11-12T06:39:32.134189+00:00"
+}

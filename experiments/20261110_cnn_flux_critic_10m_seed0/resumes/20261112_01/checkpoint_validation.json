@@ -1,0 +1,20 @@
+{
+  "model": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps.zip",
+  "vecnormalize": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-cnn-critic/experiments/20261110_cnn_flux_critic_10m_seed0/training/checkpoints/ppo_f2_901120_steps_vecnormalize.pkl",
+  "model_sha256": "b561a2c9a67bca318aa4414c2b1919ca6f2f8a3e224fe4db4dec6442b998e4da",
+  "vecnormalize_sha256": "21d8e0e6da5140442d92166c92cdcfd5d1cccbe4e268faefa07a87be52c04cdf",
+  "starting_timesteps": 901120,
+  "n_updates": 654,
+  "optimizer_state_entries": 23,
+  "actor_normalization_count": 901152.0001000001,
+  "architecture": {
+    "critic_type": "flux_cnn",
+    "actor_parameters": 275726,
+    "critic_parameters": 989185,
+    "total_parameters": 1264911,
+    "initial_actor_sha256": "5173f26a52d23ee6c7e55d4528f4f6b978123331192d7260bc4ce50d1c55d89d",
+    "sampling_rng_sha256": "b1f14ad75d0a5a0f7ea043f942f4a03eb0f651d4e1aa9e58f22b66abae679ce8"
+  },
+  "flux_normalization_count": 15377646570.0001,
+  "runtime_budget_tests_passed": true
+}
