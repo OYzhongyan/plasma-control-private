@@ -1,0 +1,24 @@
+{
+  "checked_utc": "2026-11-15T11:59:43.636160+00:00",
+  "reference": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0",
+  "comparison_boundary": "Original uninterrupted segment only; stop at original interruption",
+  "equality": "Exact parsed numeric equality; wall-clock metrics excluded",
+  "ppo": {
+    "common_rows": 0,
+    "last_common_step": null,
+    "values_compared": 0,
+    "different_rows": 0,
+    "all_compared_values_equal": false,
+    "missing_metric_columns": [],
+    "first_differences": []
+  },
+  "reward_components": {
+    "common_rows": 0,
+    "last_common_step": null,
+    "values_compared": 0,
+    "different_rows": 0,
+    "all_compared_values_equal": false,
+    "missing_metric_columns": [],
+    "first_differences": []
+  }
+}

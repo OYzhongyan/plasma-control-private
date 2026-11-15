@@ -1,0 +1,10 @@
+{
+  "all_resolved_settings_except_training_seed_identical": true,
+  "only_difference": {
+    "ppo.seed": {
+      "reference": 0,
+      "actual": 1
+    }
+  },
+  "evaluation_settings_unchanged": true
+}

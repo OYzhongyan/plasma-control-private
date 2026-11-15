@@ -1,0 +1,10 @@
+{
+  "reference_experiment": "20261115_f2b_history_baseline_10m_seed0_repro",
+  "reference_seed": 0,
+  "actual_seed": 1,
+  "actor_parameter_count_equal": true,
+  "initial_actor_differs": true,
+  "initial_all_parameters_differ": true,
+  "initial_sampling_rng_differs": true,
+  "capture_preserved_rng": true
+}

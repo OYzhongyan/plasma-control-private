@@ -1,0 +1,16 @@
+{
+  "all_training_settings_except_seed_identical": true,
+  "reference_seed": 0,
+  "seed": 1,
+  "num_envs": 32,
+  "only_training_setting_changed": "ppo.seed",
+  "only_execution_differences": [
+    "experiment/output path",
+    "initial-state observer",
+    "fresh HFM pool and isolated cache",
+    "independent Python environment prefix"
+  ],
+  "original_cpu_quota": "54 cores",
+  "current_cpu_quota": "5500000 100000",
+  "original_uninterrupted_end_step": 2211840
+}

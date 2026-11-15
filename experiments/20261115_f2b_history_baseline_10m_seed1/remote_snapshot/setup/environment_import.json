@@ -1,0 +1,12 @@
+{
+  "phase": "IMPORTED",
+  "finished_utc": "2026-11-15T11:53:28.432904+00:00",
+  "environment": "/root/miniforge3/envs/competition_seed1_20261115",
+  "imports": {
+    "torch": "2.10.0+cu128",
+    "numpy": "2.4.4",
+    "stable-baselines3": "2.8.0",
+    "scipy": "1.17.1",
+    "torch_file": "/root/miniforge3/envs/competition_seed1_20261115/lib/python3.11/site-packages/torch/__init__.py"
+  }
+}

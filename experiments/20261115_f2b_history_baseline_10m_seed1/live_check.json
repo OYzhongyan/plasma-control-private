@@ -1,0 +1,362 @@
+{
+  "checked_utc": "2026-11-15T12:00:26.819896+00:00",
+  "hostname": "plasma-control4--f6d439480c36-3z6j6tvupg",
+  "listening_ports": [],
+  "active_ports": [
+    2250,
+    2245,
+    2226,
+    2244,
+    2236,
+    2248,
+    2228,
+    2227,
+    2231,
+    2240,
+    2253,
+    2246,
+    2230,
+    2238,
+    2234,
+    2247,
+    2243,
+    2241,
+    2252,
+    2249,
+    2232,
+    2229,
+    2223,
+    2224,
+    2254,
+    2242,
+    2237,
+    2239,
+    2235,
+    2225,
+    2251,
+    2233
+  ],
+  "records": {
+    "launch.json": {
+      "hostname": "plasma-control4--f6d439480c36-3z6j6tvupg",
+      "started_utc": "2026-11-15T11:54:43.491061+00:00",
+      "runner_pid": 445494,
+      "comparison_pid": 445498,
+      "project_root": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed1",
+      "experiment_directory": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed1/experiments/20261115_f2b_history_baseline_10m_seed1",
+      "transport": "Jupyter; no SSH or network proxy",
+      "python": "/root/miniforge3/envs/competition_seed1_20261115/bin/python"
+    },
+    "setup/launch_status.json": {
+      "phase": "LAUNCHED",
+      "runner_pid": 445494,
+      "updated_utc": "2026-11-15T11:54:43.491469+00:00"
+    },
+    "setup/environment_import.json": {
+      "phase": "IMPORTED",
+      "finished_utc": "2026-11-15T11:53:28.432904+00:00",
+      "environment": "/root/miniforge3/envs/competition_seed1_20261115",
+      "imports": {
+        "torch": "2.10.0+cu128",
+        "numpy": "2.4.4",
+        "stable-baselines3": "2.8.0",
+        "scipy": "1.17.1",
+        "torch_file": "/root/miniforge3/envs/competition_seed1_20261115/lib/python3.11/site-packages/torch/__init__.py"
+      }
+    },
+    "source_parity.json": {
+      "historical_commit": "10264746549e45aa38b3be02b17e024c3b84cfb8",
+      "all_expected_hashes_match": true,
+      "hashes": {
+        "configs/env_default.yaml": "3520048e8fb7e24542ba02e32ffdff892667983ce9096cecc880ea56976092fd",
+        "environment/hfm_predictor.py": "e5c231c3a0ffee9cc2b073fe47e4635725b8a04035721c83b78304b990410771",
+        "environment/hfm_simulator.py": "42c661972579c00097fa876a162b3e9458be37b6970628b84828ef0a1150a73e",
+        "environment/power_supply.py": "bd3db1caf5901b1e96c85b4ff06ee4136ead49bc8dd931abda8745315871dd47",
+        "environment/xpt_utils.py": "76702dc92074603183a6606103fe6a1172bc2ead2fb0ca2c7e528d9f79f6014b",
+        "evaluation/eval/score/__init__.py": "05f0fb00bf3a5ec17c2ad389bb13e50e2fc5a5d9728ebb774d1848f45f27beed",
+        "evaluation/eval/score/config.py": "fb7df19e9618668771d552daf53ba8f439d0724ecf6468f7293a2d82c3b3fc10",
+        "evaluation/eval/score/evaluate_core.py": "bd4c6dfd6aa54bbc254be75f54e2f3079097ce0b3168e06250f48b1b6348057c",
+        "evaluation/eval/score/metrics.py": "f66d2f6e5d6a2e53f31ce235c463cec2d81a36a0e29c765db9a2753563281dc0",
+        "evaluation/eval/score/penalties.py": "1f95f6336fdcf5bb4df46f303938560c7640d83bebda403875ebae34bdde4269",
+        "evaluation/eval/score/scoring.py": "582ff2c4b3955e197da854c5f753a7f3358dc722591d204c3041632d056a40ed",
+        "evaluation/eval/score/tasks.py": "d4641941dc63349067dfe37ffee32026a822b5b96f30152e78629b3c24ff54e7",
+        "submission/checkpoint_policy.py": "2b99084323643751f694c2ec556baa1e40cf95fe78fa103f19686c6214062c15",
+        "submission/history.py": "53f4ad5fb06741447aa3d5365a3730585abfb4ea7435e7e95fe7ab5cf9206e4a",
+        "tools/run_baseline_experiment.py": "7b04fde9ef13845fb3f64b31235d9e71376c2e173184dbc4c1ee463e569777e8",
+        "train/callbacks.py": "be1c1ee7931777a7032992dbc156ac1f5411810121ca9312eba399567d72c944",
+        "train/configs/base.yaml": "c7ec2c500a3fd5c81ff34626b9c1a2bd33f5dc48fc59b9e249b873f303b1e404",
+        "train/configs/eval.yaml": "dbbe36aa5c43d2f2e14a75af2fbcd753c66e4add1cfe6dfe4d11c3bf0ba3e666",
+        "train/dense_rewards.py": "d88930c9b976ba534b89d69b63e31ed9cac86ea188bd9e398d32cf129afdbf43",
+        "train/evaluate.py": "35b7bd70c0b7ae6d17030d3ffab77ce43a33b09e735b3d601d39a226b9b9afda",
+        "train/export_onnx.py": "81791b83c593f839c0cc8bc58bc1ef5c56bc77780067ed39e68c042924cb401e",
+        "train/references.py": "bcd0e932531d405306f972a8d3b0a8926525130082a1f42c6f857e530ce9bba6",
+        "train/rewards.py": "d5850ffe852610f28a408556a735968b61a1d5eee318c35020e09a6ce69b3fdc",
+        "train/train_ppo.py": "a29990d6a2bb51b20a757f42a8e8c302bf4c274695e43405bd89a21af995e8fe",
+        "train/wrappers.py": "a7a70a474290265058c009a1567fe375b1a29eb93131639576999862a8027d4b",
+        "configs/xpt_reference_targets.json": "ed23829a765b5644745b82f5bd371c3bde399c06f8398e72c1f93983ed01b0dd"
+      }
+    },
+    "runtime_parity.json": {
+      "all_recorded_hashes_match": true,
+      "hashes": {
+        "run_hfm_server.sh": "ff1ecb07c6da3edfc91204a3ef1d6ddbc83f35623923f6990112b260725d49a3",
+        "matlab/R2024a/VersionInfo.xml": "520a11f862ae47dca525fcc51605ffcc5776970f9e78d7c42948b4ffe876f354",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat": "a867f152b8e901af4aceeaa2149fd4b4a1839f4ddc0c73ddf0c8e7a749ab5a27",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_400_v2.mat": "e8311334094b8a9129045a921414059c548aebc6311d0270da1696fb324cd8e5",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_500_v2.mat": "d86a11c92ad9c855e2d9962453b7a72048b6011764e529c23b3caf349c18bb41",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_14795_400_v2.mat": "593d7067e54e9285018ed259dcfbd3fdb3ce64f4bba974e1f1bc7f0f46c327c4",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13705_500_v2.mat": "dbedabd096727b4e800be5c625dac4ee8b6182deebd5b3b6c87b7aa48b6a3211"
+      }
+    },
+    "config_parity.json": {
+      "all_training_settings_except_seed_identical": true,
+      "reference_seed": 0,
+      "seed": 1,
+      "num_envs": 32,
+      "only_training_setting_changed": "ppo.seed",
+      "only_execution_differences": [
+        "experiment/output path",
+        "initial-state observer",
+        "fresh HFM pool and isolated cache",
+        "independent Python environment prefix"
+      ],
+      "original_cpu_quota": "54 cores",
+      "current_cpu_quota": "5500000 100000",
+      "original_uninterrupted_end_step": 2211840
+    },
+    "status.json": {
+      "pid": 445494,
+      "child_pid": 446156,
+      "phase": "TRAINING",
+      "returncode": null,
+      "updated_utc": "2026-11-15T11:54:43.848237+00:00"
+    },
+    "initial_state.json": {
+      "num_timesteps": 0,
+      "actor_parameters": 275726,
+      "initial_actor_sha256": "336b607d82ec29b7b6fece2ad73b6bbe6ea0c17a0dfb4a70d6ad3f27a98ab6ea",
+      "all_parameter_sha256": "6caebe5208526d5b71837e4906844b1372c9f753cf2257b0c0eb2008e64704cb",
+      "sampling_rng_sha256": "be78332f5926792ef46c98886475b2d988237acb5bbf258fbbc5e9a516f3c66f",
+      "capture_preserved_rng": true,
+      "torch_version": "2.10.0+cu128",
+      "numpy_version": "2.4.4",
+      "torch_threads": 1,
+      "torch_interop_threads": 64,
+      "deterministic_algorithms": false
+    },
+    "comparison.json": {
+      "checked_utc": "2026-11-15T11:59:43.636160+00:00",
+      "reference": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0",
+      "comparison_boundary": "Original uninterrupted segment only; stop at original interruption",
+      "equality": "Exact parsed numeric equality; wall-clock metrics excluded",
+      "ppo": {
+        "common_rows": 0,
+        "last_common_step": null,
+        "values_compared": 0,
+        "different_rows": 0,
+        "all_compared_values_equal": false,
+        "missing_metric_columns": [],
+        "first_differences": []
+      },
+      "reward_components": {
+        "common_rows": 0,
+        "last_common_step": null,
+        "values_compared": 0,
+        "different_rows": 0,
+        "all_compared_values_equal": false,
+        "missing_metric_columns": [],
+        "first_differences": []
+      }
+    }
+  },
+  "logs": {
+    "train.log": "wandb: Tracking run with wandb version 0.30.0\nwandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.\nwandb: Run data is saved locally in /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed1/experiments/20261115_f2b_history_baseline_10m_seed1/wandb/wandb/offline-run-20261115_115450-6hkv7j50\nwandb: View this run in the terminal with `wandb leet`\nWandB run initialized: f2b_direct\nTensorBoard logs will be synced to wandb from: runs/6hkv7j50\nenv observation_space: (812,), action_space: (7,) (historical_observation_v1, history=4, action_mode=delta)\nVecNormalize: norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0\ntraining F2: reference_mode=trajectory, max_steps=500, assignments=[env0:15892_400@2223, env1:15892_500@2224, env2:15892_400@2225, env3:15892_500@2226, env4:15892_400@2227, env5:15892_500@2228, env6:15892_400@2229, env7:15892_500@2230, env8:15892_400@2231, env9:15892_500@2232, env10:15892_400@2233, env11:15892_500@2234, env12:15892_400@2235, env13:15892_500@2236, env14:15892_400@2237, env15:15892_500@2238, env16:15892_400@2239, env17:15892_500@2240, env18:15892_400@2241, env19:15892_500@2242, env20:15892_400@2243, env21:15892_500@2244, env22:15892_400@2245, env23:15892_500@2246, env24:15892_400@2247, env25:15892_500@2248, env26:15892_400@2249, env27:15892_500@2250, env28:15892_400@2251, env29:15892_500@2252, env30:15892_400@2253, env31:15892_500@2254]\nUsing warmup + cosine annealing: initial_lr=0.0001, warmup_updates=10, timesteps_per_update=8192\nUsing cpu device\nLogging to /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed1/experiments/20261115_f2b_history_baseline_10m_seed1/training/logs/ppo\n",
+    "launcher.log": "",
+    "setup/bootstrap.log": "",
+    "comparison.log": ""
+  },
+  "processes": [
+    {
+      "pid": 445494,
+      "state": "S",
+      "cpu_ticks": 34
+    },
+    {
+      "pid": 445498,
+      "state": "S",
+      "cpu_ticks": 13
+    },
+    {
+      "pid": 446156,
+      "state": "S",
+      "cpu_ticks": 1155
+    }
+  ],
+  "hfm": {
+    "2223": {
+      "bytes": 12977,
+      "recent_step": true,
+      "tail": "Vessel:v, nu:525\n  Doublet: 0\n  CDE: OhmTor_rigid_0D\n  Constraints: \n    Fun    iD    LXfield \n   --------------------- \n    {@bp}    {[1]}    {'bp'}    {[1]}\n    {@qA}    {[1]}    {'qA'}    {[1]}\n\n\n\n\n         t |  it | Ip [kA] |  zA[m] |  rA[m] |     bp |     qA | niter | nfeval | conv |      res\n  ===============================================================================================\n   0.40150 |   2 |  500.48 | -0.000 |  0.851 |  0.147 |  1.786 |     2 |     11 |    1 | 3.24e-06\nFGE\u73af\u5883\u5df2\u91cd\u7f6e\u5230\u521d\u59cb\u72b6\u6001\u3002\nReceived command: STEP\n   0.40250 |   3 |  498.34 | -0.001 |  0.850 |  0.147 |  1.786 |     2 |     15 |    1 | 2.94e-06\nReceived command: STEP\n   0.40350 |   4 |  495.89 | -0.001 |  0.848 |  0.147 |  1.786 |     2 |     17 |    1 | 6.70e-06\nReceived command: STEP\n   0.40450 |   5 |  493.28 | -0.001 |  0.847 |  0.147 |  1.786 |     2 |     18 |    1 | 1.99e-06\nReceived command: STEP\n   0.40550 |   6 |  490.56 | -0.001 |  0.845 |  0.147 |  1.786 |     2 |     19 |    1 | 8.27e-07\nReceived command: STEP\n   0.40650 |   7 |  487.76 | -0.001 |  0.843 |  0.147 |  1.786 |     2 |     20 |    1 | 2.11e-06\nReceived command: STEP\n   0.40750 |   8 |  484.99 | -0.001 |  0.842 |  0.147 |  1.786 |     2 |     20 |    1 | 1.16e-06\nReceived command: STEP\n   0.40850 |   9 |  482.18 | -0.001 |  0.840 |  0.147 |  1.786 |     2 |     22 |    1 | 1.25e-06\nReceived command: STEP\n   0.40950 |  10 |  479.23 | -0.001 |  0.838 |  0.147 |  1.786 |     2 |     22 |    1 | 2.25e-05\n"
+    },
+    "2224": {
+      "bytes": 12341,
+      "recent_step": true,
+      "tail": null
+    },
+    "2225": {
+      "bytes": 12341,
+      "recent_step": true,
+      "tail": null
+    },
+    "2226": {
+      "bytes": 13712,
+      "recent_step": true,
+      "tail": null
+    },
+    "2227": {
+      "bytes": 12521,
+      "recent_step": true,
+      "tail": null
+    },
+    "2228": {
+      "bytes": 13078,
+      "recent_step": true,
+      "tail": null
+    },
+    "2229": {
+      "bytes": 12341,
+      "recent_step": true,
+      "tail": null
+    },
+    "2230": {
+      "bytes": 12333,
+      "recent_step": true,
+      "tail": null
+    },
+    "2231": {
+      "bytes": 13164,
+      "recent_step": true,
+      "tail": null
+    },
+    "2232": {
+      "bytes": 12881,
+      "recent_step": true,
+      "tail": null
+    },
+    "2233": {
+      "bytes": 12333,
+      "recent_step": true,
+      "tail": null
+    },
+    "2234": {
+      "bytes": 12557,
+      "recent_step": true,
+      "tail": null
+    },
+    "2235": {
+      "bytes": 13070,
+      "recent_step": true,
+      "tail": null
+    },
+    "2236": {
+      "bytes": 12427,
+      "recent_step": true,
+      "tail": null
+    },
+    "2237": {
+      "bytes": 12341,
+      "recent_step": true,
+      "tail": null
+    },
+    "2238": {
+      "bytes": 13174,
+      "recent_step": true,
+      "tail": null
+    },
+    "2239": {
+      "bytes": 12341,
+      "recent_step": true,
+      "tail": null
+    },
+    "2240": {
+      "bytes": 12529,
+      "recent_step": true,
+      "tail": null
+    },
+    "2241": {
+      "bytes": 12333,
+      "recent_step": true,
+      "tail": null
+    },
+    "2242": {
+      "bytes": 13172,
+      "recent_step": true,
+      "tail": null
+    },
+    "2243": {
+      "bytes": 13062,
+      "recent_step": true,
+      "tail": null
+    },
+    "2244": {
+      "bytes": 13493,
+      "recent_step": true,
+      "tail": null
+    },
+    "2245": {
+      "bytes": 12521,
+      "recent_step": true,
+      "tail": null
+    },
+    "2246": {
+      "bytes": 13070,
+      "recent_step": true,
+      "tail": null
+    },
+    "2247": {
+      "bytes": 12333,
+      "recent_step": true,
+      "tail": null
+    },
+    "2248": {
+      "bytes": 12409,
+      "recent_step": true,
+      "tail": null
+    },
+    "2249": {
+      "bytes": 13062,
+      "recent_step": true,
+      "tail": null
+    },
+    "2250": {
+      "bytes": 12427,
+      "recent_step": true,
+      "tail": null
+    },
+    "2251": {
+      "bytes": 13265,
+      "recent_step": true,
+      "tail": null
+    },
+    "2252": {
+      "bytes": 12341,
+      "recent_step": true,
+      "tail": null
+    },
+    "2253": {
+      "bytes": 12782,
+      "recent_step": true,
+      "tail": null
+    },
+    "2254": {
+      "bytes": 12347,
+      "recent_step": true,
+      "tail": "1.422 |     2 |     40 |    1 | 1.55e-06\nReceived command: STEP\n\n         t |  it | Ip [kA] |  zA[m] |  rA[m] |     bp |     qA | niter | nfeval | conv |      res\n  ===============================================================================================\n   0.55150 |  52 |  350.09 | -0.158 |  0.723 |  0.191 |  1.422 |     2 |     40 |    1 | 1.15e-06\nReceived command: STEP\n   0.55250 |  53 |  347.44 | -0.161 |  0.720 |  0.191 |  1.422 |     2 |     40 |    1 | 2.44e-06\nReceived command: STEP\n   0.55350 |  54 |  344.97 | -0.163 |  0.717 |  0.191 |  1.422 |     2 |     40 |    1 | 1.64e-06\n/root/.MathWorks/ServiceHost/plasma-control4--f6d439480c36-3z6j6tvupg/v2024.2.0.3/mci/bin/glnxa64/InstallMathWorksServiceHost: error while loading shared libraries: /root/.MathWorks/ServiceHost/plasma-control4--f6d439480c36-3z6j6tvupg/v2024.2.0.3/mci/bin/glnxa64/libicuuc.so.72: file too short\nReceived command: STEP\n   0.55450 |  55 |  342.60 | -0.166 |  0.715 |  0.191 |  1.422 |     2 |     40 |    1 | 3.22e-06\nReceived command: STEP\n   0.55550 |  56 |  340.20 | -0.168 |  0.712 |  0.191 |  1.422 |     3 |     57 |    1 | 4.45e-07\nReceived command: STEP\n   0.55650 |  57 |  337.78 | -0.171 |  0.709 |  0.191 |  1.422 |     2 |     40 |    1 | 9.01e-06\nReceived command: STEP\n   0.55750 |  58 |  335.43 | -0.173 |  0.707 |  0.191 |  1.422 |     2 |     40 |    1 | 5.66e-06\nReceived command: STEP\n   0.55850 |  59 |  332.93 | -0.175 |  0.704 |  0.191 |  1.422 |     2 |     40 |    1 | 8.26e-05\n"
+    }
+  },
+  "progress": {
+    "rows": 0,
+    "first": {},
+    "last": {}
+  }
+}
