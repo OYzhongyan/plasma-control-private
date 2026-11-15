@@ -1,0 +1,358 @@
+{
+  "hostname": "plasma-control3--32ee13fd33be-27vqc3mbjd",
+  "started_utc": "2026-11-15T11:24:39.284580+00:00",
+  "servers": [
+    {
+      "port": 2223,
+      "pid": 1601712,
+      "cpus": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2223"
+    },
+    {
+      "port": 2224,
+      "pid": 1602305,
+      "cpus": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2224"
+    },
+    {
+      "port": 2225,
+      "pid": 1602461,
+      "cpus": [
+        8,
+        9,
+        10,
+        11
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2225"
+    },
+    {
+      "port": 2226,
+      "pid": 1602556,
+      "cpus": [
+        12,
+        13,
+        14,
+        15
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2226"
+    },
+    {
+      "port": 2227,
+      "pid": 1603003,
+      "cpus": [
+        16,
+        17,
+        18,
+        19
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2227"
+    },
+    {
+      "port": 2228,
+      "pid": 1603446,
+      "cpus": [
+        20,
+        21,
+        22,
+        23
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2228"
+    },
+    {
+      "port": 2229,
+      "pid": 1603574,
+      "cpus": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2229"
+    },
+    {
+      "port": 2230,
+      "pid": 1604361,
+      "cpus": [
+        28,
+        29,
+        30,
+        31
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2230"
+    },
+    {
+      "port": 2231,
+      "pid": 1605722,
+      "cpus": [
+        32,
+        33,
+        34,
+        35
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2231"
+    },
+    {
+      "port": 2232,
+      "pid": 1606834,
+      "cpus": [
+        36,
+        37,
+        38,
+        39
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2232"
+    },
+    {
+      "port": 2233,
+      "pid": 1607085,
+      "cpus": [
+        40,
+        41,
+        42,
+        43
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2233"
+    },
+    {
+      "port": 2234,
+      "pid": 1607312,
+      "cpus": [
+        44,
+        45,
+        46,
+        47
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2234"
+    },
+    {
+      "port": 2235,
+      "pid": 1608229,
+      "cpus": [
+        48,
+        49,
+        50,
+        51
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2235"
+    },
+    {
+      "port": 2236,
+      "pid": 1609679,
+      "cpus": [
+        52,
+        53,
+        54,
+        55
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2236"
+    },
+    {
+      "port": 2237,
+      "pid": 1611092,
+      "cpus": [
+        56,
+        57,
+        58,
+        59
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2237"
+    },
+    {
+      "port": 2238,
+      "pid": 1612601,
+      "cpus": [
+        60,
+        61,
+        62,
+        63
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2238"
+    },
+    {
+      "port": 2239,
+      "pid": 1614143,
+      "cpus": [
+        64,
+        65,
+        66,
+        67
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2239"
+    },
+    {
+      "port": 2240,
+      "pid": 1616495,
+      "cpus": [
+        68,
+        69,
+        70,
+        71
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2240"
+    },
+    {
+      "port": 2241,
+      "pid": 1618378,
+      "cpus": [
+        72,
+        73,
+        74,
+        75
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2241"
+    },
+    {
+      "port": 2242,
+      "pid": 1619934,
+      "cpus": [
+        76,
+        77,
+        78,
+        79
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2242"
+    },
+    {
+      "port": 2243,
+      "pid": 1621421,
+      "cpus": [
+        80,
+        81,
+        82,
+        83
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2243"
+    },
+    {
+      "port": 2244,
+      "pid": 1622833,
+      "cpus": [
+        84,
+        85,
+        86,
+        87
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2244"
+    },
+    {
+      "port": 2245,
+      "pid": 1624264,
+      "cpus": [
+        88,
+        89,
+        90,
+        91
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2245"
+    },
+    {
+      "port": 2246,
+      "pid": 1625724,
+      "cpus": [
+        92,
+        93,
+        94,
+        95
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2246"
+    },
+    {
+      "port": 2247,
+      "pid": 1627404,
+      "cpus": [
+        96,
+        97,
+        98,
+        99
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2247"
+    },
+    {
+      "port": 2248,
+      "pid": 1628964,
+      "cpus": [
+        100,
+        101,
+        102,
+        103
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2248"
+    },
+    {
+      "port": 2249,
+      "pid": 1630464,
+      "cpus": [
+        104,
+        105,
+        106,
+        107
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2249"
+    },
+    {
+      "port": 2250,
+      "pid": 1632129,
+      "cpus": [
+        108,
+        109,
+        110,
+        111
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2250"
+    },
+    {
+      "port": 2251,
+      "pid": 1634614,
+      "cpus": [
+        112,
+        113,
+        114,
+        115
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2251"
+    },
+    {
+      "port": 2252,
+      "pid": 1636093,
+      "cpus": [
+        116,
+        117,
+        118,
+        119
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2252"
+    },
+    {
+      "port": 2253,
+      "pid": 1637554,
+      "cpus": [
+        120,
+        121,
+        122,
+        123
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2253"
+    },
+    {
+      "port": 2254,
+      "pid": 1639061,
+      "cpus": [
+        124,
+        125,
+        126,
+        127
+      ],
+      "cache": "/tmp/plasma-seed-repro-20261115/2254"
+    }
+  ]
+}

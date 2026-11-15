@@ -1,0 +1,13 @@
+{
+  "num_timesteps": 0,
+  "actor_parameters": 275726,
+  "initial_actor_sha256": "a888e4a4feb9bd341f6353199a52a013201dfb94c659ce19addd6fb8da72e9b2",
+  "all_parameter_sha256": "1cd931df07e8a1ef9616f00fcd81bd7179b0877a194cf5cb20286f81127e1ced",
+  "sampling_rng_sha256": "b1f14ad75d0a5a0f7ea043f942f4a03eb0f651d4e1aa9e58f22b66abae679ce8",
+  "capture_preserved_rng": true,
+  "torch_version": "2.10.0+cu128",
+  "numpy_version": "2.4.4",
+  "torch_threads": 1,
+  "torch_interop_threads": 64,
+  "deterministic_algorithms": false
+}

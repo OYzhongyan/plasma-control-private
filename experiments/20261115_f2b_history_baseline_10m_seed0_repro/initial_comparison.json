@@ -1,0 +1,6 @@
+{
+  "reference": "Actor-preserving CNN experiment initial record; original baseline did not record its initial model hash",
+  "initial_actor_equal": true,
+  "initial_sampling_rng_equal": true,
+  "observer_preserved_rng": true
+}

@@ -1,0 +1,57 @@
+{
+  "core_dependencies_identical": true,
+  "python_identical": true,
+  "core_versions": {
+    "torch": {
+      "reference": "2.10.0+cu128",
+      "reproduction": "2.10.0+cu128",
+      "equal": true
+    },
+    "stable-baselines3": {
+      "reference": "2.8.0",
+      "reproduction": "2.8.0",
+      "equal": true
+    },
+    "numpy": {
+      "reference": "2.4.4",
+      "reproduction": "2.4.4",
+      "equal": true
+    },
+    "scipy": {
+      "reference": "1.17.1",
+      "reproduction": "1.17.1",
+      "equal": true
+    },
+    "gymnasium": {
+      "reference": "1.2.3",
+      "reproduction": "1.2.3",
+      "equal": true
+    },
+    "hydra-core": {
+      "reference": "1.3.7",
+      "reproduction": "1.3.7",
+      "equal": true
+    },
+    "omegaconf": {
+      "reference": "2.3.1",
+      "reproduction": "2.3.1",
+      "equal": true
+    },
+    "wandb": {
+      "reference": "0.30.0",
+      "reproduction": "0.30.0",
+      "equal": true
+    },
+    "tensorboard": {
+      "reference": "2.21.0",
+      "reproduction": "2.21.0",
+      "equal": true
+    },
+    "matplotlib": {
+      "reference": "3.10.9",
+      "reproduction": "3.10.9",
+      "equal": true
+    }
+  },
+  "other_changes": {}
+}

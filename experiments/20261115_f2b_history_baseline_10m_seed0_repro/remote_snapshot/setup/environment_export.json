@@ -1,0 +1,10 @@
+{
+  "phase": "EXPORTED",
+  "hostname": "plasma-control--51f165d403fe-oiykomoljr",
+  "started_utc": "2026-11-15T11:19:45.149350+00:00",
+  "archive": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro/experiments/20261115_f2b_history_baseline_10m_seed0_repro/setup/competition_env.tar",
+  "returncode": 0,
+  "archive_bytes": 9450649600,
+  "stderr": "",
+  "finished_utc": "2026-11-15T11:19:54.613726+00:00"
+}

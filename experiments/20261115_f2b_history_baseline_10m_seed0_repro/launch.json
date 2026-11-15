@@ -1,0 +1,10 @@
+{
+  "hostname": "plasma-control3--32ee13fd33be-27vqc3mbjd",
+  "started_utc": "2026-11-15T11:24:56.390435+00:00",
+  "runner_pid": 1652292,
+  "comparison_pid": 1652295,
+  "project_root": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro",
+  "experiment_directory": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro/experiments/20261115_f2b_history_baseline_10m_seed0_repro",
+  "transport": "Jupyter; no SSH or network proxy",
+  "python": "/root/miniforge3/envs/competition_repro_20261115/bin/python"
+}

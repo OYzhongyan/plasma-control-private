@@ -1,0 +1,360 @@
+{
+  "checked_utc": "2026-11-15T11:33:46.663341+00:00",
+  "hostname": "plasma-control3--32ee13fd33be-27vqc3mbjd",
+  "listening_ports": [],
+  "active_ports": [
+    2231,
+    2224,
+    2252,
+    2223,
+    2228,
+    2248,
+    2227,
+    2245,
+    2239,
+    2234,
+    2241,
+    2232,
+    2226,
+    2236,
+    2240,
+    2229,
+    2237,
+    2251,
+    2230,
+    2238,
+    2244,
+    2243,
+    2249,
+    2246,
+    2225,
+    2242,
+    2235,
+    2247,
+    2250,
+    2233,
+    2254,
+    2253
+  ],
+  "records": {
+    "launch.json": {
+      "hostname": "plasma-control3--32ee13fd33be-27vqc3mbjd",
+      "started_utc": "2026-11-15T11:24:56.390435+00:00",
+      "runner_pid": 1652292,
+      "comparison_pid": 1652295,
+      "project_root": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro",
+      "experiment_directory": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro/experiments/20261115_f2b_history_baseline_10m_seed0_repro",
+      "transport": "Jupyter; no SSH or network proxy",
+      "python": "/root/miniforge3/envs/competition_repro_20261115/bin/python"
+    },
+    "setup/launch_status.json": {
+      "phase": "LAUNCHED",
+      "runner_pid": 1652292,
+      "updated_utc": "2026-11-15T11:24:56.392467+00:00"
+    },
+    "setup/environment_import.json": {
+      "phase": "IMPORTED",
+      "finished_utc": "2026-11-15T11:23:36.044913+00:00",
+      "environment": "/root/miniforge3/envs/competition_repro_20261115",
+      "imports": {
+        "torch": "2.10.0+cu128",
+        "numpy": "2.4.4",
+        "stable-baselines3": "2.8.0",
+        "scipy": "1.17.1",
+        "torch_file": "/root/miniforge3/envs/competition_repro_20261115/lib/python3.11/site-packages/torch/__init__.py"
+      }
+    },
+    "source_parity.json": {
+      "historical_commit": "10264746549e45aa38b3be02b17e024c3b84cfb8",
+      "all_expected_hashes_match": true,
+      "hashes": {
+        "configs/env_default.yaml": "3520048e8fb7e24542ba02e32ffdff892667983ce9096cecc880ea56976092fd",
+        "environment/hfm_predictor.py": "e5c231c3a0ffee9cc2b073fe47e4635725b8a04035721c83b78304b990410771",
+        "environment/hfm_simulator.py": "42c661972579c00097fa876a162b3e9458be37b6970628b84828ef0a1150a73e",
+        "environment/power_supply.py": "bd3db1caf5901b1e96c85b4ff06ee4136ead49bc8dd931abda8745315871dd47",
+        "environment/xpt_utils.py": "76702dc92074603183a6606103fe6a1172bc2ead2fb0ca2c7e528d9f79f6014b",
+        "evaluation/eval/score/__init__.py": "05f0fb00bf3a5ec17c2ad389bb13e50e2fc5a5d9728ebb774d1848f45f27beed",
+        "evaluation/eval/score/config.py": "fb7df19e9618668771d552daf53ba8f439d0724ecf6468f7293a2d82c3b3fc10",
+        "evaluation/eval/score/evaluate_core.py": "bd4c6dfd6aa54bbc254be75f54e2f3079097ce0b3168e06250f48b1b6348057c",
+        "evaluation/eval/score/metrics.py": "f66d2f6e5d6a2e53f31ce235c463cec2d81a36a0e29c765db9a2753563281dc0",
+        "evaluation/eval/score/penalties.py": "1f95f6336fdcf5bb4df46f303938560c7640d83bebda403875ebae34bdde4269",
+        "evaluation/eval/score/scoring.py": "582ff2c4b3955e197da854c5f753a7f3358dc722591d204c3041632d056a40ed",
+        "evaluation/eval/score/tasks.py": "d4641941dc63349067dfe37ffee32026a822b5b96f30152e78629b3c24ff54e7",
+        "submission/checkpoint_policy.py": "2b99084323643751f694c2ec556baa1e40cf95fe78fa103f19686c6214062c15",
+        "submission/history.py": "53f4ad5fb06741447aa3d5365a3730585abfb4ea7435e7e95fe7ab5cf9206e4a",
+        "tools/run_baseline_experiment.py": "7b04fde9ef13845fb3f64b31235d9e71376c2e173184dbc4c1ee463e569777e8",
+        "train/callbacks.py": "be1c1ee7931777a7032992dbc156ac1f5411810121ca9312eba399567d72c944",
+        "train/configs/base.yaml": "c7ec2c500a3fd5c81ff34626b9c1a2bd33f5dc48fc59b9e249b873f303b1e404",
+        "train/configs/eval.yaml": "dbbe36aa5c43d2f2e14a75af2fbcd753c66e4add1cfe6dfe4d11c3bf0ba3e666",
+        "train/dense_rewards.py": "d88930c9b976ba534b89d69b63e31ed9cac86ea188bd9e398d32cf129afdbf43",
+        "train/evaluate.py": "35b7bd70c0b7ae6d17030d3ffab77ce43a33b09e735b3d601d39a226b9b9afda",
+        "train/export_onnx.py": "81791b83c593f839c0cc8bc58bc1ef5c56bc77780067ed39e68c042924cb401e",
+        "train/references.py": "bcd0e932531d405306f972a8d3b0a8926525130082a1f42c6f857e530ce9bba6",
+        "train/rewards.py": "d5850ffe852610f28a408556a735968b61a1d5eee318c35020e09a6ce69b3fdc",
+        "train/train_ppo.py": "a29990d6a2bb51b20a757f42a8e8c302bf4c274695e43405bd89a21af995e8fe",
+        "train/wrappers.py": "a7a70a474290265058c009a1567fe375b1a29eb93131639576999862a8027d4b",
+        "configs/xpt_reference_targets.json": "ed23829a765b5644745b82f5bd371c3bde399c06f8398e72c1f93983ed01b0dd"
+      }
+    },
+    "runtime_parity.json": {
+      "all_recorded_hashes_match": true,
+      "hashes": {
+        "run_hfm_server.sh": "ff1ecb07c6da3edfc91204a3ef1d6ddbc83f35623923f6990112b260725d49a3",
+        "matlab/R2024a/VersionInfo.xml": "520a11f862ae47dca525fcc51605ffcc5776970f9e78d7c42948b4ffe876f354",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_L_v2.2.mat": "a867f152b8e901af4aceeaa2149fd4b4a1839f4ddc0c73ddf0c8e7a749ab5a27",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_400_v2.mat": "e8311334094b8a9129045a921414059c548aebc6311d0270da1696fb324cd8e5",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_15892_500_v2.mat": "d86a11c92ad9c855e2d9962453b7a72048b6011764e529c23b3caf349c18bb41",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_14795_400_v2.mat": "593d7067e54e9285018ed259dcfbd3fdb3ce64f4bba974e1f1bc7f0f46c327c4",
+        "HFM_env/TOK_EXL50U/XL50U_fge/Data/FGE_INI/ini_13705_500_v2.mat": "dbedabd096727b4e800be5c625dac4ee8b6182deebd5b3b6c87b7aa48b6a3211"
+      }
+    },
+    "config_parity.json": {
+      "all_training_settings_identical": true,
+      "seed": 0,
+      "num_envs": 32,
+      "only_execution_differences": [
+        "experiment/output path",
+        "initial-state observer",
+        "fresh HFM pool and isolated cache",
+        "independent Python environment prefix"
+      ],
+      "original_cpu_quota": "54 cores",
+      "current_cpu_quota": "5500000 100000",
+      "original_uninterrupted_end_step": 2211840
+    },
+    "status.json": {
+      "pid": 1652292,
+      "child_pid": 1652682,
+      "phase": "TRAINING",
+      "returncode": null,
+      "updated_utc": "2026-11-15T11:24:56.903925+00:00"
+    },
+    "initial_state.json": {
+      "num_timesteps": 0,
+      "actor_parameters": 275726,
+      "initial_actor_sha256": "a888e4a4feb9bd341f6353199a52a013201dfb94c659ce19addd6fb8da72e9b2",
+      "all_parameter_sha256": "1cd931df07e8a1ef9616f00fcd81bd7179b0877a194cf5cb20286f81127e1ced",
+      "sampling_rng_sha256": "b1f14ad75d0a5a0f7ea043f942f4a03eb0f651d4e1aa9e58f22b66abae679ce8",
+      "capture_preserved_rng": true,
+      "torch_version": "2.10.0+cu128",
+      "numpy_version": "2.4.4",
+      "torch_threads": 1,
+      "torch_interop_threads": 64,
+      "deterministic_algorithms": false
+    },
+    "comparison.json": {
+      "checked_utc": "2026-11-15T11:32:56.786893+00:00",
+      "reference": "/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control/experiments/20261109_f2b_history_baseline_10m_seed0",
+      "comparison_boundary": "Original uninterrupted segment only; stop at original interruption",
+      "equality": "Exact parsed numeric equality; wall-clock metrics excluded",
+      "ppo": {
+        "common_rows": 0,
+        "last_common_step": null,
+        "values_compared": 0,
+        "different_rows": 0,
+        "all_compared_values_equal": false,
+        "missing_metric_columns": [],
+        "first_differences": []
+      },
+      "reward_components": {
+        "common_rows": 0,
+        "last_common_step": null,
+        "values_compared": 0,
+        "different_rows": 0,
+        "all_compared_values_equal": false,
+        "missing_metric_columns": [],
+        "first_differences": []
+      }
+    }
+  },
+  "logs": {
+    "train.log": "wandb: Tracking run with wandb version 0.30.0\nwandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.\nwandb: Run data is saved locally in /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro/experiments/20261115_f2b_history_baseline_10m_seed0_repro/wandb/wandb/offline-run-20261115_112504-1i899z3n\nwandb: View this run in the terminal with `wandb leet`\nWandB run initialized: f2b_direct\nTensorBoard logs will be synced to wandb from: runs/1i899z3n\nenv observation_space: (812,), action_space: (7,) (historical_observation_v1, history=4, action_mode=delta)\nVecNormalize: norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0\ntraining F2: reference_mode=trajectory, max_steps=500, assignments=[env0:15892_400@2223, env1:15892_500@2224, env2:15892_400@2225, env3:15892_500@2226, env4:15892_400@2227, env5:15892_500@2228, env6:15892_400@2229, env7:15892_500@2230, env8:15892_400@2231, env9:15892_500@2232, env10:15892_400@2233, env11:15892_500@2234, env12:15892_400@2235, env13:15892_500@2236, env14:15892_400@2237, env15:15892_500@2238, env16:15892_400@2239, env17:15892_500@2240, env18:15892_400@2241, env19:15892_500@2242, env20:15892_400@2243, env21:15892_500@2244, env22:15892_400@2245, env23:15892_500@2246, env24:15892_400@2247, env25:15892_500@2248, env26:15892_400@2249, env27:15892_500@2250, env28:15892_400@2251, env29:15892_500@2252, env30:15892_400@2253, env31:15892_500@2254]\nUsing warmup + cosine annealing: initial_lr=0.0001, warmup_updates=10, timesteps_per_update=8192\nUsing cpu device\nLogging to /inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control-seed-repro/experiments/20261115_f2b_history_baseline_10m_seed0_repro/training/logs/ppo\n",
+    "launcher.log": "",
+    "setup/bootstrap.log": "",
+    "comparison.log": ""
+  },
+  "processes": [
+    {
+      "pid": 1652292,
+      "state": "S",
+      "cpu_ticks": 48
+    },
+    {
+      "pid": 1652295,
+      "state": "S",
+      "cpu_ticks": 33
+    },
+    {
+      "pid": 1652682,
+      "state": "S",
+      "cpu_ticks": 1435
+    }
+  ],
+  "hfm": {
+    "2223": {
+      "bytes": 10450,
+      "recent_step": true,
+      "tail": "43450 |  35 |  397.04 | -0.041 |  0.778 |  0.147 |  1.717 |     2 |     35 |    1 | 1.95e-05\nReceived command: STEP\n   0.43550 |  36 |  392.91 | -0.043 |  0.774 |  0.147 |  1.717 |     2 |     36 |    1 | 6.25e-05\nReceived command: STEP\n   0.43650 |  37 |  388.83 | -0.045 |  0.770 |  0.147 |  1.717 |     3 |     53 |    1 | 2.00e-06\nReceived command: STEP\n   0.43750 |  38 |  384.57 | -0.048 |  0.765 |  0.147 |  1.717 |     2 |     36 |    1 | 1.20e-05\nReceived command: STEP\n   0.43850 |  39 |  380.06 | -0.050 |  0.761 |  0.147 |  1.717 |     2 |     37 |    1 | 8.14e-06\nReceived command: STEP\n   0.43950 |  40 |  375.61 | -0.053 |  0.756 |  0.147 |  1.717 |     2 |     38 |    1 | 5.81e-05\nReceived command: STEP\n   0.44050 |  41 |  371.03 | -0.055 |  0.751 |  0.147 |  1.717 |     3 |     54 |    1 | 1.67e-06\nReceived command: STEP\n\n         t |  it | Ip [kA] |  zA[m] |  rA[m] |     bp |     qA | niter | nfeval | conv |      res\n  ===============================================================================================\n   0.44150 |  42 |  366.89 | -0.058 |  0.746 |  0.147 |  1.717 |     2 |     38 |    1 | 3.23e-06\nReceived command: STEP\n   0.44250 |  43 |  363.23 | -0.062 |  0.742 |  0.147 |  1.717 |     3 |     55 |    1 | 1.66e-06\nReceived command: STEP\n   0.44350 |  44 |  359.84 | -0.066 |  0.738 |  0.147 |  1.717 |     3 |     54 |    1 | 6.97e-07\nReceived command: STEP\n   0.44450 |  45 |  356.54 | -0.070 |  0.735 |  0.147 |  1.717 |     3 |     55 |    1 | 2.18e-06\n"
+    },
+    "2224": {
+      "bytes": 10450,
+      "recent_step": true,
+      "tail": null
+    },
+    "2225": {
+      "bytes": 10536,
+      "recent_step": true,
+      "tail": null
+    },
+    "2226": {
+      "bytes": 10990,
+      "recent_step": true,
+      "tail": null
+    },
+    "2227": {
+      "bytes": 10306,
+      "recent_step": true,
+      "tail": null
+    },
+    "2228": {
+      "bytes": 10450,
+      "recent_step": true,
+      "tail": null
+    },
+    "2229": {
+      "bytes": 10910,
+      "recent_step": true,
+      "tail": null
+    },
+    "2230": {
+      "bytes": 10378,
+      "recent_step": true,
+      "tail": null
+    },
+    "2231": {
+      "bytes": 10450,
+      "recent_step": true,
+      "tail": null
+    },
+    "2232": {
+      "bytes": 10378,
+      "recent_step": true,
+      "tail": null
+    },
+    "2233": {
+      "bytes": 10018,
+      "recent_step": true,
+      "tail": null
+    },
+    "2234": {
+      "bytes": 10090,
+      "recent_step": true,
+      "tail": null
+    },
+    "2235": {
+      "bytes": 10818,
+      "recent_step": true,
+      "tail": null
+    },
+    "2236": {
+      "bytes": 9952,
+      "recent_step": true,
+      "tail": null
+    },
+    "2237": {
+      "bytes": 10508,
+      "recent_step": true,
+      "tail": null
+    },
+    "2238": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2239": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2240": {
+      "bytes": 10609,
+      "recent_step": true,
+      "tail": null
+    },
+    "2241": {
+      "bytes": 9968,
+      "recent_step": true,
+      "tail": null
+    },
+    "2242": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2243": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2244": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2245": {
+      "bytes": 9968,
+      "recent_step": true,
+      "tail": null
+    },
+    "2246": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2247": {
+      "bytes": 10806,
+      "recent_step": true,
+      "tail": null
+    },
+    "2248": {
+      "bytes": 9968,
+      "recent_step": true,
+      "tail": null
+    },
+    "2249": {
+      "bytes": 10062,
+      "recent_step": true,
+      "tail": null
+    },
+    "2250": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2251": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2252": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": null
+    },
+    "2253": {
+      "bytes": 10414,
+      "recent_step": true,
+      "tail": null
+    },
+    "2254": {
+      "bytes": 9874,
+      "recent_step": true,
+      "tail": "53450 |  35 |  389.49 | -0.003 |  0.742 |  0.182 |  1.465 |     3 |     55 |    1 | 3.62e-06\nReceived command: STEP\n   0.53550 |  36 |  385.96 | -0.003 |  0.738 |  0.182 |  1.465 |     2 |     37 |    1 | 1.92e-05\nReceived command: STEP\n   0.53650 |  37 |  382.45 | -0.004 |  0.734 |  0.182 |  1.465 |     2 |     37 |    1 | 1.34e-05\nReceived command: STEP\n   0.53750 |  38 |  378.81 | -0.004 |  0.730 |  0.182 |  1.465 |     3 |     55 |    1 | 1.25e-06\nReceived command: STEP\n   0.53850 |  39 |  375.02 | -0.004 |  0.726 |  0.182 |  1.465 |     2 |     38 |    1 | 2.60e-05\nReceived command: STEP\n   0.53950 |  40 |  371.16 | -0.004 |  0.722 |  0.182 |  1.465 |     3 |     55 |    1 | 1.01e-05\nReceived command: STEP\n   0.54050 |  41 |  367.48 | -0.004 |  0.717 |  0.182 |  1.465 |     3 |     55 |    1 | 7.33e-06\nReceived command: STEP\n\n         t |  it | Ip [kA] |  zA[m] |  rA[m] |     bp |     qA | niter | nfeval | conv |      res\n  ===============================================================================================\n   0.54150 |  42 |  363.70 | -0.004 |  0.713 |  0.182 |  1.465 |     2 |     38 |    1 | 1.21e-05\nReceived command: STEP\n   0.54250 |  43 |  360.12 | -0.004 |  0.708 |  0.182 |  1.465 |     2 |     38 |    1 | 3.33e-05\nReceived command: STEP\n   0.54350 |  44 |  356.62 | -0.004 |  0.704 |  0.182 |  1.465 |     3 |     56 |    1 | 1.55e-06\nReceived command: STEP\n   0.54450 |  45 |  353.15 | -0.004 |  0.700 |  0.182 |  1.465 |     2 |     40 |    1 | 9.21e-06\n"
+    }
+  },
+  "progress": {
+    "rows": 0,
+    "first": {},
+    "last": {}
+  }
+}
