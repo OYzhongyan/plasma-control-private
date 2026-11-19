@@ -9,3 +9,16 @@ Smoke 测试使用项目外的临时目录；无论测试成功还是失败，�
 当前启智项目目录：`/inspire/qb-ilm/project/ai-for-fusion/czxs25220173/plasma-control`。
 
 历史运行快照中的路径是采集时的原始值，不做追溯替换。新操作使用上述当前目录。
+
+## 从同一份代码运行四组实验
+
+在各实例进入上述共享项目目录，各自启动本实例的 HFM 端口池，再用 `python tools/run_baseline_experiment.py --experiment-id 新实验名 --critic-type mlp --seed 0` 启动训练。每次启动使用未用过的实验名。默认配置为 32 个环境、1000 万步和三组正式评估。
+
+| 实验 | --critic-type | --seed |
+|---|---|---:|
+| 原 baseline | mlp | 0 |
+| 磁通 CNN critic | flux_cnn | 0 |
+| 同 seed 独立重复 | mlp | 0 |
+| 改变 seed | mlp | 1 |
+
+原 baseline 的 [最终报告与训练、验证、测试曲线](20261109_f2b_history_baseline_10m_seed0/REPORT.md) 使用归档数据生成。历史快照中的提交号和路径保留用于溯源。
